@@ -35,6 +35,8 @@ android {
     buildFeatures {
         compose = true
     }
+    // Exported Room schemas, read by MigrationTestHelper.
+    sourceSets.getByName("androidTest").assets.directories.add("$projectDir/schemas")
 }
 
 ksp {
@@ -69,4 +71,5 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.androidx.room.testing)
 }

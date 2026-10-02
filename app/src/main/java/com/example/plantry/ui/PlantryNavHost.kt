@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -50,7 +51,12 @@ import com.example.plantry.ui.recipe.RecipeListViewModel
 import com.example.plantry.ui.settings.ApiKeyDialog
 import com.example.plantry.ui.settings.SettingsScreen
 import com.example.plantry.ui.settings.SettingsViewModel
+import com.example.plantry.ui.week.WeekPlanScreen
+import com.example.plantry.ui.week.WeekPlanViewModel
 import kotlinx.serialization.Serializable
+
+@Serializable
+object WeekPlanRoute
 
 @Serializable
 object RecipeListRoute
@@ -82,6 +88,7 @@ private enum class TopLevelDestination(
     @StringRes val label: Int,
     val icon: ImageVector,
 ) {
+    WEEK(WeekPlanRoute, R.string.nav_week, Icons.Filled.CalendarMonth),
     RECIPES(RecipeListRoute, R.string.nav_recipes, Icons.AutoMirrored.Filled.MenuBook),
     INGREDIENTS(IngredientListRoute, R.string.nav_ingredients, Icons.Filled.Kitchen),
     SETTINGS(SettingsRoute, R.string.nav_settings, Icons.Filled.Settings),
@@ -95,6 +102,7 @@ fun PlantryNavHost() {
     val ingredientRepository = app.ingredientRepository
     val settingsRepository = app.settingsRepository
     val cookLogRepository = app.cookLogRepository
+    val weekPlanRepository = app.weekPlanRepository
 
     val currentDestination = navController.currentBackStackEntryAsState().value?.destination
     val currentTopLevel = TopLevelDestination.entries.firstOrNull { top ->
@@ -127,9 +135,15 @@ fun PlantryNavHost() {
     ) { padding ->
         NavHost(
             navController,
-            startDestination = RecipeListRoute,
+            startDestination = WeekPlanRoute,
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
         ) {
+            composable<WeekPlanRoute> {
+                WeekPlanScreen(
+                    viewModel = viewModel { WeekPlanViewModel(weekPlanRepository, recipeRepository) },
+                    onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
+                )
+            }
             composable<RecipeListRoute> {
                 RecipeListScreen(
                     viewModel = viewModel { RecipeListViewModel(recipeRepository) },
@@ -141,7 +155,7 @@ fun PlantryNavHost() {
             composable<RecipeDetailRoute> { entry ->
                 val recipeId = entry.toRoute<RecipeDetailRoute>().recipeId
                 RecipeDetailScreen(
-                    viewModel = viewModel { RecipeDetailViewModel(recipeId, recipeRepository, ingredientRepository, cookLogRepository) },
+                    viewModel = viewModel { RecipeDetailViewModel(recipeId, recipeRepository, ingredientRepository, cookLogRepository, weekPlanRepository) },
                     onBack = { navController.popBackStack() },
                     onEdit = { navController.navigate(RecipeEditRoute(recipeId)) },
                 )

@@ -60,6 +60,7 @@
     <!-- Cooking log -->
     <string name="cooked_action">Gekocht</string>
     <string name="cooked_logged">Als gekocht eingetragen</string>
+    <string name="cooked_logged_on_menu">Als gekocht eingetragen und im Wochenplan abgehakt</string>
     <string name="cooked_never">Noch nie gekocht</string>
     <string name="cooked_last_today">Zuletzt heute gekocht</string>
     <string name="cooked_last_yesterday">Zuletzt gestern gekocht</string>
@@ -154,7 +155,23 @@
     <string name="error_buy_as_self">Eine Zutat kann nicht als sie selbst gekauft werden</string>
     <string name="error_buy_as_cycle">Diese Verknüpfung würde einen Kreis bilden</string>
 
+    <!-- Week plan -->
+    <string name="week_title">Diese Woche</string>
+    <string name="week_range">%1$s – %2$s</string>
+    <string name="week_slot_pick">Rezept wählen</string>
+    <string name="week_slot_done">Gekocht</string>
+    <string name="week_slot_replace">Ersetzen</string>
+    <string name="week_slot_remove">Entfernen</string>
+    <string name="week_picker_title">Rezept für diese Woche</string>
+    <string name="week_picker_empty">Keine weiteren Rezepte vorhanden.</string>
+    <plurals name="week_rollover_message">
+        <item quantity="one">Ein Rezept aus der letzten Woche wurde nicht gekocht.</item>
+        <item quantity="other">%d Rezepte aus der letzten Woche wurden nicht gekocht.</item>
+    </plurals>
+    <string name="week_rollover_action">In diese Woche übernehmen</string>
+
     <!-- Navigation -->
+    <string name="nav_week">Woche</string>
     <string name="nav_recipes">Rezepte</string>
     <string name="nav_ingredients">Zutaten</string>
 

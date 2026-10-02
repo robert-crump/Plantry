@@ -5,6 +5,7 @@ import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlantryDatabase
 import com.example.plantry.data.RecipeRepository
+import com.example.plantry.data.WeekPlanRepository
 import com.example.plantry.data.claude.AnthropicConnectionTester
 import com.example.plantry.data.claude.ConnectionTester
 import com.example.plantry.data.settings.KeystoreCipher
@@ -21,6 +22,8 @@ class PlantryApplication : Application() {
     val ingredientRepository: IngredientRepository by lazy { IngredientRepository(database.ingredientDao()) }
 
     val cookLogRepository: CookLogRepository by lazy { CookLogRepository(database.cookLogDao()) }
+
+    val weekPlanRepository: WeekPlanRepository by lazy { WeekPlanRepository(database.weekPlanDao()) }
 
     /** Parsed from the bundled asset on first access, so read it off the main thread. */
     val usdaCatalog: UsdaCatalog by lazy {
