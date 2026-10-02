@@ -402,7 +402,7 @@ private val BuyUnit.label: Int
         BuyUnit.GRAMS -> R.string.buy_unit_grams
     }
 
-private val StoreSection.label: Int
+internal val StoreSection.label: Int
     get() = when (this) {
         StoreSection.PRODUCE -> R.string.store_section_produce
         StoreSection.DAIRY_CHILLED -> R.string.store_section_dairy_chilled

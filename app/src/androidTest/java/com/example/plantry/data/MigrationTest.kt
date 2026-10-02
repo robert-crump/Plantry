@@ -29,6 +29,22 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate5To6_keepsWeekPlanAndAddsNoTicks() {
+        helper.createDatabase(DB_NAME, 5).use { db ->
+            db.execSQL(
+                "INSERT INTO recipes (id, title, source, page, bookServings, ourServings, cookingTimeMinutes, modified) " +
+                    "VALUES (1, 'Dal', '', NULL, 2, 2, 30, 0)",
+            )
+            db.execSQL("INSERT INTO week_plan_slots (weekStart, position, recipeId, done) VALUES (20729, 0, 1, 0)")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 6, true).use { db ->
+            db.query("SELECT COUNT(*) FROM week_plan_slots").use { assertEquals(1, it.apply { moveToFirst() }.getInt(0)) }
+            db.query("SELECT COUNT(*) FROM shopping_ticks").use { assertEquals(0, it.apply { moveToFirst() }.getInt(0)) }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }

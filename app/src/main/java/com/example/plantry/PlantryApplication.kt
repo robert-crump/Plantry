@@ -5,6 +5,7 @@ import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlantryDatabase
 import com.example.plantry.data.RecipeRepository
+import com.example.plantry.data.ShoppingListRepository
 import com.example.plantry.data.WeekPlanRepository
 import com.example.plantry.data.claude.AnthropicConnectionTester
 import com.example.plantry.data.planner.WeekPlanner
@@ -25,6 +26,10 @@ class PlantryApplication : Application() {
     val cookLogRepository: CookLogRepository by lazy { CookLogRepository(database.cookLogDao()) }
 
     val weekPlanRepository: WeekPlanRepository by lazy { WeekPlanRepository(database.weekPlanDao()) }
+
+    val shoppingListRepository: ShoppingListRepository by lazy {
+        ShoppingListRepository(database.shoppingTickDao(), weekPlanRepository, recipeRepository, ingredientRepository)
+    }
 
     val weekPlanner: WeekPlanner by lazy {
         WeekPlanner(

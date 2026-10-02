@@ -177,8 +177,21 @@
     <string name="week_summary_protein">Ø Protein / Portion</string>
     <string name="week_summary_protein_value">%.0f g</string>
 
+    <!-- Shopping list -->
+    <string name="shopping_title">Einkaufsliste</string>
+    <string name="shopping_empty">Für diese Woche gibt es nichts einzukaufen.</string>
+    <string name="shopping_grams">%d g</string>
+    <plurals name="shopping_packs">
+        <item quantity="one">%d Packung</item>
+        <item quantity="other">%d Packungen</item>
+    </plurals>
+    <string name="shopping_needed">%.0f g benötigt</string>
+    <string name="shopping_needed_of_packs">%1$.0f von %2$.0f g</string>
+    <string name="shopping_staples">Vorrat prüfen (%d)</string>
+
     <!-- Navigation -->
     <string name="nav_week">Woche</string>
+    <string name="nav_shopping">Einkaufen</string>
     <string name="nav_recipes">Rezepte</string>
     <string name="nav_ingredients">Zutaten</string>
 

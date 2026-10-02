@@ -35,15 +35,7 @@ data class WeekSummary(
         }
 
         /** The end of [ingredient]'s buy-as chain; the ingredient itself if it has no link. */
-        fun buyAsRoot(ingredient: Ingredient, ingredients: Map<Long, Ingredient>): Ingredient {
-            var current = ingredient
-            // Cycles are rejected when saving; the visited set only guards against looping forever.
-            val visited = mutableSetOf(current.id)
-            while (true) {
-                val next = current.buyAsIngredientId?.let(ingredients::get) ?: return current
-                if (!visited.add(next.id)) return current
-                current = next
-            }
-        }
+        fun buyAsRoot(ingredient: Ingredient, ingredients: Map<Long, Ingredient>): Ingredient =
+            resolveBuyAs(ingredient, ingredients).ingredient
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -51,12 +52,17 @@ import com.example.plantry.ui.recipe.RecipeListViewModel
 import com.example.plantry.ui.settings.ApiKeyDialog
 import com.example.plantry.ui.settings.SettingsScreen
 import com.example.plantry.ui.settings.SettingsViewModel
+import com.example.plantry.ui.shopping.ShoppingListScreen
+import com.example.plantry.ui.shopping.ShoppingListViewModel
 import com.example.plantry.ui.week.WeekPlanScreen
 import com.example.plantry.ui.week.WeekPlanViewModel
 import kotlinx.serialization.Serializable
 
 @Serializable
 object WeekPlanRoute
+
+@Serializable
+object ShoppingListRoute
 
 @Serializable
 object RecipeListRoute
@@ -89,6 +95,7 @@ private enum class TopLevelDestination(
     val icon: ImageVector,
 ) {
     WEEK(WeekPlanRoute, R.string.nav_week, Icons.Filled.CalendarMonth),
+    SHOPPING(ShoppingListRoute, R.string.nav_shopping, Icons.Filled.ShoppingCart),
     RECIPES(RecipeListRoute, R.string.nav_recipes, Icons.AutoMirrored.Filled.MenuBook),
     INGREDIENTS(IngredientListRoute, R.string.nav_ingredients, Icons.Filled.Kitchen),
     SETTINGS(SettingsRoute, R.string.nav_settings, Icons.Filled.Settings),
@@ -143,6 +150,9 @@ fun PlantryNavHost() {
                     viewModel = viewModel { WeekPlanViewModel(weekPlanRepository, app.weekPlanner, recipeRepository, ingredientRepository) },
                     onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                 )
+            }
+            composable<ShoppingListRoute> {
+                ShoppingListScreen(viewModel = viewModel { ShoppingListViewModel(app.shoppingListRepository) })
             }
             composable<RecipeListRoute> {
                 RecipeListScreen(
