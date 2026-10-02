@@ -172,6 +172,10 @@
     <string name="week_suggest">Woche vorschlagen</string>
     <string name="week_suggest_none">Keine weiteren Rezepte für Vorschläge.</string>
     <string name="week_slot_suggest_other">Anderer Vorschlag</string>
+    <string name="week_summary_plant_points">Pflanzenpunkte</string>
+    <string name="week_summary_ingredients">Zutaten</string>
+    <string name="week_summary_protein">Ø Protein / Portion</string>
+    <string name="week_summary_protein_value">%.0f g</string>
 
     <!-- Navigation -->
     <string name="nav_week">Woche</string>

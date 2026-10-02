@@ -37,6 +37,9 @@ interface RecipeDao {
     @Query("SELECT * FROM recipe_ingredients")
     suspend fun getAllLines(): List<RecipeIngredient>
 
+    @Query("SELECT * FROM recipe_ingredients")
+    fun observeAllLines(): Flow<List<RecipeIngredient>>
+
     @Insert
     suspend fun insertLines(lines: List<RecipeIngredient>)
 

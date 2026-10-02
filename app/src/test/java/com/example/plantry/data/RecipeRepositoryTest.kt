@@ -199,6 +199,8 @@ private class FakeRecipeDao : RecipeDao {
 
     override suspend fun getAllLines(): List<RecipeIngredient> = lines.value
 
+    override fun observeAllLines(): Flow<List<RecipeIngredient>> = lines
+
     override suspend fun insertLines(lines: List<RecipeIngredient>) {
         this.lines.value += lines.map { it.copy(id = nextLineId++) }
     }

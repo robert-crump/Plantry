@@ -10,6 +10,9 @@ class RecipeRepository(private val dao: RecipeDao) {
 
     fun observeLines(recipeId: Long): Flow<List<RecipeIngredient>> = dao.observeLines(recipeId)
 
+    /** The lines of all recipes. */
+    fun observeAllLines(): Flow<List<RecipeIngredient>> = dao.observeAllLines()
+
     suspend fun getRecipe(id: Long): Recipe? = dao.getById(id)
 
     suspend fun getLines(recipeId: Long): List<RecipeIngredient> = dao.getLines(recipeId)
