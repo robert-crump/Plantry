@@ -64,6 +64,21 @@ class CookLogDaoTest {
     }
 
     @Test
+    fun getLastCooked_latestDatePerCookedRecipe() = runTest {
+        val dal = insertRecipe("Dal")
+        val chili = insertRecipe("Chili")
+        insertRecipe("Nie gekocht")
+        dao.insert(CookLog(recipeId = dal, cookedOn = today))
+        dao.insert(CookLog(recipeId = dal, cookedOn = today.minusDays(30)))
+        dao.insert(CookLog(recipeId = chili, cookedOn = today.minusDays(3)))
+
+        assertEquals(
+            setOf(LastCooked(dal, today), LastCooked(chili, today.minusDays(3))),
+            dao.getLastCooked().toSet(),
+        )
+    }
+
+    @Test
     fun deleteById_removesEntry() = runTest {
         val dal = insertRecipe("Dal")
         val id = dao.insert(CookLog(recipeId = dal, cookedOn = today))

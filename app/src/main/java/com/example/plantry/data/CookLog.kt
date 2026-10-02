@@ -33,6 +33,8 @@ data class CookLogEntry(
     val recipeTitle: String,
 )
 
+data class LastCooked(val recipeId: Long, val lastCookedOn: LocalDate)
+
 /** How often and how recently a recipe was cooked. */
 data class CookingStats(
     val timesCooked: Int,

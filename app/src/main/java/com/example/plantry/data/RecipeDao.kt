@@ -34,6 +34,9 @@ interface RecipeDao {
     @Query("SELECT * FROM recipe_ingredients WHERE recipeId = :recipeId ORDER BY position")
     suspend fun getLines(recipeId: Long): List<RecipeIngredient>
 
+    @Query("SELECT * FROM recipe_ingredients")
+    suspend fun getAllLines(): List<RecipeIngredient>
+
     @Insert
     suspend fun insertLines(lines: List<RecipeIngredient>)
 

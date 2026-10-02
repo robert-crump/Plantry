@@ -9,11 +9,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,12 +24,16 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -45,10 +52,12 @@ import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.SlotRef
 import com.example.plantry.data.WeekPlan
 import com.example.plantry.data.WeekPlanRepository
+import com.example.plantry.data.planner.WeekPlanner
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -66,6 +75,7 @@ data class WeekPlanUiState(
 @OptIn(ExperimentalCoroutinesApi::class)
 class WeekPlanViewModel(
     private val repository: WeekPlanRepository,
+    private val planner: WeekPlanner,
     recipeRepository: RecipeRepository,
     private val clock: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
@@ -100,6 +110,28 @@ class WeekPlanViewModel(
     fun rollover() {
         viewModelScope.launch { repository.rollover(weekStart.value) }
     }
+
+    /** Set when a suggestion found no recipe to add, until its snackbar is gone. */
+    private val _noSuggestion = MutableStateFlow(false)
+    val noSuggestion: StateFlow<Boolean> = _noSuggestion.asStateFlow()
+
+    /** Fills the empty slots with suggestions; manual picks stay. */
+    fun suggestWeek() {
+        viewModelScope.launch {
+            if (planner.suggestWeek(weekStart.value, clock()) == 0) _noSuggestion.value = true
+        }
+    }
+
+    /** Replaces the recipe at [position] with another suggestion. */
+    fun swapSuggestion(position: Int) {
+        viewModelScope.launch {
+            if (!planner.swap(SlotRef(weekStart.value, position), clock())) _noSuggestion.value = true
+        }
+    }
+
+    fun noSuggestionShown() {
+        _noSuggestion.value = false
+    }
 }
 
 private val dayFormat = DateTimeFormatter.ofPattern("EEE d. MMM", Locale.GERMAN)
@@ -112,12 +144,22 @@ fun WeekPlanScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val recipes by viewModel.recipes.collectAsStateWithLifecycle()
+    val noSuggestion by viewModel.noSuggestion.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    val noSuggestionMessage = stringResource(R.string.week_suggest_none)
     /** Position of the slot the recipe picker fills, or null while it is closed. */
     var picking by rememberSaveable { mutableStateOf<Int?>(null) }
 
     LifecycleResumeEffect(Unit) {
         viewModel.refreshWeek()
         onPauseOrDispose {}
+    }
+
+    LaunchedEffect(noSuggestion) {
+        if (!noSuggestion) return@LaunchedEffect
+        snackbar.showSnackbar(noSuggestionMessage)
+        // Cleared only now: clearing it earlier would change the key and cancel this snackbar.
+        viewModel.noSuggestionShown()
     }
 
     Scaffold(
@@ -141,6 +183,16 @@ fun WeekPlanScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbar) },
+        floatingActionButton = {
+            if (state?.plan?.slots?.any { it == null } == true) {
+                ExtendedFloatingActionButton(
+                    text = { Text(stringResource(R.string.week_suggest)) },
+                    icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
+                    onClick = viewModel::suggestWeek,
+                )
+            }
+        },
     ) { padding ->
         val current = state ?: return@Scaffold
         LazyColumn(Modifier.fillMaxWidth(), contentPadding = padding) {
@@ -158,6 +210,7 @@ fun WeekPlanScreen(
                             planned,
                             onClick = { onRecipeClick(planned.slot.recipeId) },
                             onDoneChange = { viewModel.setDone(position, it) },
+                            onSuggestOther = { viewModel.swapSuggestion(position) },
                             onReplace = { picking = position },
                             onRemove = { viewModel.remove(position) },
                         )
@@ -212,6 +265,7 @@ private fun FilledSlot(
     planned: PlannedRecipe,
     onClick: () -> Unit,
     onDoneChange: (Boolean) -> Unit,
+    onSuggestOther: () -> Unit,
     onReplace: () -> Unit,
     onRemove: () -> Unit,
 ) {
@@ -232,6 +286,11 @@ private fun FilledSlot(
         },
         trailingContent = {
             Row {
+                if (!done) {
+                    IconButton(onClick = onSuggestOther) {
+                        Icon(Icons.Filled.Shuffle, stringResource(R.string.week_slot_suggest_other))
+                    }
+                }
                 IconButton(onClick = onReplace) {
                     Icon(Icons.Filled.SwapHoriz, stringResource(R.string.week_slot_replace))
                 }

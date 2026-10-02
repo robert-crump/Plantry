@@ -37,6 +37,36 @@ class WeekPlanRepository(private val dao: WeekPlanDao) {
     }
 
     /**
+     * Fills the empty slots of [weekStart] in order with what [suggest] returns for the recipes
+     * already on the menu and the number of empty slots; filled slots are never touched.
+     * Returns how many slots were filled.
+     */
+    suspend fun fillEmpty(weekStart: LocalDate, suggest: (onMenu: Set<Long>, count: Int) -> List<Long>): Int {
+        val current = dao.getSlots(weekStart)
+        val free = WeekPlan.freePositions(current)
+        if (free.isEmpty()) return 0
+        val onMenu = current.mapTo(mutableSetOf()) { it.recipeId }
+        val slots = suggest(onMenu, free.size).filter { it !in onMenu }.distinct()
+            .zip(free) { recipeId, position -> WeekPlanSlot(weekStart, position, recipeId) }
+        dao.insertAll(slots)
+        return slots.size
+    }
+
+    /**
+     * Replaces the recipe in [slot] with what [suggest] returns for the recipes on the menu
+     * (including the one replaced); the slot starts not done. Returns false, leaving the menu
+     * unchanged, if the slot is empty or there is no suggestion.
+     */
+    suspend fun swap(slot: SlotRef, suggest: (onMenu: Set<Long>) -> Long?): Boolean {
+        val current = dao.getSlots(slot.weekStart)
+        if (current.none { it.position == slot.position }) return false
+        val onMenu = current.mapTo(mutableSetOf()) { it.recipeId }
+        val recipeId = suggest(onMenu)?.takeIf { it !in onMenu } ?: return false
+        dao.upsert(WeekPlanSlot(slot.weekStart, slot.position, recipeId))
+        return true
+    }
+
+    /**
      * Marks [recipeId] done on the menu of the week containing [cookedOn], if it is on it and not
      * done yet. Returns the slot marked, or null if the menu was left unchanged.
      */

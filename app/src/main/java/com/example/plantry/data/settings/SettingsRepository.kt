@@ -20,6 +20,8 @@ enum class ScanModel(val modelId: String) {
 data class Settings(
     val maskedApiKey: String?,
     val scanModel: ScanModel,
+    /** Days after cooking before the planner suggests a recipe at full weight again. */
+    val cooldownDays: Int,
 ) {
     val hasApiKey: Boolean get() = maskedApiKey != null
 }
@@ -67,14 +69,28 @@ class SettingsRepository(
         _settings.value = load()
     }
 
+    /** Stores [days] if it is within [COOLDOWN_RANGE]; returns false (and stores nothing) otherwise. */
+    fun setCooldownDays(days: Int): Boolean {
+        if (days !in COOLDOWN_RANGE) return false
+        storage.putString(KEY_COOLDOWN_DAYS, days.toString())
+        _settings.value = load()
+        return true
+    }
+
     private fun load() = Settings(
         maskedApiKey = apiKey()?.let(::maskApiKey),
         scanModel = ScanModel.fromModelId(storage.getString(KEY_SCAN_MODEL)),
+        cooldownDays = storage.getString(KEY_COOLDOWN_DAYS)?.toIntOrNull()?.takeIf { it in COOLDOWN_RANGE }
+            ?: DEFAULT_COOLDOWN_DAYS,
     )
 
     companion object {
         const val KEY_API_KEY = "api_key"
         const val KEY_SCAN_MODEL = "scan_model"
+        const val KEY_COOLDOWN_DAYS = "cooldown_days"
+
+        const val DEFAULT_COOLDOWN_DAYS = 21
+        val COOLDOWN_RANGE = 1..365
     }
 }
 

@@ -87,6 +87,68 @@ class WeekPlanRepositoryTest {
         assertEquals(listOf(1L, 3L, null, null, null), repository.observeWeek(saturday).first().slots.map { it?.slot?.recipeId })
         assertEquals(0, repository.observeRolloverCount(saturday).first())
     }
+
+    @Test
+    fun fillEmpty_fillsOnlyEmptySlotsAndKeepsManualPicks() = runTest {
+        repository.pick(saturday, 1, recipeId = 4)
+        repository.setDone(SlotRef(saturday, 1), done = true)
+        repository.pick(saturday, 3, recipeId = 5)
+        var asked: Pair<Set<Long>, Int>? = null
+
+        val filled = repository.fillEmpty(saturday) { onMenu, count ->
+            asked = onMenu to count
+            listOf(7, 8, 9)
+        }
+
+        assertEquals(setOf(4L, 5L) to 3, asked)
+        assertEquals(3, filled)
+        assertEquals(listOf(7L, 4L, 8L, 5L, 9L), repository.observeWeek(saturday).first().slots.map { it?.slot?.recipeId })
+        assertEquals(true, dao.slots.value.single { it.position == 1 }.done)
+    }
+
+    @Test
+    fun fillEmpty_fewerSuggestionsLeaveSlotsEmpty_andRecipesOnMenuAreSkipped() = runTest {
+        repository.pick(saturday, 0, recipeId = 4)
+
+        val filled = repository.fillEmpty(saturday) { _, _ -> listOf(4, 7, 7) }
+
+        assertEquals(1, filled)
+        assertEquals(listOf(4L, 7L, null, null, null), repository.observeWeek(saturday).first().slots.map { it?.slot?.recipeId })
+    }
+
+    @Test
+    fun fillEmpty_fullMenuIsLeftAlone() = runTest {
+        (0 until WeekPlan.SLOT_COUNT).forEach { repository.pick(saturday, it, recipeId = it + 1L) }
+
+        assertEquals(0, repository.fillEmpty(saturday) { _, _ -> error("not asked") })
+    }
+
+    @Test
+    fun swap_replacesOneSlotExcludingTheWholeMenu() = runTest {
+        repository.pick(saturday, 0, recipeId = 4)
+        repository.pick(saturday, 2, recipeId = 5)
+        repository.setDone(SlotRef(saturday, 2), done = true)
+        var excluded: Set<Long>? = null
+
+        val swapped = repository.swap(SlotRef(saturday, 2)) { onMenu ->
+            excluded = onMenu
+            9
+        }
+
+        assertEquals(true, swapped)
+        assertEquals(setOf(4L, 5L), excluded)
+        assertEquals(listOf(WeekPlanSlot(saturday, 0, 4), WeekPlanSlot(saturday, 2, 9)), dao.slots.value.sortedBy { it.position })
+    }
+
+    @Test
+    fun swap_withoutSuggestionOrOnEmptySlotChangesNothing() = runTest {
+        repository.pick(saturday, 0, recipeId = 4)
+
+        assertEquals(false, repository.swap(SlotRef(saturday, 0)) { null })
+        assertEquals(false, repository.swap(SlotRef(saturday, 0)) { 4 })
+        assertEquals(false, repository.swap(SlotRef(saturday, 1)) { 9 })
+        assertEquals(listOf(WeekPlanSlot(saturday, 0, 4)), dao.slots.value)
+    }
 }
 
 /** In-memory [WeekPlanDao]; the recipe join is covered by the instrumented WeekPlanDaoTest. */

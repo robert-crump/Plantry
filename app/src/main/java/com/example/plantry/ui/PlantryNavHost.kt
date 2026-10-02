@@ -140,7 +140,7 @@ fun PlantryNavHost() {
         ) {
             composable<WeekPlanRoute> {
                 WeekPlanScreen(
-                    viewModel = viewModel { WeekPlanViewModel(weekPlanRepository, recipeRepository) },
+                    viewModel = viewModel { WeekPlanViewModel(weekPlanRepository, app.weekPlanner, recipeRepository) },
                     onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                 )
             }

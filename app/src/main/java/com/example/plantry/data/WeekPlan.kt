@@ -65,14 +65,18 @@ data class WeekPlan(
          * in their old order, skipping recipes already on the menu, into the free positions.
          */
         fun rollover(weekStart: LocalDate, previous: List<WeekPlanSlot>, current: List<WeekPlanSlot>): List<WeekPlanSlot> {
-            val taken = current.mapTo(mutableSetOf()) { it.position }
             val onMenu = current.mapTo(mutableSetOf()) { it.recipeId }
             val uncooked = previous.sortedBy { it.position }
                 .filter { !it.done && it.recipeId !in onMenu }
                 .map { it.recipeId }
                 .distinct()
-            val free = (0 until SLOT_COUNT).filter { it !in taken }
-            return uncooked.zip(free) { recipeId, position -> WeekPlanSlot(weekStart, position, recipeId) }
+            return uncooked.zip(freePositions(current)) { recipeId, position -> WeekPlanSlot(weekStart, position, recipeId) }
+        }
+
+        /** The positions without a recipe in [current], the slots of one week; in order. */
+        fun freePositions(current: List<WeekPlanSlot>): List<Int> {
+            val taken = current.mapTo(mutableSetOf()) { it.position }
+            return (0 until SLOT_COUNT).filter { it !in taken }
         }
     }
 }

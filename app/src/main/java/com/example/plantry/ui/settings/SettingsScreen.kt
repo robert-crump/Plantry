@@ -1,6 +1,7 @@
 package com.example.plantry.ui.settings
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
@@ -83,6 +85,8 @@ class SettingsViewModel(
         resetTest()
     }
 
+    fun setCooldownDays(days: Int): Boolean = repository.setCooldownDays(days)
+
     fun testConnection() {
         val key = repository.apiKey() ?: return
         val model = settings.value.scanModel
@@ -106,6 +110,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     val connectionTest by viewModel.connectionTest.collectAsStateWithLifecycle()
     var editingKey by rememberSaveable { mutableStateOf(false) }
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
+    var editingCooldown by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) },
@@ -173,6 +178,16 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             (connectionTest as? ConnectionTestState.Done)?.let { done ->
                 ConnectionResultText(done.result, Modifier.padding(16.dp))
             }
+
+            SectionHeader(R.string.settings_week_plan)
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_cooldown)) },
+                supportingContent = { Text(stringResource(R.string.settings_cooldown_hint)) },
+                trailingContent = {
+                    Text(pluralStringResource(R.plurals.settings_cooldown_days, settings.cooldownDays, settings.cooldownDays))
+                },
+                modifier = Modifier.clickable { editingCooldown = true },
+            )
         }
     }
 
@@ -181,6 +196,14 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             onSave = { key -> viewModel.saveApiKey(key).also { saved -> if (saved) editingKey = false } },
             onDismiss = { editingKey = false },
             dismissLabel = R.string.action_cancel,
+        )
+    }
+
+    if (editingCooldown) {
+        CooldownDialog(
+            initialDays = settings.cooldownDays,
+            onSave = { days -> viewModel.setCooldownDays(days).also { saved -> if (saved) editingCooldown = false } },
+            onDismiss = { editingCooldown = false },
         )
     }
 
@@ -269,6 +292,49 @@ fun ApiKeyDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(dismissLabel)) }
+        },
+    )
+}
+
+/** [onSave] returns false when the number of days was rejected, which keeps the dialog open with an error. */
+@Composable
+private fun CooldownDialog(initialDays: Int, onSave: (Int) -> Boolean, onDismiss: () -> Unit) {
+    var text by rememberSaveable { mutableStateOf(initialDays.toString()) }
+    var error by rememberSaveable { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_cooldown)) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = {
+                    text = it
+                    error = false
+                },
+                label = { Text(stringResource(R.string.settings_cooldown_label)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = error,
+                supportingText = {
+                    Text(
+                        stringResource(
+                            R.string.settings_cooldown_range,
+                            SettingsRepository.COOLDOWN_RANGE.first,
+                            SettingsRepository.COOLDOWN_RANGE.last,
+                        ),
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { error = !(text.trim().toIntOrNull()?.let(onSave) ?: false) }) {
+                Text(stringResource(R.string.action_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         },
     )
 }

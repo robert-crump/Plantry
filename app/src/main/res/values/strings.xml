@@ -169,6 +169,9 @@
         <item quantity="other">%d Rezepte aus der letzten Woche wurden nicht gekocht.</item>
     </plurals>
     <string name="week_rollover_action">In diese Woche übernehmen</string>
+    <string name="week_suggest">Woche vorschlagen</string>
+    <string name="week_suggest_none">Keine weiteren Rezepte für Vorschläge.</string>
+    <string name="week_slot_suggest_other">Anderer Vorschlag</string>
 
     <!-- Navigation -->
     <string name="nav_week">Woche</string>
@@ -195,6 +198,15 @@
     <string name="scan_model_opus_description">Am genauesten, etwas teurer</string>
     <string name="scan_model_sonnet">Claude Sonnet 5.5</string>
     <string name="scan_model_sonnet_description">Schneller und günstiger</string>
+    <string name="settings_week_plan">Wochenplan</string>
+    <string name="settings_cooldown">Pause bis zur Wiederholung</string>
+    <string name="settings_cooldown_hint">So lange werden gekochte Rezepte seltener vorgeschlagen</string>
+    <string name="settings_cooldown_label">Tage</string>
+    <string name="settings_cooldown_range">%1$d bis %2$d Tage</string>
+    <plurals name="settings_cooldown_days">
+        <item quantity="one">%d Tag</item>
+        <item quantity="other">%d Tage</item>
+    </plurals>
     <string name="settings_connection">Verbindung</string>
     <string name="settings_connection_test">Verbindung testen</string>
     <string name="settings_connection_success">Verbindung erfolgreich.</string>

@@ -27,4 +27,8 @@ interface CookLogDao {
 
     @Query("SELECT cookedOn FROM cook_log WHERE recipeId = :recipeId")
     fun observeDates(recipeId: Long): Flow<List<LocalDate>>
+
+    /** The latest cook date of every recipe that was cooked at least once. */
+    @Query("SELECT recipeId, MAX(cookedOn) AS lastCookedOn FROM cook_log GROUP BY recipeId")
+    suspend fun getLastCooked(): List<LastCooked>
 }

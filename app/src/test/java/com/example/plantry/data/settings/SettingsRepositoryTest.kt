@@ -21,6 +21,24 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun cooldownDays_defaultsTo21_andIsStored() {
+        assertEquals(21, repository.settings.value.cooldownDays)
+
+        assertTrue(repository.setCooldownDays(14))
+
+        assertEquals(14, repository.settings.value.cooldownDays)
+        assertEquals(14, SettingsRepository(storage, ReversingCipher).settings.value.cooldownDays)
+    }
+
+    @Test
+    fun setCooldownDays_rejectsOutOfRange() {
+        assertFalse(repository.setCooldownDays(0))
+        assertFalse(repository.setCooldownDays(366))
+
+        assertEquals(21, repository.settings.value.cooldownDays)
+    }
+
+    @Test
     fun setApiKey_storesTrimmedKeyEncrypted_andExposesOnlyMasked() {
         assertTrue(repository.setApiKey("  $key\n"))
 
