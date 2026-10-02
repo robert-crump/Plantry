@@ -6,6 +6,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.example.plantry.data.backup.BackupDao
 
 @Database(
     entities = [Recipe::class, Ingredient::class, RecipeIngredient::class, CookLog::class, WeekPlanSlot::class, ShoppingTick::class],
@@ -30,6 +31,8 @@ abstract class PlantryDatabase : RoomDatabase() {
     abstract fun weekPlanDao(): WeekPlanDao
 
     abstract fun shoppingTickDao(): ShoppingTickDao
+
+    abstract fun backupDao(): BackupDao
 
     companion object {
         fun create(context: Context): PlantryDatabase =

@@ -237,4 +237,21 @@
     <string name="claude_error_overloaded">Claude ist gerade überlastet oder nicht erreichbar. Bitte später erneut versuchen.</string>
     <string name="claude_error_network">Keine Verbindung zum Internet oder zu Anthropic.</string>
     <string name="claude_error_unknown">Unerwarteter Fehler bei der Anfrage an Claude.</string>
+
+    <string name="settings_backup">Datensicherung</string>
+    <string name="backup_export">Exportieren</string>
+    <string name="backup_export_hint">Alle Daten als JSON-Datei sichern, ohne API-Schlüssel</string>
+    <string name="backup_import">Importieren</string>
+    <string name="backup_import_hint">Alle Daten aus einer Sicherung wiederherstellen</string>
+    <string name="backup_import_confirm_title">Alle Daten ersetzen?</string>
+    <string name="backup_import_confirm_message">Rezepte, Zutaten, Kochprotokoll, Wochenpläne und Einstellungen werden durch die Sicherung ersetzt (%1$d Rezepte, %2$d Zutaten). Das lässt sich nicht rückgängig machen. Der API-Schlüssel bleibt erhalten.</string>
+    <string name="backup_import_confirm">Ersetzen</string>
+    <string name="backup_exported">Daten exportiert.</string>
+    <string name="backup_imported">Sicherung wiederhergestellt.</string>
+    <string name="backup_error_io">Die Datei konnte nicht gelesen oder geschrieben werden.</string>
+    <string name="backup_error_invalid">Das ist keine gültige Plantry-Sicherung.</string>
+    <string name="backup_error_newer">Diese Sicherung stammt aus einer neueren App-Version. Bitte die App aktualisieren.</string>
+    <string name="backup_error_import">Die Sicherung ist fehlerhaft. Es wurde nichts verändert.</string>
+    <string name="backup_reminder">Deine letzte Sicherung ist über 30 Tage alt und seitdem hat sich etwas geändert.</string>
+    <string name="backup_reminder_later">Später</string>
 </resources>

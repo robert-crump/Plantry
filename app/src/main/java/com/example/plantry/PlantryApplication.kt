@@ -7,6 +7,8 @@ import com.example.plantry.data.PlantryDatabase
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.ShoppingListRepository
 import com.example.plantry.data.WeekPlanRepository
+import com.example.plantry.data.backup.BackupRepository
+import com.example.plantry.data.backup.FilePhotoStore
 import com.example.plantry.data.claude.AnthropicConnectionTester
 import com.example.plantry.data.planner.WeekPlanner
 import com.example.plantry.data.claude.ConnectionTester
@@ -53,5 +55,20 @@ class PlantryApplication : Application() {
         )
     }
 
+    val backupRepository: BackupRepository by lazy {
+        BackupRepository(
+            database.backupDao(),
+            FilePhotoStore(filesDir.resolve(PHOTO_DIR)),
+            settingsRepository,
+            SharedPreferencesStorage(getSharedPreferences(BACKUP_PREFS, MODE_PRIVATE)),
+        )
+    }
+
     val connectionTester: ConnectionTester = AnthropicConnectionTester()
+
+    private companion object {
+        /** Recipe photos, one "<recipeId>.jpg" each. */
+        const val PHOTO_DIR = "recipe_photos"
+        const val BACKUP_PREFS = "backup"
+    }
 }

@@ -1,0 +1,241 @@
+package com.example.plantry.data.backup
+
+import com.example.plantry.data.BuyUnit
+import com.example.plantry.data.CookLog
+import com.example.plantry.data.Ingredient
+import com.example.plantry.data.Nutrition
+import com.example.plantry.data.PlantPoints
+import com.example.plantry.data.Recipe
+import com.example.plantry.data.RecipeIngredient
+import com.example.plantry.data.ShoppingTick
+import com.example.plantry.data.StoreSection
+import com.example.plantry.data.UnitWeight
+import com.example.plantry.data.WeekPlanSlot
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
+import java.util.Base64
+
+/**
+ * The export file. Deliberately separate from the Room entities, so a schema change never
+ * silently changes the file format; bump [FORMAT_VERSION] and migrate in [decode] instead.
+ * Never contains the API key.
+ */
+@Serializable
+data class BackupFile(
+    val formatVersion: Int,
+    val settings: BackupSettings,
+    val ingredients: List<BackupIngredient>,
+    val recipes: List<BackupRecipe>,
+    val cookLog: List<BackupCookLog>,
+    val weekPlan: List<BackupWeekPlanSlot>,
+    val shoppingTicks: List<BackupShoppingTick>,
+) {
+    companion object {
+        const val FORMAT_VERSION = 1
+
+        private val json = Json { prettyPrint = true }
+
+        fun encode(file: BackupFile): String = json.encodeToString(file)
+
+        /** Throws [InvalidBackupException] for anything that is not a backup this app can read. */
+        fun decode(text: String): BackupFile {
+            try {
+                val version = json.parseToJsonElement(text).jsonObject["formatVersion"]?.jsonPrimitive?.int
+                    ?: throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP)
+                if (version > FORMAT_VERSION) throw InvalidBackupException(InvalidBackupException.Reason.NEWER_VERSION)
+                return json.decodeFromString<BackupFile>(text)
+            } catch (e: SerializationException) {
+                throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP, e)
+            } catch (e: IllegalArgumentException) {
+                // Also thrown by the jsonObject / jsonPrimitive / int accessors.
+                throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP, e)
+            }
+        }
+    }
+}
+
+class InvalidBackupException(val reason: Reason, cause: Throwable? = null) : Exception(reason.name, cause) {
+    enum class Reason { NOT_A_BACKUP, NEWER_VERSION }
+}
+
+@Serializable
+data class BackupSettings(val scanModel: String, val cooldownDays: Int)
+
+@Serializable
+data class BackupNutrition(
+    val kcal: Double,
+    val protein: Double,
+    val carbs: Double,
+    val sugar: Double,
+    val fat: Double,
+    val fibre: Double,
+)
+
+@Serializable
+data class BackupIngredient(
+    val id: Long,
+    val name: String,
+    val fdcId: Long?,
+    val usdaDescription: String?,
+    val nutrition: BackupNutrition,
+    val unitWeights: List<BackupUnitWeight>,
+    val buyUnit: BuyUnit,
+    val packSizeGrams: Double?,
+    val storeSection: StoreSection,
+    val staple: Boolean,
+    val plantPoints: PlantPoints,
+    val buyAsIngredientId: Long?,
+    val buyAsYieldFactor: Double?,
+    val reviewed: Boolean,
+)
+
+@Serializable
+data class BackupUnitWeight(val label: String, val grams: Double)
+
+@Serializable
+data class BackupRecipe(
+    val id: Long,
+    val title: String,
+    val source: String,
+    val page: Int?,
+    val bookServings: Int,
+    val ourServings: Int,
+    val cookingTimeMinutes: Int,
+    val modified: Boolean,
+    /** The recipe photo, Base64-encoded; null when the recipe has none. */
+    val photo: String?,
+    /** In recipe order. */
+    val lines: List<BackupLine>,
+)
+
+@Serializable
+data class BackupLine(val id: Long, val originalText: String, val grams: Double, val ingredientId: Long)
+
+/** Dates are ISO-8601, e.g. "2026-10-02". */
+@Serializable
+data class BackupCookLog(val id: Long, val recipeId: Long, val cookedOn: String)
+
+@Serializable
+data class BackupWeekPlanSlot(val weekStart: String, val position: Int, val recipeId: Long, val done: Boolean)
+
+@Serializable
+data class BackupShoppingTick(val weekStart: String, val ingredientId: Long)
+
+/** All database content, as exported and restored. */
+data class BackupSnapshot(
+    val ingredients: List<Ingredient>,
+    val recipes: List<Recipe>,
+    val lines: List<RecipeIngredient>,
+    val cookLog: List<CookLog>,
+    val weekPlan: List<WeekPlanSlot>,
+    val shoppingTicks: List<ShoppingTick>,
+)
+
+/** Recipe photos by recipe id. */
+typealias Photos = Map<Long, ByteArray>
+
+fun BackupSnapshot.toFile(photos: Photos, settings: BackupSettings): BackupFile {
+    val linesByRecipe = lines.groupBy { it.recipeId }
+    return BackupFile(
+        formatVersion = BackupFile.FORMAT_VERSION,
+        settings = settings,
+        ingredients = ingredients.map { it.toBackup() },
+        recipes = recipes.map { recipe ->
+            recipe.toBackup(
+                photo = photos[recipe.id]?.let(Base64.getEncoder()::encodeToString),
+                lines = linesByRecipe[recipe.id].orEmpty().sortedBy { it.position },
+            )
+        },
+        cookLog = cookLog.map { BackupCookLog(it.id, it.recipeId, it.cookedOn.toString()) },
+        weekPlan = weekPlan.map { BackupWeekPlanSlot(it.weekStart.toString(), it.position, it.recipeId, it.done) },
+        shoppingTicks = shoppingTicks.map { BackupShoppingTick(it.weekStart.toString(), it.ingredientId) },
+    )
+}
+
+/** Throws [InvalidBackupException] for malformed dates or photos. */
+fun BackupFile.toSnapshot(): BackupSnapshot = try {
+    BackupSnapshot(
+        ingredients = ingredients.map { it.toEntity() },
+        recipes = recipes.map { it.toEntity() },
+        lines = recipes.flatMap { recipe ->
+            recipe.lines.mapIndexed { position, line ->
+                RecipeIngredient(line.id, recipe.id, position, line.originalText, line.grams, line.ingredientId)
+            }
+        },
+        cookLog = cookLog.map { CookLog(it.id, it.recipeId, LocalDate.parse(it.cookedOn)) },
+        weekPlan = weekPlan.map { WeekPlanSlot(LocalDate.parse(it.weekStart), it.position, it.recipeId, it.done) },
+        shoppingTicks = shoppingTicks.map { ShoppingTick(LocalDate.parse(it.weekStart), it.ingredientId) },
+    )
+} catch (e: DateTimeParseException) {
+    throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP, e)
+}
+
+fun BackupFile.photos(): Photos = try {
+    recipes.mapNotNull { recipe -> recipe.photo?.let { recipe.id to Base64.getDecoder().decode(it) } }.toMap()
+} catch (e: IllegalArgumentException) {
+    throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP, e)
+}
+
+private fun Ingredient.toBackup() = BackupIngredient(
+    id = id,
+    name = name,
+    fdcId = fdcId,
+    usdaDescription = usdaDescription,
+    nutrition = with(nutrition) { BackupNutrition(kcal, protein, carbs, sugar, fat, fibre) },
+    unitWeights = unitWeights.map { BackupUnitWeight(it.label, it.grams) },
+    buyUnit = buyUnit,
+    packSizeGrams = packSizeGrams,
+    storeSection = storeSection,
+    staple = staple,
+    plantPoints = plantPoints,
+    buyAsIngredientId = buyAsIngredientId,
+    buyAsYieldFactor = buyAsYieldFactor,
+    reviewed = reviewed,
+)
+
+private fun BackupIngredient.toEntity() = Ingredient(
+    id = id,
+    name = name,
+    fdcId = fdcId,
+    usdaDescription = usdaDescription,
+    nutrition = with(nutrition) { Nutrition(kcal, protein, carbs, sugar, fat, fibre) },
+    unitWeights = unitWeights.map { UnitWeight(it.label, it.grams) },
+    buyUnit = buyUnit,
+    packSizeGrams = packSizeGrams,
+    storeSection = storeSection,
+    staple = staple,
+    plantPoints = plantPoints,
+    buyAsIngredientId = buyAsIngredientId,
+    buyAsYieldFactor = buyAsYieldFactor,
+    reviewed = reviewed,
+)
+
+private fun Recipe.toBackup(photo: String?, lines: List<RecipeIngredient>) = BackupRecipe(
+    id = id,
+    title = title,
+    source = source,
+    page = page,
+    bookServings = bookServings,
+    ourServings = ourServings,
+    cookingTimeMinutes = cookingTimeMinutes,
+    modified = modified,
+    photo = photo,
+    lines = lines.map { BackupLine(it.id, it.originalText, it.grams, it.ingredientId) },
+)
+
+private fun BackupRecipe.toEntity() = Recipe(
+    id = id,
+    title = title,
+    source = source,
+    page = page,
+    bookServings = bookServings,
+    ourServings = ourServings,
+    cookingTimeMinutes = cookingTimeMinutes,
+    modified = modified,
+)

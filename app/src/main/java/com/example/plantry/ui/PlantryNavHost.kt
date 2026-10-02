@@ -1,9 +1,15 @@
 package com.example.plantry.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -11,20 +17,27 @@ import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -50,12 +63,14 @@ import com.example.plantry.ui.recipe.RecipeEditViewModel
 import com.example.plantry.ui.recipe.RecipeListScreen
 import com.example.plantry.ui.recipe.RecipeListViewModel
 import com.example.plantry.ui.settings.ApiKeyDialog
+import com.example.plantry.ui.settings.BackupViewModel
 import com.example.plantry.ui.settings.SettingsScreen
 import com.example.plantry.ui.settings.SettingsViewModel
 import com.example.plantry.ui.shopping.ShoppingListScreen
 import com.example.plantry.ui.shopping.ShoppingListViewModel
 import com.example.plantry.ui.week.WeekPlanScreen
 import com.example.plantry.ui.week.WeekPlanViewModel
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -116,6 +131,16 @@ fun PlantryNavHost() {
         currentDestination?.hasRoute(top.route::class) == true
     }
 
+    // Checked on every resume; "Später" hides it until the app is restarted.
+    val backupReminder by app.backupRepository.reminder.collectAsStateWithLifecycle()
+    var backupReminderDismissed by rememberSaveable { mutableStateOf(false) }
+    val showBackupReminder = backupReminder && !backupReminderDismissed && currentTopLevel != null
+    val scope = rememberCoroutineScope()
+    LifecycleResumeEffect(Unit) {
+        scope.launch { app.backupRepository.refreshReminder() }
+        onPauseOrDispose {}
+    }
+
     Scaffold(
         // Each screen handles its own insets; this Scaffold only adds the bottom bar.
         contentWindowInsets = WindowInsets(0),
@@ -140,77 +165,95 @@ fun PlantryNavHost() {
             }
         },
     ) { padding ->
-        NavHost(
-            navController,
-            startDestination = WeekPlanRoute,
-            modifier = Modifier.padding(padding).consumeWindowInsets(padding),
-        ) {
-            composable<WeekPlanRoute> {
-                WeekPlanScreen(
-                    viewModel = viewModel { WeekPlanViewModel(weekPlanRepository, app.weekPlanner, recipeRepository, ingredientRepository) },
-                    onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
-                )
-            }
-            composable<ShoppingListRoute> {
-                ShoppingListScreen(viewModel = viewModel { ShoppingListViewModel(app.shoppingListRepository) })
-            }
-            composable<RecipeListRoute> {
-                RecipeListScreen(
-                    viewModel = viewModel { RecipeListViewModel(recipeRepository) },
-                    onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
-                    onAddRecipe = { navController.navigate(RecipeEditRoute()) },
-                    onOpenHistory = { navController.navigate(CookHistoryRoute) },
-                )
-            }
-            composable<RecipeDetailRoute> { entry ->
-                val recipeId = entry.toRoute<RecipeDetailRoute>().recipeId
-                RecipeDetailScreen(
-                    viewModel = viewModel { RecipeDetailViewModel(recipeId, recipeRepository, ingredientRepository, cookLogRepository, weekPlanRepository) },
-                    onBack = { navController.popBackStack() },
-                    onEdit = { navController.navigate(RecipeEditRoute(recipeId)) },
-                )
-            }
-            composable<RecipeEditRoute> { entry ->
-                val recipeId = entry.toRoute<RecipeEditRoute>().recipeId
-                RecipeEditScreen(
-                    viewModel = viewModel { RecipeEditViewModel(recipeId, recipeRepository, ingredientRepository) },
-                    onBack = { navController.popBackStack() },
-                )
-            }
-            composable<CookHistoryRoute> {
-                CookHistoryScreen(
-                    viewModel = viewModel { CookHistoryViewModel(cookLogRepository) },
-                    onBack = { navController.popBackStack() },
-                    onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
-                )
-            }
-            composable<IngredientListRoute> {
-                IngredientListScreen(
-                    viewModel = viewModel { IngredientListViewModel(ingredientRepository) },
-                    onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
-                    onAddIngredient = { navController.navigate(UsdaSearchRoute) },
-                )
-            }
-            composable<UsdaSearchRoute> {
-                UsdaSearchScreen(
-                    viewModel = viewModel { UsdaSearchViewModel({ app.usdaCatalog }, ingredientRepository) },
-                    onBack = { navController.popBackStack() },
-                    onCreated = { id ->
-                        navController.navigate(IngredientDetailRoute(id)) {
-                            popUpTo<UsdaSearchRoute> { inclusive = true }
+        Column(Modifier.padding(padding).consumeWindowInsets(padding)) {
+            if (showBackupReminder) {
+                BackupReminderBanner(
+                    onExport = {
+                        navController.navigate(SettingsRoute) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
                         }
                     },
+                    onDismiss = { backupReminderDismissed = true },
                 )
             }
-            composable<IngredientDetailRoute> { entry ->
-                val ingredientId = entry.toRoute<IngredientDetailRoute>().ingredientId
-                IngredientDetailScreen(
-                    viewModel = viewModel { IngredientDetailViewModel(ingredientId, ingredientRepository) },
-                    onBack = { navController.popBackStack() },
-                )
-            }
-            composable<SettingsRoute> {
-                SettingsScreen(viewModel = viewModel { SettingsViewModel(settingsRepository, app.connectionTester) })
+            NavHost(
+                navController,
+                startDestination = WeekPlanRoute,
+                // The banner already took the status bar.
+                modifier = if (showBackupReminder) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier,
+            ) {
+                composable<WeekPlanRoute> {
+                    WeekPlanScreen(
+                        viewModel = viewModel { WeekPlanViewModel(weekPlanRepository, app.weekPlanner, recipeRepository, ingredientRepository) },
+                        onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
+                    )
+                }
+                composable<ShoppingListRoute> {
+                    ShoppingListScreen(viewModel = viewModel { ShoppingListViewModel(app.shoppingListRepository) })
+                }
+                composable<RecipeListRoute> {
+                    RecipeListScreen(
+                        viewModel = viewModel { RecipeListViewModel(recipeRepository) },
+                        onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
+                        onAddRecipe = { navController.navigate(RecipeEditRoute()) },
+                        onOpenHistory = { navController.navigate(CookHistoryRoute) },
+                    )
+                }
+                composable<RecipeDetailRoute> { entry ->
+                    val recipeId = entry.toRoute<RecipeDetailRoute>().recipeId
+                    RecipeDetailScreen(
+                        viewModel = viewModel { RecipeDetailViewModel(recipeId, recipeRepository, ingredientRepository, cookLogRepository, weekPlanRepository) },
+                        onBack = { navController.popBackStack() },
+                        onEdit = { navController.navigate(RecipeEditRoute(recipeId)) },
+                    )
+                }
+                composable<RecipeEditRoute> { entry ->
+                    val recipeId = entry.toRoute<RecipeEditRoute>().recipeId
+                    RecipeEditScreen(
+                        viewModel = viewModel { RecipeEditViewModel(recipeId, recipeRepository, ingredientRepository) },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable<CookHistoryRoute> {
+                    CookHistoryScreen(
+                        viewModel = viewModel { CookHistoryViewModel(cookLogRepository) },
+                        onBack = { navController.popBackStack() },
+                        onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
+                    )
+                }
+                composable<IngredientListRoute> {
+                    IngredientListScreen(
+                        viewModel = viewModel { IngredientListViewModel(ingredientRepository) },
+                        onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
+                        onAddIngredient = { navController.navigate(UsdaSearchRoute) },
+                    )
+                }
+                composable<UsdaSearchRoute> {
+                    UsdaSearchScreen(
+                        viewModel = viewModel { UsdaSearchViewModel({ app.usdaCatalog }, ingredientRepository) },
+                        onBack = { navController.popBackStack() },
+                        onCreated = { id ->
+                            navController.navigate(IngredientDetailRoute(id)) {
+                                popUpTo<UsdaSearchRoute> { inclusive = true }
+                            }
+                        },
+                    )
+                }
+                composable<IngredientDetailRoute> { entry ->
+                    val ingredientId = entry.toRoute<IngredientDetailRoute>().ingredientId
+                    IngredientDetailScreen(
+                        viewModel = viewModel { IngredientDetailViewModel(ingredientId, ingredientRepository) },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable<SettingsRoute> {
+                    SettingsScreen(
+                        viewModel = viewModel { SettingsViewModel(settingsRepository, app.connectionTester) },
+                        backupViewModel = viewModel { BackupViewModel(app.backupRepository, app.contentResolver) },
+                    )
+                }
             }
         }
     }
@@ -225,5 +268,21 @@ fun PlantryNavHost() {
             dismissLabel = R.string.settings_api_key_later,
             message = R.string.settings_api_key_first_launch_message,
         )
+    }
+}
+
+@Composable
+private fun BackupReminderBanner(onExport: () -> Unit, onDismiss: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
+        Column(
+            Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars)
+                .padding(start = 16.dp, end = 8.dp, top = 12.dp),
+        ) {
+            Text(stringResource(R.string.backup_reminder), style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.backup_reminder_later)) }
+                TextButton(onClick = onExport) { Text(stringResource(R.string.backup_export)) }
+            }
+        }
     }
 }
