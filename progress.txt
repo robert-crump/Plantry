@@ -1,0 +1,10 @@
+## 2026-10-02 — Issue #1: Walking skeleton: create and list a recipe by hand
+- Converted template (Views/AppCompat) to Jetpack Compose + Material 3 (dynamic color); removed AppCompat/MDC deps, colors.xml, View themes.
+- Added Room (KSP) with `Recipe` entity (title, source, page?, bookServings, ourServings, cookingTimeMinutes), `RecipeDao`, `PlantryDatabase` (schema exported to app/schemas).
+- `RecipeRepository` defaults ourServings to bookServings when not given; `RecipeForm` mirrors book servings into "our servings" until the user edits that field.
+- Type-safe Compose Navigation: list -> detail (edit/delete w/ confirm) -> edit form; FAB opens new-recipe form (`RecipeEditRoute(recipeId = null)`).
+- Manual DI: `PlantryApplication.recipeRepository`; ViewModels built via `viewModel { ... }` in `PlantryNavHost`.
+- All UI strings in res/values/strings.xml (German default).
+- Tests: JVM `RecipeRepositoryTest` (fake DAO) + `RecipeFormTest`; instrumented `RecipeDaoTest` (in-memory Room). Robolectric avoided because minSdk/targetSdk 37.
+- Versions mirror HueandYou: Kotlin 2.4.20, KSP 2.3.12, Room 2.8.5, nav 2.10.1, Compose BOM 2026.09.00.
+- Verified on Pixel_10_Pro emulator: create, list, detail, restart persistence, delete.

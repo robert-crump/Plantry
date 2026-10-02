@@ -1,0 +1,41 @@
+<resources>
+    <string name="app_name">Plantry</string>
+
+    <!-- Common actions -->
+    <string name="action_back">Zurück</string>
+    <string name="action_save">Speichern</string>
+    <string name="action_edit">Bearbeiten</string>
+    <string name="action_delete">Löschen</string>
+    <string name="action_cancel">Abbrechen</string>
+
+    <!-- Recipe list -->
+    <string name="recipes_title">Rezepte</string>
+    <string name="recipes_empty">Noch keine Rezepte. Lege mit + dein erstes Rezept an.</string>
+    <string name="recipe_add">Rezept hinzufügen</string>
+
+    <!-- Recipe fields -->
+    <string name="recipe_title">Titel</string>
+    <string name="recipe_source">Quelle</string>
+    <string name="recipe_page">Seite</string>
+    <string name="recipe_book_servings">Portionen laut Buch</string>
+    <string name="recipe_our_servings">Unsere Portionen</string>
+    <string name="recipe_cooking_time">Kochzeit</string>
+    <string name="recipe_cooking_time_minutes">Kochzeit (Minuten)</string>
+    <string name="recipe_our_servings_hint">Standardmäßig wie laut Buch</string>
+
+    <!-- Recipe formatting -->
+    <string name="recipe_source_with_page">%1$s, S. %2$d</string>
+    <string name="recipe_page_only">S. %1$d</string>
+    <string name="recipe_no_source">Keine Quelle</string>
+    <string name="recipe_minutes">%1$d Min.</string>
+
+    <!-- Recipe edit -->
+    <string name="recipe_new">Neues Rezept</string>
+    <string name="recipe_edit">Rezept bearbeiten</string>
+    <string name="error_title_required">Bitte einen Titel eingeben</string>
+    <string name="error_positive_number">Bitte eine ganze Zahl größer 0 eingeben</string>
+
+    <!-- Recipe delete -->
+    <string name="recipe_delete_title">Rezept löschen?</string>
+    <string name="recipe_delete_message">„%1$s“ wird endgültig gelöscht.</string>
+</resources>

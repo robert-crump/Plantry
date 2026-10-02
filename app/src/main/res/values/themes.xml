@@ -1,0 +1,4 @@
+<resources>
+    <!-- Window theme only; all UI theming lives in Compose (ui/theme/Theme.kt). -->
+    <style name="Theme.Plantry" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
