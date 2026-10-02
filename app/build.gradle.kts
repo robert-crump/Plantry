@@ -61,6 +61,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.anthropic.java)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

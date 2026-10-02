@@ -141,4 +141,38 @@
     <!-- Navigation -->
     <string name="nav_recipes">Rezepte</string>
     <string name="nav_ingredients">Zutaten</string>
+
+    <!-- Settings -->
+    <string name="nav_settings">Einstellungen</string>
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_api_key">Anthropic-API-Schlüssel</string>
+    <string name="settings_api_key_missing">Kein Schlüssel gespeichert</string>
+    <string name="settings_api_key_hint">Verschlüsselt nur auf diesem Gerät gespeichert</string>
+    <string name="settings_api_key_enter">Schlüssel eingeben</string>
+    <string name="settings_api_key_replace">Schlüssel ersetzen</string>
+    <string name="settings_api_key_delete_title">API-Schlüssel löschen?</string>
+    <string name="settings_api_key_delete_message">Ohne Schlüssel können keine Rezepte gescannt werden.</string>
+    <string name="settings_api_key_dialog_title">API-Schlüssel</string>
+    <string name="settings_api_key_dialog_message">Füge deinen Anthropic-API-Schlüssel ein (console.anthropic.com). Er wird verschlüsselt auf diesem Gerät gespeichert.</string>
+    <string name="settings_api_key_first_launch_message">Zum Scannen von Rezepten braucht Plantry deinen Anthropic-API-Schlüssel (console.anthropic.com). Er wird verschlüsselt auf diesem Gerät gespeichert. Du kannst ihn auch später in den Einstellungen eingeben.</string>
+    <string name="settings_api_key_required">Bitte einen Schlüssel einfügen</string>
+    <string name="settings_api_key_later">Später</string>
+    <string name="settings_scan_model">Modell für Rezept-Scans</string>
+    <string name="scan_model_opus">Claude Opus 5.5</string>
+    <string name="scan_model_opus_description">Am genauesten, etwas teurer</string>
+    <string name="scan_model_sonnet">Claude Sonnet 5.5</string>
+    <string name="scan_model_sonnet_description">Schneller und günstiger</string>
+    <string name="settings_connection">Verbindung</string>
+    <string name="settings_connection_test">Verbindung testen</string>
+    <string name="settings_connection_success">Verbindung erfolgreich.</string>
+
+    <!-- Claude errors -->
+    <string name="claude_error_invalid_key">Der API-Schlüssel ist ungültig. Bitte prüfe ihn in den Einstellungen.</string>
+    <string name="claude_error_no_credit">Kein Guthaben mehr auf dem Anthropic-Konto. Bitte in der Console aufladen.</string>
+    <string name="claude_error_permission">Dieser API-Schlüssel hat keine Berechtigung für diese Anfrage.</string>
+    <string name="claude_error_model_not_found">Das gewählte Modell ist für diesen Schlüssel nicht verfügbar.</string>
+    <string name="claude_error_rate_limited">Zu viele Anfragen. Bitte kurz warten und erneut versuchen.</string>
+    <string name="claude_error_overloaded">Claude ist gerade überlastet oder nicht erreichbar. Bitte später erneut versuchen.</string>
+    <string name="claude_error_network">Keine Verbindung zum Internet oder zu Anthropic.</string>
+    <string name="claude_error_unknown">Unerwarteter Fehler bei der Anfrage an Claude.</string>
 </resources>

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Kitchen
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -14,6 +15,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -40,6 +45,9 @@ import com.example.plantry.ui.recipe.RecipeEditScreen
 import com.example.plantry.ui.recipe.RecipeEditViewModel
 import com.example.plantry.ui.recipe.RecipeListScreen
 import com.example.plantry.ui.recipe.RecipeListViewModel
+import com.example.plantry.ui.settings.ApiKeyDialog
+import com.example.plantry.ui.settings.SettingsScreen
+import com.example.plantry.ui.settings.SettingsViewModel
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -61,6 +69,9 @@ object UsdaSearchRoute
 @Serializable
 data class IngredientDetailRoute(val ingredientId: Long)
 
+@Serializable
+object SettingsRoute
+
 private enum class TopLevelDestination(
     val route: Any,
     @StringRes val label: Int,
@@ -68,6 +79,7 @@ private enum class TopLevelDestination(
 ) {
     RECIPES(RecipeListRoute, R.string.nav_recipes, Icons.AutoMirrored.Filled.MenuBook),
     INGREDIENTS(IngredientListRoute, R.string.nav_ingredients, Icons.Filled.Kitchen),
+    SETTINGS(SettingsRoute, R.string.nav_settings, Icons.Filled.Settings),
 }
 
 @Composable
@@ -76,6 +88,7 @@ fun PlantryNavHost() {
     val app = LocalContext.current.applicationContext as PlantryApplication
     val recipeRepository = app.recipeRepository
     val ingredientRepository = app.ingredientRepository
+    val settingsRepository = app.settingsRepository
 
     val currentDestination = navController.currentBackStackEntryAsState().value?.destination
     val currentTopLevel = TopLevelDestination.entries.firstOrNull { top ->
@@ -158,6 +171,21 @@ fun PlantryNavHost() {
                     onBack = { navController.popBackStack() },
                 )
             }
+            composable<SettingsRoute> {
+                SettingsScreen(viewModel = viewModel { SettingsViewModel(settingsRepository, app.connectionTester) })
+            }
         }
+    }
+
+    // Asked on every launch while no key is stored; "Später" skips it until the next launch.
+    val settings by settingsRepository.settings.collectAsStateWithLifecycle()
+    var keyPromptDismissed by rememberSaveable { mutableStateOf(false) }
+    if (!settings.hasApiKey && !keyPromptDismissed) {
+        ApiKeyDialog(
+            onSave = settingsRepository::setApiKey,
+            onDismiss = { keyPromptDismissed = true },
+            dismissLabel = R.string.settings_api_key_later,
+            message = R.string.settings_api_key_first_launch_message,
+        )
     }
 }
