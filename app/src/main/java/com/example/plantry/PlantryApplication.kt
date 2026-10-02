@@ -3,6 +3,7 @@ package com.example.plantry
 import android.app.Application
 import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.NewIngredientFinder
 import com.example.plantry.data.PhotoCompressor
 import com.example.plantry.data.PlantryDatabase
 import com.example.plantry.data.RecipePhotoRepository
@@ -12,6 +13,7 @@ import com.example.plantry.data.WeekPlanRepository
 import com.example.plantry.data.backup.BackupRepository
 import com.example.plantry.data.backup.FilePhotoStore
 import com.example.plantry.data.claude.AnthropicConnectionTester
+import com.example.plantry.data.claude.AnthropicIngredientProposer
 import com.example.plantry.data.claude.AnthropicRecipeScanner
 import com.example.plantry.data.claude.RecipeScanner
 import com.example.plantry.data.planner.WeekPlanner
@@ -20,6 +22,8 @@ import com.example.plantry.data.settings.KeystoreCipher
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.data.settings.SharedPreferencesStorage
 import com.example.plantry.data.usda.UsdaCatalog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class PlantryApplication : Application() {
 
@@ -52,6 +56,9 @@ class PlantryApplication : Application() {
         assets.open(UsdaCatalog.ASSET_NAME).bufferedReader().useLines(UsdaCatalog::parse)
     }
 
+    /** [usdaCatalog] off the main thread. */
+    val loadUsdaCatalog: suspend () -> UsdaCatalog = { withContext(Dispatchers.Default) { usdaCatalog } }
+
     val settingsRepository: SettingsRepository by lazy {
         SettingsRepository(
             SharedPreferencesStorage(getSharedPreferences(SharedPreferencesStorage.FILE_NAME, MODE_PRIVATE)),
@@ -77,6 +84,10 @@ class PlantryApplication : Application() {
     val connectionTester: ConnectionTester = AnthropicConnectionTester()
 
     val recipeScanner: RecipeScanner = AnthropicRecipeScanner()
+
+    val newIngredientFinder: NewIngredientFinder by lazy {
+        NewIngredientFinder(AnthropicIngredientProposer(), loadUsdaCatalog)
+    }
 
     private companion object {
         /** Recipe photos, one "<recipeId>.jpg" each. */

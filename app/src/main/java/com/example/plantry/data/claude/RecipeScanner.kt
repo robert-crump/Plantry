@@ -30,6 +30,8 @@ data class ScannedLine(
     val ingredientName: String,
     /** Hard to read, or a vague amount such as "1 Bund", so [grams] is a rough guess. */
     val uncertain: Boolean,
+    /** English USDA search terms, only for lines without [ingredientId]. */
+    val searchTerms: List<String> = emptyList(),
 )
 
 /** What Claude read from a cookbook page; unknown numbers are null. */
@@ -138,6 +140,8 @@ object ScanPrompt {
               - uncertain: true when the line was hard to read (handwriting, blur, cut off) or
                 its amount is vague ("1 Bund", "etwas", "nach Geschmack", "1 Dose"), so the
                 grams are a rough guess; false otherwise.
+              - searchTerms: only when ingredientId is 0: 1 to 3 ${ProposalPrompt.SEARCH_TERMS_RULE}.
+                Empty otherwise.
 
             If the photo shows no recipe, return an empty title and no lines.
 
@@ -156,8 +160,9 @@ object ScanPrompt {
                 "ingredientId" to mapOf("type" to "integer"),
                 "ingredientName" to mapOf("type" to "string"),
                 "uncertain" to mapOf("type" to "boolean"),
+                "searchTerms" to mapOf("type" to "array", "items" to mapOf("type" to "string")),
             ),
-            "required" to listOf("originalText", "grams", "ingredientId", "ingredientName", "uncertain"),
+            "required" to listOf("originalText", "grams", "ingredientId", "ingredientName", "uncertain", "searchTerms"),
             "additionalProperties" to false,
         )
         val properties = mapOf(
@@ -195,6 +200,7 @@ object ScanParser {
         val ingredientId: Long,
         val ingredientName: String,
         val uncertain: Boolean,
+        val searchTerms: List<String> = emptyList(),
     )
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -219,12 +225,14 @@ object ScanParser {
                 cookingTimeMinutes = parsed.cookingTimeMinutes.takeIf { it > 0 },
                 page = parsed.page.takeIf { it > 0 },
                 lines = parsed.lines.filter { it.originalText.isNotBlank() }.map { line ->
+                    val ingredientId = line.ingredientId.takeIf { it in knownIngredientIds }
                     ScannedLine(
                         originalText = line.originalText.trim(),
                         grams = line.grams.coerceAtLeast(0.0),
-                        ingredientId = line.ingredientId.takeIf { it in knownIngredientIds },
+                        ingredientId = ingredientId,
                         ingredientName = line.ingredientName.trim(),
                         uncertain = line.uncertain || line.grams <= 0.0,
+                        searchTerms = if (ingredientId == null) ProposalParser.cleanTerms(line.searchTerms) else emptyList(),
                     )
                 },
             ),

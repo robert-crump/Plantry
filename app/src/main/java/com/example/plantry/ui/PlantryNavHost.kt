@@ -223,6 +223,8 @@ fun PlantryNavHost() {
                                 ingredientRepository,
                                 app.recipePhotoRepository,
                                 app.recipeScanner,
+                                app.newIngredientFinder,
+                                app.loadUsdaCatalog,
                                 settingsRepository,
                                 app.photoCompressor::compress,
                             )

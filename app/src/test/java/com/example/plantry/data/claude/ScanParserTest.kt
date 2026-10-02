@@ -47,6 +47,22 @@ class ScanParserTest {
     }
 
     @Test
+    fun searchTerms_onlyKeptForUnmatchedLines() {
+        val terms = ""","searchTerms":[" tofu smoked ","tofu",""]}"""
+        val recipe = success(
+            answer(
+                lines = arrayOf(
+                    line("200 g Räuchertofu", 200.0, 0).dropLast(1) + terms,
+                    line("200 g Linsen", 200.0, 3).dropLast(1) + terms,
+                ),
+            ),
+        )
+
+        assertEquals(listOf("tofu smoked", "tofu"), recipe.lines[0].searchTerms)
+        assertEquals(emptyList<String>(), recipe.lines[1].searchTerms)
+    }
+
+    @Test
     fun lineWithoutWeight_isUncertain() {
         val recipe = success(answer(lines = arrayOf(line("Salz", 0.0, 7), line("Linsen", 200.0, 3))))
 

@@ -1,6 +1,13 @@
 package com.example.plantry.ui.recipe
 
+import com.example.plantry.data.BuyUnit
+import com.example.plantry.data.Nutrition
+import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.Recipe
+import com.example.plantry.data.StoreSection
+import com.example.plantry.data.claude.IngredientProposal
+import com.example.plantry.data.claude.NewFood
+import com.example.plantry.data.usda.UsdaFood
 import com.example.plantry.data.RecipeDraft
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeIngredientDraft
@@ -143,6 +150,89 @@ class RecipeFormTest {
         )
 
         assertEquals(listOf(tofu, rice), RecipeForm.from(recipe, stored).completeLines())
+    }
+
+    private val smokedTofu = UsdaFood(172476, "Tofu, smoked", Nutrition(160.0, 16.0, 3.0, 1.0, 9.0, 1.0), emptyList())
+
+    private fun proposal(name: String, food: UsdaFood? = smokedTofu) = IngredientProposal(
+        name, food, emptyList(), emptyList(), BuyUnit.GRAMS, null, StoreSection.OTHER, false, PlantPoints.ONE, null,
+    )
+
+    private val scanned = valid.copy(
+        lines = listOf(
+            RecipeFormLine("200 g Räuchertofu", 200.0, null, "Räuchertofu", searchTerms = listOf("tofu smoked")),
+            RecipeFormLine("200 g Tofu", 200.0, ingredientId = 7, ingredientName = "Tofu"),
+            RecipeFormLine("100 g räuchertofu", 100.0, null, " räuchertofu ", searchTerms = listOf("tofu")),
+            RecipeFormLine("1 Zwiebel", 110.0, null, "Zwiebel"),
+        ),
+    )
+
+    private fun ids(): () -> Long {
+        var last = 0L
+        return { --last }
+    }
+
+    @Test
+    fun unmatchedFoods_onePerDistinctNameWithTheLinesTerms() {
+        val foods = scanned.unmatchedFoods(ids())
+
+        assertEquals(
+            listOf(
+                NewFood(-1, "Räuchertofu", "200 g Räuchertofu", listOf("tofu smoked", "tofu")),
+                NewFood(-2, "Zwiebel", "1 Zwiebel", emptyList()),
+            ),
+            foods,
+        )
+    }
+
+    @Test
+    fun withProposals_assignsUnmatchedLinesAndKeepsResolvedOnes() {
+        val foods = scanned.unmatchedFoods(ids())
+        // Meanwhile the user picked an existing ingredient for the onion.
+        val edited = scanned.withLine(3, RecipeIngredientDraft("1 Zwiebel", 110.0, ingredientId = 9))
+
+        val form = edited.withProposals(foods, mapOf(-1L to proposal("Räuchertofu"), -2L to proposal("Zwiebel")))
+
+        assertEquals(listOf(-1L, 7L, -1L, 9L), form.lines.map { it.ingredientId })
+        assertEquals(setOf(-1L, -2L), form.newIngredients.keys)
+        // Only the used proposal is created on save.
+        assertEquals(setOf(-1L), form.newIngredientsToCreate().keys)
+    }
+
+    @Test
+    fun unconfirmedNewIngredient_blocksSaveUntilConfirmed() {
+        val foods = scanned.unmatchedFoods(ids())
+        val form = scanned.withProposals(foods, mapOf(-1L to proposal("Räuchertofu"), -2L to proposal("Zwiebel")))
+
+        assertTrue(form.errors().lines)
+        assertFalse(form.isReady(-1))
+
+        val confirmed = form.confirmNewIngredient(-1).confirmNewIngredient(-2)
+
+        assertTrue(confirmed.isReady(-1))
+        assertEquals(listOf(-1L, 7L, -1L, -2L), confirmed.toDraft()!!.lines.map { it.ingredientId })
+    }
+
+    @Test
+    fun proposalWithoutUsdaEntry_cannotBeConfirmed_butPickingOneConfirmsIt() {
+        val form = valid.withNewIngredient(-1, proposal("Räuchertofu", food = null))
+            .withLine(null, RecipeFormLine("200 g Räuchertofu", 200.0, ingredientId = -1))
+
+        assertFalse(form.confirmNewIngredient(-1).isReady(-1))
+        assertTrue(form.previewIngredients().isEmpty())
+
+        val picked = form.withNewIngredientFood(-1, smokedTofu)
+
+        assertTrue(picked.isReady(-1))
+        assertEquals(smokedTofu, picked.newIngredients.getValue(-1).proposal.food)
+        assertEquals(listOf(-1L), picked.previewIngredients().map { it.id })
+    }
+
+    @Test
+    fun withIngredientIds_replacesTemporaryIds() {
+        val draft = RecipeDraft("Bowl", "", null, 2, null, 20, listOf(tofu, tofu.copy(ingredientId = -1)))
+
+        assertEquals(listOf(7L, 42L), draft.withIngredientIds(mapOf(-1L to 42L)).lines.map { it.ingredientId })
     }
 
     @Test

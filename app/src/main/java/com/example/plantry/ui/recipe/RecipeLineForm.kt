@@ -17,7 +17,10 @@ data class RecipeLineForm(
 ) {
     fun withIngredientQuery(query: String) = copy(ingredientQuery = query, ingredientId = null)
 
-    fun withIngredient(ingredient: Ingredient) = copy(ingredientQuery = ingredient.name, ingredientId = ingredient.id)
+    fun withIngredient(ingredient: Ingredient) = withIngredient(ingredient.id, ingredient.name)
+
+    /** A negative [id] is a new ingredient proposed by Claude, see [RecipeForm.newIngredients]. */
+    fun withIngredient(id: Long, name: String) = copy(ingredientQuery = name, ingredientId = id)
 
     fun errors() = RecipeLineFormErrors(
         grams = grams.toPositiveDecimalOrNull() == null,

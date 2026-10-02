@@ -1,5 +1,7 @@
 package com.example.plantry.data
 
+import com.example.plantry.data.claude.IngredientProposal
+import com.example.plantry.data.claude.ProposedBuyAs
 import com.example.plantry.data.usda.UsdaFood
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,6 +102,67 @@ class IngredientRepositoryTest {
 
         assertEquals(BuyAsError.CYCLE, error)
         assertNull(repository.getIngredient(dry)!!.buyAsIngredientId)
+    }
+
+    private fun proposal(food: UsdaFood, name: String, buyAs: ProposedBuyAs? = null) = IngredientProposal(
+        name = name,
+        food = food,
+        searchTerms = emptyList(),
+        unitWeights = emptyList(),
+        buyUnit = BuyUnit.PACK,
+        packSizeGrams = 500.0,
+        storeSection = StoreSection.DRY_GOODS,
+        staple = true,
+        plantPoints = PlantPoints.ZERO,
+        buyAs = buyAs,
+    )
+
+    @Test
+    fun createProposed_createsUnreviewedIngredientsAndLinksWithinTheBatch() = runTest {
+        val ids = repository.createProposed(
+            mapOf(
+                -1L to proposal(riceCooked, "Reis, gekocht", ProposedBuyAs(-2, 0.4)),
+                -2L to proposal(riceDry, "Reis"),
+            ),
+        )
+
+        val cooked = repository.getIngredient(ids.getValue(-1))!!
+        val dry = repository.getIngredient(ids.getValue(-2))!!
+        assertFalse(cooked.reviewed)
+        assertEquals("Reis, gekocht", cooked.name)
+        assertEquals(BuyUnit.PACK, cooked.buyUnit)
+        assertEquals(500.0, cooked.packSizeGrams)
+        assertTrue(cooked.staple)
+        assertEquals(dry.id, cooked.buyAsIngredientId)
+        assertEquals(0.4, cooked.buyAsYieldFactor)
+        assertNull(dry.buyAsIngredientId)
+    }
+
+    @Test
+    fun createProposed_linksToExistingIngredient() = runTest {
+        val dry = repository.createFromUsda(riceDry, "Reis")
+
+        val ids = repository.createProposed(mapOf(-1L to proposal(riceCooked, "Reis, gekocht", ProposedBuyAs(dry, 0.4))))
+
+        assertEquals(dry, repository.getIngredient(ids.getValue(-1))!!.buyAsIngredientId)
+    }
+
+    @Test
+    fun createProposed_dropsLinksToUnknownOrUncreatedIngredientsAndCycles() = runTest {
+        val ids = repository.createProposed(
+            mapOf(
+                -1L to proposal(riceCooked, "Reis, gekocht", ProposedBuyAs(-2, 0.4)),
+                -2L to proposal(riceDry, "Reis", ProposedBuyAs(-1, 2.5)),
+                -3L to proposal(riceDry, "Naturreis", ProposedBuyAs(99, 1.0)),
+                -4L to proposal(riceDry, "Basmati", ProposedBuyAs(-9, 1.0)),
+            ),
+        )
+
+        // The first link wins; the one closing the cycle is dropped.
+        assertEquals(ids.getValue(-2), repository.getIngredient(ids.getValue(-1))!!.buyAsIngredientId)
+        assertNull(repository.getIngredient(ids.getValue(-2))!!.buyAsIngredientId)
+        assertNull(repository.getIngredient(ids.getValue(-3))!!.buyAsIngredientId)
+        assertNull(repository.getIngredient(ids.getValue(-4))!!.buyAsIngredientId)
     }
 }
 

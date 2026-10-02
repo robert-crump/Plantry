@@ -37,6 +37,13 @@ class UsdaCatalog(foods: List<UsdaFood>) {
             .map { it.food }
     }
 
+    /**
+     * Candidates for Claude to pick from: the best [perTerm] hits of each term, in term order,
+     * without duplicates, at most [limit].
+     */
+    fun candidates(terms: List<String>, perTerm: Int = 8, limit: Int = 15): List<UsdaFood> =
+        terms.flatMap { search(it, perTerm) }.distinctBy { it.fdcId }.take(limit)
+
     private class Entry(val food: UsdaFood, val words: List<String>)
 
     companion object {

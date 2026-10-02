@@ -72,6 +72,14 @@ class UsdaCatalogTest {
     }
 
     @Test
+    fun candidates_mergeTermHitsInOrderWithoutDuplicatesUpToLimit() {
+        assertEquals(listOf(2L, 1L, 3L), catalog.candidates(listOf("chickpeas canned", "chickpeas", "hummus")).map { it.fdcId })
+        assertEquals(listOf(2L, 1L), catalog.candidates(listOf("chickpeas canned", "chickpeas", "hummus"), limit = 2).map { it.fdcId })
+        assertEquals(listOf(1L), catalog.candidates(listOf("chickpeas"), perTerm = 1).map { it.fdcId })
+        assertEquals(emptyList<Long>(), catalog.candidates(emptyList()).map { it.fdcId })
+    }
+
+    @Test
     fun bundledAsset_parsesAndIsSearchable() {
         val asset = File("src/main/assets/${UsdaCatalog.ASSET_NAME}")
         val bundled = asset.bufferedReader().useLines(UsdaCatalog::parse)

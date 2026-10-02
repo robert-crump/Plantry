@@ -1,5 +1,6 @@
 package com.example.plantry.data
 
+import com.example.plantry.data.claude.IngredientProposal
 import com.example.plantry.data.usda.UsdaFood
 import kotlinx.coroutines.flow.Flow
 
@@ -32,6 +33,27 @@ class IngredientRepository(private val dao: IngredientDao) {
             reviewed = false,
         ),
     )
+
+    /**
+     * Creates the unreviewed ingredients Claude proposed, keyed by their temporary (negative) ids,
+     * and returns the new id for each. Buy-as links are set afterwards, so they can point to another
+     * ingredient of the same batch; links to unknown ingredients, or that would close a cycle, are
+     * dropped. Every proposal needs a USDA entry.
+     */
+    suspend fun createProposed(proposals: Map<Long, IngredientProposal>): Map<Long, Long> {
+        val ids = proposals.mapValues { (_, proposal) -> dao.insert(proposal.toIngredient()) }
+        val links = dao.getBuyAsLinks().associate { it.id to it.buyAsIngredientId }.toMutableMap()
+        proposals.forEach { (tempId, proposal) ->
+            val buyAs = proposal.buyAs ?: return@forEach
+            val target = if (buyAs.ingredientId < 0) ids[buyAs.ingredientId] else buyAs.ingredientId.takeIf { it in links }
+            val id = ids.getValue(tempId)
+            if (target == null || BuyAsLinks.validate(id, target, links) != null) return@forEach
+            val created = dao.getById(id) ?: return@forEach
+            dao.update(created.copy(buyAsIngredientId = target, buyAsYieldFactor = buyAs.yieldFactor))
+            links[id] = target
+        }
+        return ids
+    }
 
     /**
      * Saves the user's edits and marks the ingredient reviewed. Returns an error, and saves nothing,

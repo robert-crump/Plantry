@@ -57,11 +57,20 @@ import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientSuggestions
 import com.example.plantry.data.RecipeNutrition
+import com.example.plantry.data.NewIngredientFinder
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.claude.ClaudeFailure
+import com.example.plantry.data.claude.ClaudeResult
+import com.example.plantry.data.claude.NewFood
 import com.example.plantry.data.claude.RecipeScanner
 import com.example.plantry.data.claude.ScanResult
+import com.example.plantry.data.usda.UsdaCatalog
+import com.example.plantry.data.usda.UsdaFood
+import androidx.compose.material.icons.filled.AutoAwesome
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.mapLatest
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.ui.settings.message
 import com.example.plantry.data.nutritionLines
@@ -89,7 +98,20 @@ data class RecipeEditUiState(
     /** The last photo could not be read from the camera or gallery. */
     val photoUnreadable: Boolean = false,
     val scan: ScanState = ScanState.Done,
+    /** Proposing new ingredients for the scanned lines that matched nothing. */
+    val proposals: ProposalState = ProposalState.Idle,
+    /** Null while no other USDA entry is being picked. */
+    val usdaPicker: UsdaPickerState? = null,
 )
+
+sealed interface ProposalState {
+    data object Idle : ProposalState
+    data object Loading : ProposalState
+    data class Failed(val reason: ClaudeFailure) : ProposalState
+}
+
+/** Picking another USDA entry for the new ingredient [ingredientId]. */
+data class UsdaPickerState(val ingredientId: Long, val query: String)
 
 /** Reading the photo with Claude; the form shows once it is [Done] (or skipped). */
 sealed interface ScanState {
@@ -104,6 +126,9 @@ data class LineEditorState(
     val index: Int?,
     val form: RecipeLineForm = RecipeLineForm(),
     val showErrors: Boolean = false,
+    /** Claude is proposing a new ingredient for the typed name. */
+    val proposing: Boolean = false,
+    val proposalFailure: ClaudeFailure? = null,
 )
 
 /**
@@ -114,9 +139,11 @@ class RecipeEditViewModel(
     private val recipeId: Long?,
     scan: Boolean,
     private val repository: RecipeRepository,
-    ingredientRepository: IngredientRepository,
+    private val ingredientRepository: IngredientRepository,
     private val photos: RecipePhotoRepository,
     private val scanner: RecipeScanner,
+    private val newIngredientFinder: NewIngredientFinder,
+    private val loadCatalog: suspend () -> UsdaCatalog,
     private val settings: SettingsRepository,
     private val compressPhoto: suspend (Uri) -> ByteArray?,
 ) : ViewModel() {
@@ -145,23 +172,40 @@ class RecipeEditViewModel(
         val form = if (pending == null) state.form else state.form.withLine(editor.index, pending)
         val lines = form.completeLines()
         if (lines.isEmpty()) return@combine null
-        RecipeNutrition.calculate(nutritionLines(lines, ingredients.associateBy { it.id }), servings)
+        val all = ingredients + state.form.previewIngredients()
+        RecipeNutrition.calculate(nutritionLines(lines, all.associateBy { it.id }), servings)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Own-table matches for the ingredient field of the open line editor. */
+    /** Matches for the ingredient field of the open line editor: own table and new ingredients. */
     val suggestions: StateFlow<List<Ingredient>> = combine(_state, ingredients) { state, ingredients ->
         val form = state.lineEditor?.form
         if (form == null || form.ingredientId != null) {
             emptyList()
         } else {
-            IngredientSuggestions.match(form.ingredientQuery, ingredients)
+            IngredientSuggestions.match(form.ingredientQuery, ingredients + state.form.previewIngredients())
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** Ingredient names by id, for displaying the lines. */
-    val ingredientNames: StateFlow<Map<Long, String>> = ingredients
-        .map { all -> all.associate { it.id to it.name } }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+    /** Ingredient names by id, including new ones by their temporary id, for displaying the lines. */
+    val ingredientNames: StateFlow<Map<Long, String>> =
+        combine(ingredients, _state.map { it.form.newIngredients }.distinctUntilChanged()) { all, new ->
+            all.associate { it.id to it.name } + new.mapValues { it.value.proposal.name }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /** Search results of the USDA picker; null while the data is loading or no picker is open. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val usdaResults: StateFlow<List<UsdaFood>?> = _state
+        .map { it.usdaPicker?.query }
+        .distinctUntilChanged()
+        .mapLatest { query -> query?.let { loadCatalog().search(it) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Temporary ids of new ingredients count down from -1, see [RecipeForm.newIngredients]. */
+    private var lastTempId = 0L
+
+    private fun newTempId() = --lastTempId
+
+    private var saving = false
 
     init {
         if (recipeId != null) {
@@ -205,7 +249,94 @@ class RecipeEditViewModel(
                     is ScanResult.Failure -> state.copy(scan = ScanState.Failed(result.reason))
                 }
             }
+            if (result is ScanResult.Success) proposeNewIngredients()
         }
+    }
+
+    /**
+     * Has Claude propose new ingredients for the lines without one. The form is usable meanwhile;
+     * lines the user resolved in the meantime keep their ingredient.
+     */
+    fun proposeNewIngredients() {
+        if (_state.value.proposals == ProposalState.Loading) return
+        val foods = _state.value.form.unmatchedFoods(::newTempId)
+        if (foods.isEmpty()) {
+            _state.update { it.copy(proposals = ProposalState.Idle) }
+            return
+        }
+        val apiKey = settings.apiKey()
+        if (apiKey == null) {
+            _state.update { it.copy(proposals = ProposalState.Failed(ClaudeFailure.NO_API_KEY)) }
+            return
+        }
+        _state.update { it.copy(proposals = ProposalState.Loading) }
+        viewModelScope.launch {
+            val result = newIngredientFinder.propose(apiKey, settings.settings.value.scanModel, foods, ingredients.value)
+            _state.update { state ->
+                when (result) {
+                    is ClaudeResult.Success ->
+                        state.copy(form = state.form.withProposals(foods, result.value), proposals = ProposalState.Idle)
+                    is ClaudeResult.Failure -> state.copy(proposals = ProposalState.Failed(result.reason))
+                }
+            }
+        }
+    }
+
+    /** Has Claude propose a new ingredient for the name typed into the open line editor. */
+    fun proposeForLine() {
+        val editor = _state.value.lineEditor ?: return
+        val name = editor.form.ingredientQuery.trim()
+        if (editor.proposing || name.isEmpty()) return
+        val apiKey = settings.apiKey()
+        if (apiKey == null) {
+            _state.update { it.copy(lineEditor = editor.copy(proposalFailure = ClaudeFailure.NO_API_KEY)) }
+            return
+        }
+        val food = NewFood(newTempId(), name, editor.form.originalText.trim(), searchTerms = emptyList())
+        _state.update { it.copy(lineEditor = editor.copy(proposing = true, proposalFailure = null)) }
+        viewModelScope.launch {
+            val result = newIngredientFinder.propose(apiKey, settings.settings.value.scanModel, listOf(food), ingredients.value)
+            _state.update { state ->
+                // Only the editor that asked takes the answer; a closed one leaves an unused proposal.
+                val current = state.lineEditor?.takeIf { it.proposing }
+                when (result) {
+                    is ClaudeResult.Success -> {
+                        val proposal = result.value.getValue(food.id)
+                        state.copy(
+                            form = state.form.withNewIngredient(food.id, proposal),
+                            lineEditor = current?.copy(form = current.form.withIngredient(food.id, proposal.name), proposing = false),
+                        )
+                    }
+                    is ClaudeResult.Failure ->
+                        state.copy(lineEditor = current?.copy(proposing = false, proposalFailure = result.reason))
+                }
+            }
+        }
+    }
+
+    fun confirmNewIngredient(id: Long) {
+        _state.update { it.copy(form = it.form.confirmNewIngredient(id)) }
+    }
+
+    fun openUsdaPicker(id: Long) {
+        val proposal = _state.value.form.newIngredients[id]?.proposal ?: return
+        val query = proposal.searchTerms.firstOrNull() ?: proposal.food?.description?.substringBefore(',').orEmpty()
+        _state.update { it.copy(usdaPicker = UsdaPickerState(id, query)) }
+    }
+
+    fun onUsdaQueryChange(query: String) {
+        _state.update { state -> state.copy(usdaPicker = state.usdaPicker?.copy(query = query)) }
+    }
+
+    fun pickUsda(food: UsdaFood) {
+        _state.update { state ->
+            val picker = state.usdaPicker ?: return@update state
+            state.copy(form = state.form.withNewIngredientFood(picker.ingredientId, food), usdaPicker = null)
+        }
+    }
+
+    fun dismissUsdaPicker() {
+        _state.update { it.copy(usdaPicker = null) }
     }
 
     /** Gives up on reading and shows the empty form; the photo is kept. */
@@ -237,7 +368,7 @@ class RecipeEditViewModel(
         _state.update { state ->
             val editor = state.lineEditor ?: return@update state
             val line = editor.form.toDraft()
-            if (line == null) {
+            if (line == null || !state.form.isReady(line.ingredientId)) {
                 state.copy(lineEditor = editor.copy(showErrors = true))
             } else {
                 state.copy(form = state.form.withLine(editor.index, line), lineEditor = null)
@@ -259,9 +390,13 @@ class RecipeEditViewModel(
             _state.update { it.copy(showErrors = true) }
             return
         }
+        if (saving) return
+        saving = true
         val state = _state.value
         viewModelScope.launch {
-            val id = recipeId?.also { repository.update(it, draft) } ?: repository.create(draft)
+            val newIds = ingredientRepository.createProposed(state.form.newIngredientsToCreate())
+            val saved = draft.withIngredientIds(newIds)
+            val id = recipeId?.also { repository.update(it, saved) } ?: repository.create(saved)
             if (state.photoChanged && state.photo != null) photos.save(id, state.photo)
             _state.update { it.copy(saved = true) }
         }
@@ -363,13 +498,25 @@ fun RecipeEditScreen(
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
+                    ProposalStatus(state.proposals, onRetry = viewModel::proposeNewIngredients)
                     form.lines.forEachIndexed { index, line ->
+                        val newId = line.ingredientId?.takeIf { it in form.newIngredients }
                         LineItem(
                             line = line,
                             ingredientName = line.ingredientId?.let { ingredientNames[it] },
+                            ready = form.isReady(line.ingredientId),
                             onClick = { viewModel.editLine(index) },
                             onRemove = { viewModel.removeLine(index) },
                         )
+                        if (newId != null) {
+                            NewIngredientMatch(
+                                newIngredient = form.newIngredients.getValue(newId),
+                                isError = errors?.lines == true,
+                                onConfirm = { viewModel.confirmNewIngredient(newId) },
+                                onChange = { viewModel.openUsdaPicker(newId) },
+                                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+                            )
+                        }
                     }
                     TextButton(onClick = viewModel::addLine) {
                         Icon(Icons.Filled.Add, contentDescription = null)
@@ -382,14 +529,50 @@ fun RecipeEditScreen(
         state.lineEditor?.let { editor ->
             LineEditorDialog(
                 editor = editor,
+                newIngredient = editor.form.ingredientId?.let { form.newIngredients[it] },
                 suggestions = suggestions,
                 proteinPerPortion = preview?.perPortion?.protein,
                 onChange = viewModel::onLineFormChange,
                 onApply = viewModel::applyLine,
                 onDismiss = viewModel::dismissLineEditor,
                 onCreateIngredient = onCreateIngredient,
+                onProposeIngredient = viewModel::proposeForLine,
+                onConfirmNew = viewModel::confirmNewIngredient,
+                onChangeNew = viewModel::openUsdaPicker,
             )
         }
+
+        // After the line editor, so it opens on top of it.
+        state.usdaPicker?.let { picker ->
+            val results by viewModel.usdaResults.collectAsStateWithLifecycle()
+            UsdaPickerDialog(
+                query = picker.query,
+                results = results,
+                onQueryChange = viewModel::onUsdaQueryChange,
+                onPick = viewModel::pickUsda,
+                onDismiss = viewModel::dismissUsdaPicker,
+            )
+        }
+    }
+}
+
+/** Progress or failure of proposing new ingredients for the scanned lines. */
+@Composable
+private fun ProposalStatus(proposals: ProposalState, onRetry: () -> Unit) {
+    when (proposals) {
+        ProposalState.Loading -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+            Text(stringResource(R.string.new_ingredient_proposing), style = MaterialTheme.typography.bodyMedium)
+        }
+        is ProposalState.Failed -> Column {
+            Text(
+                stringResource(R.string.new_ingredient_failed, stringResource(proposals.reason.message)),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+            TextButton(onClick = onRetry) { Text(stringResource(R.string.scan_retry)) }
+        }
+        ProposalState.Idle -> Unit
     }
 }
 
@@ -524,17 +707,22 @@ private fun RecipeFields(
     )
 }
 
-/** One ingredient line; lines without an ingredient, and lines Claude was unsure about, stand out. */
+/**
+ * One ingredient line; lines without an ingredient, with an unconfirmed new ingredient, or that
+ * Claude was unsure about stand out.
+ */
 @Composable
 private fun LineItem(
     line: RecipeFormLine,
     ingredientName: String?,
+    ready: Boolean,
     onClick: () -> Unit,
     onRemove: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val (container, label) = when {
         !line.complete -> colors.errorContainer to R.string.recipe_line_incomplete
+        !ready -> colors.tertiaryContainer to R.string.recipe_line_new_ingredient
         line.uncertain -> colors.tertiaryContainer to R.string.recipe_line_uncertain
         else -> Color.Transparent to null
     }
@@ -565,12 +753,16 @@ private fun LineItem(
 @Composable
 private fun LineEditorDialog(
     editor: LineEditorState,
+    newIngredient: NewIngredient?,
     suggestions: List<Ingredient>,
     proteinPerPortion: Double?,
     onChange: (RecipeLineForm.() -> RecipeLineForm) -> Unit,
     onApply: () -> Unit,
     onDismiss: () -> Unit,
     onCreateIngredient: () -> Unit,
+    onProposeIngredient: () -> Unit,
+    onConfirmNew: (Long) -> Unit,
+    onChangeNew: (Long) -> Unit,
 ) {
     val form = editor.form
     val errors = if (editor.showErrors) form.errors() else null
@@ -619,7 +811,35 @@ private fun LineEditorDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (form.ingredientId == null) {
+                val ingredientId = form.ingredientId
+                if (newIngredient != null && ingredientId != null) {
+                    NewIngredientMatch(
+                        newIngredient = newIngredient,
+                        isError = editor.showErrors,
+                        onConfirm = { onConfirmNew(ingredientId) },
+                        onChange = { onChangeNew(ingredientId) },
+                    )
+                }
+                if (ingredientId == null) {
+                    if (editor.proposing) {
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                        Text(stringResource(R.string.new_ingredient_proposing_one), style = MaterialTheme.typography.bodySmall)
+                    } else if (form.ingredientQuery.isNotBlank()) {
+                        TextButton(onClick = onProposeIngredient) {
+                            Icon(Icons.Filled.AutoAwesome, contentDescription = null)
+                            Text(
+                                stringResource(R.string.recipe_line_propose_ingredient, form.ingredientQuery.trim()),
+                                Modifier.padding(start = 8.dp),
+                            )
+                        }
+                    }
+                    editor.proposalFailure?.let { failure ->
+                        Text(
+                            stringResource(failure.message),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                     // The editor stays open; back from the new ingredient returns to it.
                     TextButton(onClick = onCreateIngredient) {
                         Icon(Icons.Filled.Add, contentDescription = null)
