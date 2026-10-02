@@ -1,31 +1,46 @@
 package com.example.plantry.ui.recipe
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -33,6 +48,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
+import com.example.plantry.data.CookLogRepository
+import com.example.plantry.data.CookingStats
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
@@ -40,12 +57,18 @@ import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.nutritionLines
 import com.example.plantry.data.toDraft
+import com.example.plantry.ui.cooklog.CookDatePickerDialog
+import com.example.plantry.ui.cooklog.cookDateLabel
+import com.example.plantry.ui.cooklog.lastCookedLabel
 import com.example.plantry.ui.ingredient.formatDecimal
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 /** A recipe line with the name of its ingredient. */
 data class RecipeLineItem(val line: RecipeIngredient, val ingredientName: String)
@@ -54,19 +77,23 @@ data class RecipeDetailUiState(
     val recipe: Recipe,
     val lines: List<RecipeLineItem>,
     val nutrition: RecipeNutrition,
+    val cooking: CookingStats,
 )
 
 class RecipeDetailViewModel(
     private val recipeId: Long,
     private val repository: RecipeRepository,
     ingredientRepository: IngredientRepository,
+    private val cookLogRepository: CookLogRepository,
+    private val clock: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
     /** Null until loaded, and after the recipe was deleted. */
     val state: StateFlow<RecipeDetailUiState?> = combine(
         repository.observeRecipe(recipeId),
         repository.observeLines(recipeId),
         ingredientRepository.observeIngredients(),
-    ) { recipe, lines, ingredients ->
+        cookLogRepository.observeStats(recipeId, clock),
+    ) { recipe, lines, ingredients, cooking ->
         if (recipe == null) return@combine null
         val byId = ingredients.associateBy { it.id }
         RecipeDetailUiState(
@@ -76,8 +103,40 @@ class RecipeDetailViewModel(
                 nutritionLines(lines.map { it.toDraft() }, byId),
                 recipe.ourServings,
             ),
+            cooking = cooking,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** The date the "Gekocht" action logs; null means today. */
+    private val _cookDate = MutableStateFlow<LocalDate?>(null)
+    val cookDate: StateFlow<LocalDate?> = _cookDate.asStateFlow()
+
+    /** Id of the entry just logged, until its undo snackbar is gone. */
+    private val _justLogged = MutableStateFlow<Long?>(null)
+    val justLogged: StateFlow<Long?> = _justLogged.asStateFlow()
+
+    fun today(): LocalDate = clock()
+
+    fun setCookDate(date: LocalDate) {
+        _cookDate.value = date.takeIf { it != today() }
+    }
+
+    /** Logs the recipe as cooked on the chosen date, then resets the date to today. */
+    fun markCooked() {
+        val date = _cookDate.value ?: today()
+        viewModelScope.launch {
+            _justLogged.value = cookLogRepository.log(recipeId, date)
+            _cookDate.value = null
+        }
+    }
+
+    fun onUndoShown() {
+        _justLogged.value = null
+    }
+
+    fun undoCooked(logId: Long) {
+        viewModelScope.launch { cookLogRepository.delete(logId) }
+    }
 
     fun delete(onDeleted: () -> Unit) {
         viewModelScope.launch {
@@ -95,8 +154,22 @@ fun RecipeDetailScreen(
     onEdit: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val cookDate by viewModel.cookDate.collectAsStateWithLifecycle()
+    val justLogged by viewModel.justLogged.collectAsStateWithLifecycle()
     val recipe = state?.recipe
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var pickCookDate by rememberSaveable { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    val loggedMessage = stringResource(R.string.cooked_logged)
+    val undoLabel = stringResource(R.string.action_undo)
+
+    LaunchedEffect(justLogged) {
+        val logId = justLogged ?: return@LaunchedEffect
+        val result = snackbar.showSnackbar(loggedMessage, actionLabel = undoLabel, duration = SnackbarDuration.Short)
+        if (result == SnackbarResult.ActionPerformed) viewModel.undoCooked(logId)
+        // Cleared only now: clearing it earlier would change the key and cancel this snackbar.
+        viewModel.onUndoShown()
+    }
 
     Scaffold(
         topBar = {
@@ -119,6 +192,7 @@ fun RecipeDetailScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         val detail = state ?: return@Scaffold
         val current = detail.recipe
@@ -146,6 +220,13 @@ fun RecipeDetailScreen(
                     headlineContent = { Text(stringResource(R.string.recipe_modified_hint)) },
                 )
             }
+            CookedSection(
+                stats = detail.cooking,
+                cookDate = cookDate ?: viewModel.today(),
+                today = viewModel.today(),
+                onPickDate = { pickCookDate = true },
+                onCooked = viewModel::markCooked,
+            )
             DetailRow(stringResource(R.string.recipe_source), sourceLabel(current))
             DetailRow(stringResource(R.string.recipe_book_servings), current.bookServings.toString())
             DetailRow(stringResource(R.string.recipe_our_servings), current.ourServings.toString())
@@ -188,6 +269,15 @@ fun RecipeDetailScreen(
             }
         }
 
+        if (pickCookDate) {
+            CookDatePickerDialog(
+                date = cookDate ?: viewModel.today(),
+                today = viewModel.today(),
+                onPick = viewModel::setCookDate,
+                onDismiss = { pickCookDate = false },
+            )
+        }
+
         if (confirmDelete) {
             AlertDialog(
                 onDismissRequest = { confirmDelete = false },
@@ -205,6 +295,40 @@ fun RecipeDetailScreen(
                     }
                 },
             )
+        }
+    }
+}
+
+/** Last cooked, times cooked, and the "Gekocht" action with its date chip. */
+@Composable
+private fun CookedSection(
+    stats: CookingStats,
+    cookDate: LocalDate,
+    today: LocalDate,
+    onPickDate: () -> Unit,
+    onCooked: () -> Unit,
+) {
+    ListItem(
+        headlineContent = { Text(lastCookedLabel(stats)) },
+        supportingContent = if (stats.timesCooked > 0) {
+            { Text(stringResource(R.string.cooked_times, stats.timesCooked)) }
+        } else {
+            null
+        },
+    )
+    Row(
+        Modifier.padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AssistChip(
+            onClick = onPickDate,
+            label = { Text(cookDateLabel(cookDate, today)) },
+            leadingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
+        )
+        Button(onClick = onCooked) {
+            Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(ButtonDefaults.IconSize))
+            Text(stringResource(R.string.cooked_action), Modifier.padding(start = 8.dp))
         }
     }
 }

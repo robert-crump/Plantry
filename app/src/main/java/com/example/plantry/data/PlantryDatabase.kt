@@ -8,9 +8,13 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 @Database(
-    entities = [Recipe::class, Ingredient::class, RecipeIngredient::class],
-    version = 3,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    entities = [Recipe::class, Ingredient::class, RecipeIngredient::class, CookLog::class],
+    version = 4,
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2),
+        AutoMigration(from = 2, to = 3),
+        AutoMigration(from = 3, to = 4),
+    ],
 )
 @TypeConverters(Converters::class)
 abstract class PlantryDatabase : RoomDatabase() {
@@ -18,6 +22,8 @@ abstract class PlantryDatabase : RoomDatabase() {
     abstract fun recipeDao(): RecipeDao
 
     abstract fun ingredientDao(): IngredientDao
+
+    abstract fun cookLogDao(): CookLogDao
 
     companion object {
         fun create(context: Context): PlantryDatabase =

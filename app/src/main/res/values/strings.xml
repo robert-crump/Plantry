@@ -57,6 +57,22 @@
     <string name="recipe_modified">Angepasst</string>
     <string name="recipe_modified_hint">Die Zutaten weichen vom Original ab.</string>
 
+    <!-- Cooking log -->
+    <string name="cooked_action">Gekocht</string>
+    <string name="cooked_logged">Als gekocht eingetragen</string>
+    <string name="cooked_never">Noch nie gekocht</string>
+    <string name="cooked_last_today">Zuletzt heute gekocht</string>
+    <string name="cooked_last_yesterday">Zuletzt gestern gekocht</string>
+    <string name="cooked_last_days_ago">Zuletzt vor %1$d Tagen gekocht</string>
+    <string name="cooked_times">%1$d× gekocht</string>
+    <string name="cook_history_title">Gekocht-Verlauf</string>
+    <string name="cook_history_open">Verlauf</string>
+    <string name="cook_history_empty">Noch nichts gekocht. Trage ein Rezept über „Gekocht“ ein.</string>
+    <string name="cook_history_deleted">Eintrag gelöscht</string>
+    <string name="date_today">Heute</string>
+    <string name="date_yesterday">Gestern</string>
+    <string name="action_undo">Rückgängig</string>
+
     <!-- Nutrition -->
     <string name="recipe_section_nutrition">Nährwerte je Portion</string>
     <string name="nutrition_protein_per_portion">%1$s g Eiweiß je Portion</string>

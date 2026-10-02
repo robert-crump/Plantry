@@ -8,10 +8,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -45,11 +47,21 @@ fun RecipeListScreen(
     viewModel: RecipeListViewModel,
     onRecipeClick: (Long) -> Unit,
     onAddRecipe: () -> Unit,
+    onOpenHistory: () -> Unit,
 ) {
     val recipes by viewModel.recipes.collectAsStateWithLifecycle()
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.recipes_title)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.recipes_title)) },
+                actions = {
+                    IconButton(onClick = onOpenHistory) {
+                        Icon(Icons.Filled.History, stringResource(R.string.cook_history_open))
+                    }
+                },
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddRecipe) {
                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.recipe_add))

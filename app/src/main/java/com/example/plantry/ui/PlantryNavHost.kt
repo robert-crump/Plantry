@@ -33,6 +33,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.example.plantry.PlantryApplication
 import com.example.plantry.R
+import com.example.plantry.ui.cooklog.CookHistoryScreen
+import com.example.plantry.ui.cooklog.CookHistoryViewModel
 import com.example.plantry.ui.ingredient.IngredientDetailScreen
 import com.example.plantry.ui.ingredient.IngredientDetailViewModel
 import com.example.plantry.ui.ingredient.IngredientListScreen
@@ -59,6 +61,9 @@ data class RecipeDetailRoute(val recipeId: Long)
 /** A null [recipeId] creates a new recipe. */
 @Serializable
 data class RecipeEditRoute(val recipeId: Long? = null)
+
+@Serializable
+object CookHistoryRoute
 
 @Serializable
 object IngredientListRoute
@@ -89,6 +94,7 @@ fun PlantryNavHost() {
     val recipeRepository = app.recipeRepository
     val ingredientRepository = app.ingredientRepository
     val settingsRepository = app.settingsRepository
+    val cookLogRepository = app.cookLogRepository
 
     val currentDestination = navController.currentBackStackEntryAsState().value?.destination
     val currentTopLevel = TopLevelDestination.entries.firstOrNull { top ->
@@ -129,12 +135,13 @@ fun PlantryNavHost() {
                     viewModel = viewModel { RecipeListViewModel(recipeRepository) },
                     onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                     onAddRecipe = { navController.navigate(RecipeEditRoute()) },
+                    onOpenHistory = { navController.navigate(CookHistoryRoute) },
                 )
             }
             composable<RecipeDetailRoute> { entry ->
                 val recipeId = entry.toRoute<RecipeDetailRoute>().recipeId
                 RecipeDetailScreen(
-                    viewModel = viewModel { RecipeDetailViewModel(recipeId, recipeRepository, ingredientRepository) },
+                    viewModel = viewModel { RecipeDetailViewModel(recipeId, recipeRepository, ingredientRepository, cookLogRepository) },
                     onBack = { navController.popBackStack() },
                     onEdit = { navController.navigate(RecipeEditRoute(recipeId)) },
                 )
@@ -144,6 +151,13 @@ fun PlantryNavHost() {
                 RecipeEditScreen(
                     viewModel = viewModel { RecipeEditViewModel(recipeId, recipeRepository, ingredientRepository) },
                     onBack = { navController.popBackStack() },
+                )
+            }
+            composable<CookHistoryRoute> {
+                CookHistoryScreen(
+                    viewModel = viewModel { CookHistoryViewModel(cookLogRepository) },
+                    onBack = { navController.popBackStack() },
+                    onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                 )
             }
             composable<IngredientListRoute> {
