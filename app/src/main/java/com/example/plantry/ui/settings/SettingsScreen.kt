@@ -370,4 +370,9 @@ val ClaudeFailure.message: Int
         ClaudeFailure.OVERLOADED -> R.string.claude_error_overloaded
         ClaudeFailure.NETWORK -> R.string.claude_error_network
         ClaudeFailure.UNKNOWN -> R.string.claude_error_unknown
+        ClaudeFailure.NO_API_KEY -> R.string.claude_error_no_api_key
+        ClaudeFailure.REFUSED -> R.string.claude_error_refused
+        ClaudeFailure.TRUNCATED -> R.string.claude_error_truncated
+        ClaudeFailure.BAD_RESPONSE -> R.string.claude_error_bad_response
+        ClaudeFailure.NOT_A_RECIPE -> R.string.claude_error_not_a_recipe
     }

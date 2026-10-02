@@ -4,6 +4,8 @@ import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeDraft
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeIngredientDraft
+import com.example.plantry.data.claude.ScannedLine
+import com.example.plantry.data.claude.ScannedRecipe
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -77,9 +79,59 @@ class RecipeFormTest {
     fun withLine_appendsOrReplacesAndRemoveLineDeletes() {
         val form = valid.withLine(null, tofu).withLine(null, rice).withLine(0, tofu.copy(grams = 300.0))
 
-        assertEquals(listOf(tofu.copy(grams = 300.0), rice), form.lines)
-        assertEquals(listOf(rice), form.removeLine(0).lines)
+        assertEquals(listOf(tofu.copy(grams = 300.0), rice), form.completeLines())
+        assertEquals(listOf(rice), form.removeLine(0).completeLines())
         assertEquals(listOf(tofu.copy(grams = 300.0), rice), form.toDraft()!!.lines)
+    }
+
+    @Test
+    fun withScan_takesMetadataAndLinesButKeepsSource() {
+        val scan = ScannedRecipe(
+            title = "Linsen-Dal",
+            servings = 4,
+            cookingTimeMinutes = 40,
+            page = 112,
+            lines = listOf(
+                ScannedLine("200 g rote Linsen", 200.0, ingredientId = 3, ingredientName = "Linsen", uncertain = false),
+                ScannedLine("1 Bund Koriander", 30.0, ingredientId = null, ingredientName = "Koriander", uncertain = true),
+            ),
+        )
+
+        val form = RecipeForm(source = "Ottolenghi").withScan(scan)
+
+        assertEquals("Linsen-Dal", form.title)
+        assertEquals("Ottolenghi", form.source)
+        assertEquals("112", form.page)
+        assertEquals("4", form.bookServings)
+        assertEquals("4", form.ourServings)
+        assertEquals("40", form.cookingTime)
+        assertEquals(RecipeFormLine("1 Bund Koriander", 30.0, null, "Koriander", uncertain = true), form.lines[1])
+    }
+
+    @Test
+    fun unmatchedLine_blocksSaveAndIsLeftOutOfNutrition() {
+        val form = valid.withLine(null, tofu).withLine(null, RecipeFormLine("1 Bund Koriander", 30.0, ingredientId = null))
+
+        assertTrue(form.errors().lines)
+        assertNull(form.toDraft())
+        assertEquals(listOf(tofu), form.completeLines())
+    }
+
+    @Test
+    fun lineWithoutWeight_blocksSave() {
+        val form = valid.withLine(null, RecipeFormLine("Salz", 0.0, ingredientId = 7))
+
+        assertTrue(form.errors().lines)
+        assertNull(form.toDraft())
+    }
+
+    @Test
+    fun resolvedLines_allowSave() {
+        val form = valid.withLine(null, RecipeFormLine("1 Bund Koriander", 30.0, ingredientId = null, uncertain = true))
+            .withLine(0, RecipeIngredientDraft("1 Bund Koriander", 25.0, ingredientId = 9))
+
+        assertFalse(form.lines[0].uncertain)
+        assertEquals(listOf(RecipeIngredientDraft("1 Bund Koriander", 25.0, 9)), form.toDraft()!!.lines)
     }
 
     @Test
@@ -90,7 +142,7 @@ class RecipeFormTest {
             RecipeIngredient(11, recipeId = 1, position = 1, originalText = "1 Tasse Reis", grams = 185.0, ingredientId = 8),
         )
 
-        assertEquals(listOf(tofu, rice), RecipeForm.from(recipe, stored).lines)
+        assertEquals(listOf(tofu, rice), RecipeForm.from(recipe, stored).completeLines())
     }
 
     @Test

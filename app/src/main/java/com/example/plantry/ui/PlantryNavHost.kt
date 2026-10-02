@@ -85,9 +85,9 @@ object RecipeListRoute
 @Serializable
 data class RecipeDetailRoute(val recipeId: Long)
 
-/** A null [recipeId] creates a new recipe. */
+/** A null [recipeId] creates a new recipe; with [scan], it is read from a photo first. */
 @Serializable
-data class RecipeEditRoute(val recipeId: Long? = null)
+data class RecipeEditRoute(val recipeId: Long? = null, val scan: Boolean = false)
 
 @Serializable
 object CookHistoryRoute
@@ -198,22 +198,37 @@ fun PlantryNavHost() {
                         viewModel = viewModel { RecipeListViewModel(recipeRepository) },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                         onAddRecipe = { navController.navigate(RecipeEditRoute()) },
+                        onScanRecipe = { navController.navigate(RecipeEditRoute(scan = true)) },
                         onOpenHistory = { navController.navigate(CookHistoryRoute) },
                     )
                 }
                 composable<RecipeDetailRoute> { entry ->
                     val recipeId = entry.toRoute<RecipeDetailRoute>().recipeId
                     RecipeDetailScreen(
-                        viewModel = viewModel { RecipeDetailViewModel(recipeId, recipeRepository, ingredientRepository, cookLogRepository, weekPlanRepository) },
+                        viewModel = viewModel {
+                            RecipeDetailViewModel(recipeId, recipeRepository, ingredientRepository, cookLogRepository, weekPlanRepository, app.recipePhotoRepository)
+                        },
                         onBack = { navController.popBackStack() },
                         onEdit = { navController.navigate(RecipeEditRoute(recipeId)) },
                     )
                 }
                 composable<RecipeEditRoute> { entry ->
-                    val recipeId = entry.toRoute<RecipeEditRoute>().recipeId
+                    val route = entry.toRoute<RecipeEditRoute>()
                     RecipeEditScreen(
-                        viewModel = viewModel { RecipeEditViewModel(recipeId, recipeRepository, ingredientRepository) },
+                        viewModel = viewModel {
+                            RecipeEditViewModel(
+                                route.recipeId,
+                                route.scan,
+                                recipeRepository,
+                                ingredientRepository,
+                                app.recipePhotoRepository,
+                                app.recipeScanner,
+                                settingsRepository,
+                                app.photoCompressor::compress,
+                            )
+                        },
                         onBack = { navController.popBackStack() },
+                        onCreateIngredient = { navController.navigate(UsdaSearchRoute) },
                     )
                 }
                 composable<CookHistoryRoute> {

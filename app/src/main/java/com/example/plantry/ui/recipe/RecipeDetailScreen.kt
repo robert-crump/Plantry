@@ -4,7 +4,10 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -54,6 +57,7 @@ import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeNutrition
+import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.SlotRef
 import com.example.plantry.data.WeekPlanRepository
@@ -91,8 +95,13 @@ class RecipeDetailViewModel(
     ingredientRepository: IngredientRepository,
     private val cookLogRepository: CookLogRepository,
     private val weekPlanRepository: WeekPlanRepository,
+    private val photos: RecipePhotoRepository,
     private val clock: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
+    /** The cookbook page photo, if the recipe has one. */
+    val photo: StateFlow<ByteArray?> = photos.observe(recipeId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     /** Null until loaded, and after the recipe was deleted. */
     val state: StateFlow<RecipeDetailUiState?> = combine(
         repository.observeRecipe(recipeId),
@@ -155,6 +164,7 @@ class RecipeDetailViewModel(
     fun delete(onDeleted: () -> Unit) {
         viewModelScope.launch {
             repository.delete(recipeId)
+            photos.delete(recipeId)
             onDeleted()
         }
     }
@@ -170,6 +180,7 @@ fun RecipeDetailScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val cookDate by viewModel.cookDate.collectAsStateWithLifecycle()
     val justLogged by viewModel.justLogged.collectAsStateWithLifecycle()
+    val photo by viewModel.photo.collectAsStateWithLifecycle()
     val recipe = state?.recipe
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var pickCookDate by rememberSaveable { mutableStateOf(false) }
@@ -243,6 +254,15 @@ fun RecipeDetailScreen(
                 onPickDate = { pickCookDate = true },
                 onCooked = viewModel::markCooked,
             )
+            photo?.let { bytes ->
+                ZoomablePhoto(
+                    bytes,
+                    Modifier
+                        .fillMaxWidth()
+                        .height(320.dp)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                )
+            }
             DetailRow(stringResource(R.string.recipe_source), sourceLabel(current))
             DetailRow(stringResource(R.string.recipe_book_servings), current.bookServings.toString())
             DetailRow(stringResource(R.string.recipe_our_servings), current.ourServings.toString())

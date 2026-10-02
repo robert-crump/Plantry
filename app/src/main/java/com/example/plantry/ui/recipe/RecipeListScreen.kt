@@ -1,14 +1,17 @@
 package com.example.plantry.ui.recipe
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -17,6 +20,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -47,6 +51,7 @@ fun RecipeListScreen(
     viewModel: RecipeListViewModel,
     onRecipeClick: (Long) -> Unit,
     onAddRecipe: () -> Unit,
+    onScanRecipe: () -> Unit,
     onOpenHistory: () -> Unit,
 ) {
     val recipes by viewModel.recipes.collectAsStateWithLifecycle()
@@ -63,8 +68,13 @@ fun RecipeListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddRecipe) {
-                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.recipe_add))
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                SmallFloatingActionButton(onClick = onAddRecipe) {
+                    Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.recipe_add))
+                }
+                FloatingActionButton(onClick = onScanRecipe) {
+                    Icon(Icons.Filled.PhotoCamera, contentDescription = stringResource(R.string.recipe_scan))
+                }
             }
         },
     ) { padding ->

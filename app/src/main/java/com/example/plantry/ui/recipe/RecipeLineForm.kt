@@ -39,10 +39,13 @@ data class RecipeLineForm(
     }
 
     companion object {
-        fun from(line: RecipeIngredientDraft, ingredientName: String) = RecipeLineForm(
+        fun from(line: RecipeIngredientDraft, ingredientName: String) = from(RecipeFormLine.from(line), ingredientName)
+
+        /** An unmatched line starts with Claude's name for the food as the search term. */
+        fun from(line: RecipeFormLine, ingredientName: String?) = RecipeLineForm(
             originalText = line.originalText,
-            grams = formatDecimal(line.grams),
-            ingredientQuery = ingredientName,
+            grams = if (line.grams > 0.0) formatDecimal(line.grams) else "",
+            ingredientQuery = ingredientName ?: line.ingredientName,
             ingredientId = line.ingredientId,
         )
     }

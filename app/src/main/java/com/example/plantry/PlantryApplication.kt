@@ -3,13 +3,17 @@ package com.example.plantry
 import android.app.Application
 import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.PhotoCompressor
 import com.example.plantry.data.PlantryDatabase
+import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.ShoppingListRepository
 import com.example.plantry.data.WeekPlanRepository
 import com.example.plantry.data.backup.BackupRepository
 import com.example.plantry.data.backup.FilePhotoStore
 import com.example.plantry.data.claude.AnthropicConnectionTester
+import com.example.plantry.data.claude.AnthropicRecipeScanner
+import com.example.plantry.data.claude.RecipeScanner
 import com.example.plantry.data.planner.WeekPlanner
 import com.example.plantry.data.claude.ConnectionTester
 import com.example.plantry.data.settings.KeystoreCipher
@@ -55,16 +59,24 @@ class PlantryApplication : Application() {
         )
     }
 
+    private val photoStore by lazy { FilePhotoStore(filesDir.resolve(PHOTO_DIR)) }
+
+    val recipePhotoRepository: RecipePhotoRepository by lazy { RecipePhotoRepository(photoStore) }
+
+    val photoCompressor: PhotoCompressor by lazy { PhotoCompressor(contentResolver) }
+
     val backupRepository: BackupRepository by lazy {
         BackupRepository(
             database.backupDao(),
-            FilePhotoStore(filesDir.resolve(PHOTO_DIR)),
+            photoStore,
             settingsRepository,
             SharedPreferencesStorage(getSharedPreferences(BACKUP_PREFS, MODE_PRIVATE)),
         )
     }
 
     val connectionTester: ConnectionTester = AnthropicConnectionTester()
+
+    val recipeScanner: RecipeScanner = AnthropicRecipeScanner()
 
     private companion object {
         /** Recipe photos, one "<recipeId>.jpg" each. */

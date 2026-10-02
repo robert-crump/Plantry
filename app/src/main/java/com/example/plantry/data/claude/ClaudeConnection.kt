@@ -18,7 +18,18 @@ enum class ClaudeFailure {
     RATE_LIMITED,
     OVERLOADED,
     NETWORK,
-    UNKNOWN;
+    UNKNOWN,
+
+    // Only when scanning a recipe.
+    NO_API_KEY,
+    /** Claude declined to answer (stop reason "refusal"). */
+    REFUSED,
+    /** The answer was cut off at the output limit (stop reason "max_tokens"). */
+    TRUNCATED,
+    /** The answer could not be parsed. */
+    BAD_RESPONSE,
+    /** Claude found no recipe on the photo. */
+    NOT_A_RECIPE;
 
     companion object {
         /** Prefers the API's error type (e.g. "billing_error") and falls back to the HTTP status. */

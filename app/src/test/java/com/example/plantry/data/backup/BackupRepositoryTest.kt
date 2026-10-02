@@ -259,6 +259,16 @@ private class FakePhotoStore : PhotoStore {
     override fun replaceAll(photos: Photos) {
         this.photos = photos
     }
+
+    override fun get(recipeId: Long) = photos[recipeId]
+
+    override fun put(recipeId: Long, bytes: ByteArray) {
+        photos = photos + (recipeId to bytes)
+    }
+
+    override fun delete(recipeId: Long) {
+        photos = photos - recipeId
+    }
 }
 
 private class MapStorage : SettingsStorage {

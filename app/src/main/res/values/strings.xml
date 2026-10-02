@@ -10,8 +10,9 @@
 
     <!-- Recipe list -->
     <string name="recipes_title">Rezepte</string>
-    <string name="recipes_empty">Noch keine Rezepte. Lege mit + dein erstes Rezept an.</string>
-    <string name="recipe_add">Rezept hinzufügen</string>
+    <string name="recipes_empty">Noch keine Rezepte. Fotografiere eine Rezeptseite oder lege eins von Hand an.</string>
+    <string name="recipe_add">Rezept von Hand anlegen</string>
+    <string name="recipe_scan">Rezept scannen</string>
 
     <!-- Recipe fields -->
     <string name="recipe_title">Titel</string>
@@ -51,7 +52,21 @@
     <string name="recipe_line_text_hint">z. B. „1 große Süßkartoffel“</string>
     <string name="recipe_line_grams">Menge (g)</string>
     <string name="recipe_line_ingredient">Zutat aus deiner Tabelle</string>
-    <string name="recipe_line_no_match">Keine passende Zutat. Neue Zutaten legst du unter „Zutaten“ an.</string>
+    <string name="recipe_line_no_match">Keine passende Zutat in deiner Tabelle.</string>
+    <string name="recipe_line_create_ingredient">Neue Zutat anlegen</string>
+    <string name="recipe_line_uncertain">Unsicher – bitte prüfen</string>
+    <string name="recipe_line_incomplete">Zutat oder Menge fehlt</string>
+    <string name="recipe_line_no_ingredient">keine Zutat</string>
+    <string name="error_lines_incomplete">Jede Zeile braucht eine Zutat aus deiner Tabelle und eine Menge.</string>
+    <string name="recipe_photo">Foto der Rezeptseite</string>
+    <string name="photo_take">Foto aufnehmen</string>
+    <string name="photo_retake">Neues Foto</string>
+    <string name="photo_pick">Aus Galerie</string>
+    <string name="photo_unreadable">Das Foto konnte nicht geladen werden.</string>
+    <string name="scan_intro">Fotografiere die Rezeptseite. Claude liest Titel, Portionen, Kochzeit und Zutaten, du prüfst danach alles.</string>
+    <string name="scan_reading">Claude liest das Rezept …</string>
+    <string name="scan_retry">Erneut versuchen</string>
+    <string name="scan_skip">Von Hand ausfüllen</string>
     <string name="error_ingredient_required">Bitte eine Zutat aus den Vorschlägen wählen</string>
     <string name="action_apply">Übernehmen</string>
     <string name="recipe_modified">Angepasst</string>
@@ -237,6 +252,11 @@
     <string name="claude_error_overloaded">Claude ist gerade überlastet oder nicht erreichbar. Bitte später erneut versuchen.</string>
     <string name="claude_error_network">Keine Verbindung zum Internet oder zu Anthropic.</string>
     <string name="claude_error_unknown">Unerwarteter Fehler bei der Anfrage an Claude.</string>
+    <string name="claude_error_no_api_key">Kein API-Schlüssel hinterlegt. Bitte in den Einstellungen eintragen.</string>
+    <string name="claude_error_refused">Claude hat die Anfrage abgelehnt. Versuche es mit einem anderen Foto.</string>
+    <string name="claude_error_truncated">Die Antwort von Claude war zu lang und wurde abgeschnitten. Bitte erneut versuchen.</string>
+    <string name="claude_error_bad_response">Die Antwort von Claude war unvollständig. Bitte erneut versuchen.</string>
+    <string name="claude_error_not_a_recipe">Auf dem Foto wurde kein Rezept erkannt. Ist die ganze Seite scharf im Bild?</string>
 
     <string name="settings_backup">Datensicherung</string>
     <string name="backup_export">Exportieren</string>
