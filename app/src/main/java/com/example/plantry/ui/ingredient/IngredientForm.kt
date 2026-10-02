@@ -106,6 +106,6 @@ data class IngredientFormErrors(
 fun formatDecimal(value: Double): String =
     BigDecimal.valueOf(value).stripTrailingZeros().toPlainString().replace('.', ',')
 
-private fun String.toDecimalOrNull(): Double? = trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() }
+internal fun String.toDecimalOrNull(): Double? = trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() }
 
-private fun String.toPositiveDecimalOrNull(): Double? = toDecimalOrNull()?.takeIf { it > 0 }
+internal fun String.toPositiveDecimalOrNull(): Double? = toDecimalOrNull()?.takeIf { it > 0 }

@@ -76,4 +76,58 @@ class RecipeDaoTest {
         assertNull(dao.getById(remove))
         assertEquals(listOf(keep), dao.observeAll().first().map { it.id })
     }
+
+    private suspend fun insertIngredient(name: String) = db.ingredientDao().insert(
+        Ingredient(
+            name = name,
+            fdcId = null,
+            usdaDescription = null,
+            nutrition = Nutrition(protein = 10.0),
+            unitWeights = emptyList(),
+            buyUnit = BuyUnit.GRAMS,
+            packSizeGrams = null,
+            storeSection = StoreSection.OTHER,
+            staple = false,
+            plantPoints = PlantPoints.ZERO,
+            buyAsIngredientId = null,
+            buyAsYieldFactor = null,
+            reviewed = true,
+        ),
+    )
+
+    @Test
+    fun insertWithLines_storesLinesInOrder() = runTest {
+        val tofu = insertIngredient("Tofu")
+        val rice = insertIngredient("Reis")
+        val lines = listOf(RecipeIngredientDraft("1 Tasse Reis", 185.0, rice), RecipeIngredientDraft("Tofu", 200.0, tofu))
+
+        val id = dao.insertWithLines(recipe("Bowl"), lines)
+
+        assertEquals(lines, dao.observeLines(id).first().map { it.toDraft() })
+        assertEquals(listOf(0, 1), dao.getLines(id).map { it.position })
+    }
+
+    @Test
+    fun updateWithLines_replacesAllLines() = runTest {
+        val tofu = insertIngredient("Tofu")
+        val id = dao.insertWithLines(recipe("Bowl"), listOf(RecipeIngredientDraft("Tofu", 200.0, tofu)))
+
+        dao.updateWithLines(
+            recipe("Bowl").copy(id = id, modified = true),
+            listOf(RecipeIngredientDraft("Tofu", 300.0, tofu), RecipeIngredientDraft("mehr Tofu", 50.0, tofu)),
+        )
+
+        assertEquals(listOf(300.0, 50.0), dao.getLines(id).map { it.grams })
+        assertEquals(true, dao.getById(id)!!.modified)
+    }
+
+    @Test
+    fun deleteById_cascadesToLines() = runTest {
+        val tofu = insertIngredient("Tofu")
+        val id = dao.insertWithLines(recipe("Bowl"), listOf(RecipeIngredientDraft("Tofu", 200.0, tofu)))
+
+        dao.deleteById(id)
+
+        assertEquals(emptyList<RecipeIngredient>(), dao.getLines(id))
+    }
 }

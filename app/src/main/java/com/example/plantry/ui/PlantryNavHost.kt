@@ -121,7 +121,7 @@ fun PlantryNavHost() {
             composable<RecipeDetailRoute> { entry ->
                 val recipeId = entry.toRoute<RecipeDetailRoute>().recipeId
                 RecipeDetailScreen(
-                    viewModel = viewModel { RecipeDetailViewModel(recipeId, recipeRepository) },
+                    viewModel = viewModel { RecipeDetailViewModel(recipeId, recipeRepository, ingredientRepository) },
                     onBack = { navController.popBackStack() },
                     onEdit = { navController.navigate(RecipeEditRoute(recipeId)) },
                 )
@@ -129,7 +129,7 @@ fun PlantryNavHost() {
             composable<RecipeEditRoute> { entry ->
                 val recipeId = entry.toRoute<RecipeEditRoute>().recipeId
                 RecipeEditScreen(
-                    viewModel = viewModel { RecipeEditViewModel(recipeId, recipeRepository) },
+                    viewModel = viewModel { RecipeEditViewModel(recipeId, recipeRepository, ingredientRepository) },
                     onBack = { navController.popBackStack() },
                 )
             }

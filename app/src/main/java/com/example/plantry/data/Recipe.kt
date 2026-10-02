@@ -1,5 +1,6 @@
 package com.example.plantry.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -12,6 +13,8 @@ data class Recipe(
     val bookServings: Int,
     val ourServings: Int,
     val cookingTimeMinutes: Int,
+    /** Set once the ingredient lines were edited after the recipe was first saved. */
+    @ColumnInfo(defaultValue = "0") val modified: Boolean = false,
 )
 
 /** User input for creating or updating a [Recipe]; [ourServings] falls back to [bookServings]. */
@@ -22,4 +25,5 @@ data class RecipeDraft(
     val bookServings: Int,
     val ourServings: Int?,
     val cookingTimeMinutes: Int,
+    val lines: List<RecipeIngredientDraft>,
 )

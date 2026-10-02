@@ -39,6 +39,37 @@
     <string name="recipe_delete_title">Rezept löschen?</string>
     <string name="recipe_delete_message">„%1$s“ wird endgültig gelöscht.</string>
 
+    <!-- Recipe ingredient lines -->
+    <string name="recipe_section_lines">Zutaten</string>
+    <string name="recipe_lines_empty">Noch keine Zutaten.</string>
+    <string name="recipe_line_amount">%1$s g · %2$s</string>
+    <string name="recipe_line_add">Zutat hinzufügen</string>
+    <string name="recipe_line_new">Neue Zeile</string>
+    <string name="recipe_line_edit">Zeile bearbeiten</string>
+    <string name="recipe_line_remove">Zeile entfernen</string>
+    <string name="recipe_line_text">Text laut Rezept</string>
+    <string name="recipe_line_text_hint">z. B. „1 große Süßkartoffel“</string>
+    <string name="recipe_line_grams">Menge (g)</string>
+    <string name="recipe_line_ingredient">Zutat aus deiner Tabelle</string>
+    <string name="recipe_line_no_match">Keine passende Zutat. Neue Zutaten legst du unter „Zutaten“ an.</string>
+    <string name="error_ingredient_required">Bitte eine Zutat aus den Vorschlägen wählen</string>
+    <string name="action_apply">Übernehmen</string>
+    <string name="recipe_modified">Angepasst</string>
+    <string name="recipe_modified_hint">Die Zutaten weichen vom Original ab.</string>
+
+    <!-- Nutrition -->
+    <string name="recipe_section_nutrition">Nährwerte je Portion</string>
+    <string name="nutrition_protein_per_portion">%1$s g Eiweiß je Portion</string>
+    <string name="protein_rating_green">Ziel erreicht (ab 30 g)</string>
+    <string name="protein_rating_yellow">Etwas wenig (unter 30 g)</string>
+    <string name="protein_rating_red">Zu wenig (unter 20 g)</string>
+    <string name="nutrient_name_kcal">Energie</string>
+    <string name="nutrient_name_protein">Eiweiß</string>
+    <string name="nutrient_name_carbs">Kohlenhydrate</string>
+    <string name="nutrient_name_sugar">davon Zucker</string>
+    <string name="nutrient_name_fat">Fett</string>
+    <string name="nutrient_name_fibre">Ballaststoffe</string>
+
     <!-- Ingredient list -->
     <string name="ingredients_title">Zutaten</string>
     <string name="ingredients_empty">Noch keine Zutaten. Lege mit + eine Zutat aus der USDA-Datenbank an.</string>
