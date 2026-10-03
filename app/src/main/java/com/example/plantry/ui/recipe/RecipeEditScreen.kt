@@ -21,7 +21,19 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -53,6 +65,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
+import com.example.plantry.data.BookPage
+import com.example.plantry.data.BookSession
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientSuggestions
@@ -60,6 +74,7 @@ import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.NewIngredientFinder
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
+import com.example.plantry.data.SourceSuggestions
 import com.example.plantry.data.claude.ClaudeFailure
 import com.example.plantry.data.claude.ClaudeResult
 import com.example.plantry.data.claude.NewFood
@@ -102,6 +117,8 @@ data class RecipeEditUiState(
     val proposals: ProposalState = ProposalState.Idle,
     /** Null while no other USDA entry is being picked. */
     val usdaPicker: UsdaPickerState? = null,
+    /** A scan is reviewed in two steps: the recipe fields first, then (once true) the lines. */
+    val linesStep: Boolean = false,
 )
 
 sealed interface ProposalState {
@@ -145,6 +162,7 @@ class RecipeEditViewModel(
     private val newIngredientFinder: NewIngredientFinder,
     private val loadCatalog: suspend () -> UsdaCatalog,
     private val settings: SettingsRepository,
+    private val bookSession: BookSession,
     private val compressPhoto: suspend (Uri) -> ByteArray?,
 ) : ViewModel() {
 
@@ -191,6 +209,13 @@ class RecipeEditViewModel(
         combine(ingredients, _state.map { it.form.newIngredients }.distinctUntilChanged()) { all, new ->
             all.associate { it.id to it.name } + new.mapValues { it.value.proposal.name }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /** Sources of other recipes matching what is typed into the source field. */
+    val sourceSuggestions: StateFlow<List<String>> = combine(
+        _state.map { it.form.source }.distinctUntilChanged(),
+        repository.observeRecipes().map { recipes -> recipes.map { it.source } },
+    ) { query, sources -> SourceSuggestions.match(query, sources) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Search results of the USDA picker; null while the data is loading or no picker is open. */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -245,7 +270,11 @@ class RecipeEditViewModel(
             val result = scanner.scan(apiKey, settings.settings.value.scanModel, photo, ingredients.value)
             _state.update { state ->
                 when (result) {
-                    is ScanResult.Success -> state.copy(form = state.form.withScan(result.recipe), scan = ScanState.Done)
+                    is ScanResult.Success -> {
+                        // Claude never reads the book, so the source always comes from the session.
+                        val book = bookSession.defaults(BookPage(source = "", page = result.recipe.page))
+                        state.copy(form = state.form.withScan(result.recipe, book), scan = ScanState.Done)
+                    }
                     is ScanResult.Failure -> state.copy(scan = ScanState.Failed(result.reason))
                 }
             }
@@ -344,6 +373,17 @@ class RecipeEditViewModel(
         _state.update { it.copy(scan = ScanState.Done) }
     }
 
+    /** Leaves the recipe fields of a scan for its lines, once the fields are valid. */
+    fun showLines() {
+        _state.update { state ->
+            if (state.form.errors().fields) state.copy(showErrors = true) else state.copy(linesStep = true, showErrors = false)
+        }
+    }
+
+    fun showFields() {
+        _state.update { it.copy(linesStep = false) }
+    }
+
     fun onFormChange(transform: RecipeForm.() -> RecipeForm) {
         _state.update { it.copy(form = it.form.transform()) }
     }
@@ -398,6 +438,7 @@ class RecipeEditViewModel(
             val saved = draft.withIngredientIds(newIds)
             val id = recipeId?.also { repository.update(it, saved) } ?: repository.create(saved)
             if (state.photoChanged && state.photo != null) photos.save(id, state.photo)
+            if (isScan) bookSession.remember(saved.source, saved.page)
             _state.update { it.copy(saved = true) }
         }
     }
@@ -414,12 +455,18 @@ fun RecipeEditScreen(
     val preview by viewModel.preview.collectAsStateWithLifecycle()
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     val ingredientNames by viewModel.ingredientNames.collectAsStateWithLifecycle()
+    val sourceSuggestions by viewModel.sourceSuggestions.collectAsStateWithLifecycle()
     val photoSource = rememberPhotoSource(viewModel::onPhoto)
     LaunchedEffect(state.saved) { if (state.saved) onBack() }
 
     val form = state.form
     val errors = if (state.showErrors) form.errors() else null
     val showForm = state.scan == ScanState.Done
+    // A scan is reviewed in two steps, recipe fields then lines; otherwise both show at once.
+    val showFields = showForm && !(viewModel.isScan && state.linesStep)
+    val showLines = showForm && (!viewModel.isScan || state.linesStep)
+    val back = if (viewModel.isScan && state.linesStep) viewModel::showFields else onBack
+    BackHandler(enabled = viewModel.isScan && state.linesStep, onBack = viewModel::showFields)
 
     Scaffold(
         topBar = {
@@ -436,13 +483,15 @@ fun RecipeEditScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = back) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
                     }
                 },
                 actions = {
-                    if (showForm) {
+                    if (showLines) {
                         TextButton(onClick = viewModel::save) { Text(stringResource(R.string.action_save)) }
+                    } else if (showFields) {
+                        TextButton(onClick = viewModel::showLines) { Text(stringResource(R.string.action_next)) }
                     }
                 },
             )
@@ -468,14 +517,17 @@ fun RecipeEditScreen(
                 .padding(padding)
                 .imePadding(),
         ) {
-            // Fixed above the form, so the page stays in view while correcting the lines.
-            PhotoSection(
-                state = state,
-                isScan = viewModel.isScan,
-                photoSource = photoSource,
-                onRead = viewModel::readPhoto,
-                onSkipScan = viewModel::skipScan,
-            )
+            // A scan shows the photo only until it is read; the review works from the fields alone.
+            if (!viewModel.isScan || !showForm) {
+                // Fixed above the form, so the page stays in view while correcting the lines.
+                PhotoSection(
+                    state = state,
+                    isScan = viewModel.isScan,
+                    photoSource = photoSource,
+                    onRead = viewModel::readPhoto,
+                    onSkipScan = viewModel::skipScan,
+                )
+            }
             if (showForm) {
                 Column(
                     Modifier
@@ -484,43 +536,58 @@ fun RecipeEditScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    RecipeFields(form, errors, viewModel::onFormChange)
-                    Text(
-                        stringResource(R.string.recipe_section_lines),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 16.dp),
-                    )
-                    if (errors?.lines == true) {
-                        Text(
-                            stringResource(R.string.error_lines_incomplete),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
+                    if (showFields) {
+                        RecipeFields(
+                            form = form,
+                            errors = errors,
+                            sourceSuggestions = sourceSuggestions,
+                            onFormChange = viewModel::onFormChange,
+                            onDone = if (viewModel.isScan) viewModel::showLines else null,
                         )
-                    }
-                    ProposalStatus(state.proposals, onRetry = viewModel::proposeNewIngredients)
-                    form.lines.forEachIndexed { index, line ->
-                        val newId = line.ingredientId?.takeIf { it in form.newIngredients }
-                        LineItem(
-                            line = line,
-                            ingredientName = line.ingredientId?.let { ingredientNames[it] },
-                            ready = form.isReady(line.ingredientId),
-                            onClick = { viewModel.editLine(index) },
-                            onRemove = { viewModel.removeLine(index) },
-                        )
-                        if (newId != null) {
-                            NewIngredientMatch(
-                                newIngredient = form.newIngredients.getValue(newId),
-                                isError = errors?.lines == true,
-                                onConfirm = { viewModel.confirmNewIngredient(newId) },
-                                onChange = { viewModel.openUsdaPicker(newId) },
-                                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
-                            )
+                        if (viewModel.isScan) {
+                            Button(onClick = viewModel::showLines, Modifier.align(Alignment.End).padding(top = 8.dp)) {
+                                Text(stringResource(R.string.action_next))
+                            }
                         }
                     }
-                    TextButton(onClick = viewModel::addLine) {
-                        Icon(Icons.Filled.Add, contentDescription = null)
-                        Text(stringResource(R.string.recipe_line_add), Modifier.padding(start = 8.dp))
+                    if (showLines) {
+                        Text(
+                            stringResource(R.string.recipe_section_lines),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
+                        if (errors?.lines == true) {
+                            Text(
+                                stringResource(R.string.error_lines_incomplete),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        ProposalStatus(state.proposals, onRetry = viewModel::proposeNewIngredients)
+                        form.lines.forEachIndexed { index, line ->
+                            val newId = line.ingredientId?.takeIf { it in form.newIngredients }
+                            LineItem(
+                                line = line,
+                                ingredientName = line.ingredientId?.let { ingredientNames[it] },
+                                ready = form.isReady(line.ingredientId),
+                                onClick = { viewModel.editLine(index) },
+                                onRemove = { viewModel.removeLine(index) },
+                            )
+                            if (newId != null) {
+                                NewIngredientMatch(
+                                    newIngredient = form.newIngredients.getValue(newId),
+                                    isError = errors?.lines == true,
+                                    onConfirm = { viewModel.confirmNewIngredient(newId) },
+                                    onChange = { viewModel.openUsdaPicker(newId) },
+                                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+                                )
+                            }
+                        }
+                        TextButton(onClick = viewModel::addLine) {
+                            Icon(Icons.Filled.Add, contentDescription = null)
+                            Text(stringResource(R.string.recipe_line_add), Modifier.padding(start = 8.dp))
+                        }
                     }
                 }
             }
@@ -653,11 +720,17 @@ private fun PhotoSection(
     }
 }
 
+/**
+ * The recipe fields in input order; IME "Next" moves to the following field. The last one calls
+ * [onDone] (a scan's next step) when given, else just closes the keyboard.
+ */
 @Composable
 private fun RecipeFields(
     form: RecipeForm,
     errors: RecipeFormErrors?,
+    sourceSuggestions: List<String>,
     onFormChange: (RecipeForm.() -> RecipeForm) -> Unit,
+    onDone: (() -> Unit)?,
 ) {
     FormField(
         value = form.title,
@@ -665,13 +738,13 @@ private fun RecipeFields(
         label = R.string.recipe_title,
         error = if (errors?.title == true) R.string.error_title_required else null,
         capitalize = true,
+        imeAction = ImeAction.Next,
     )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FormField(
+        SourceField(
             value = form.source,
+            suggestions = sourceSuggestions,
             onValueChange = { onFormChange { copy(source = it) } },
-            label = R.string.recipe_source,
-            capitalize = true,
             modifier = Modifier.weight(2f),
         )
         FormField(
@@ -680,6 +753,7 @@ private fun RecipeFields(
             label = R.string.recipe_page,
             error = if (errors?.page == true) R.string.error_positive_number else null,
             numeric = true,
+            imeAction = ImeAction.Next,
             modifier = Modifier.weight(1f),
         )
     }
@@ -689,6 +763,7 @@ private fun RecipeFields(
         label = R.string.recipe_book_servings,
         error = if (errors?.bookServings == true) R.string.error_positive_number else null,
         numeric = true,
+        imeAction = ImeAction.Next,
     )
     FormField(
         value = form.ourServings,
@@ -697,6 +772,7 @@ private fun RecipeFields(
         error = if (errors?.ourServings == true) R.string.error_positive_number else null,
         hint = R.string.recipe_our_servings_hint,
         numeric = true,
+        imeAction = ImeAction.Next,
     )
     FormField(
         value = form.cookingTime,
@@ -704,7 +780,55 @@ private fun RecipeFields(
         label = R.string.recipe_cooking_time_minutes,
         error = if (errors?.cookingTime == true) R.string.error_positive_number else null,
         numeric = true,
+        imeAction = if (onDone != null) ImeAction.Next else ImeAction.Done,
+        onImeAction = onDone,
     )
+}
+
+/** The source field, suggesting the sources of other recipes while typing. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SourceField(
+    value: String,
+    suggestions: List<String>,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Opens on typing and closes on picking or dismissing, so a picked source stays quiet.
+    var typing by remember { mutableStateOf(false) }
+    val expanded = typing && suggestions.isNotEmpty()
+    val focusManager = LocalFocusManager.current
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { if (!it) typing = false },
+        modifier = modifier,
+    ) {
+        FormField(
+            value = value,
+            onValueChange = {
+                typing = true
+                onValueChange(it)
+            },
+            label = R.string.recipe_source,
+            capitalize = true,
+            imeAction = ImeAction.Next,
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { typing = false }) {
+            suggestions.forEach { source ->
+                DropdownMenuItem(
+                    text = { Text(source) },
+                    onClick = {
+                        typing = false
+                        onValueChange(source)
+                        focusManager.moveFocus(FocusDirection.Next)
+                    },
+                )
+            }
+        }
+    }
 }
 
 /**
@@ -865,6 +989,9 @@ private fun FormField(
     numeric: Boolean = false,
     capitalize: Boolean = false,
     keyboardType: KeyboardType = if (numeric) KeyboardType.Number else KeyboardType.Text,
+    imeAction: ImeAction = ImeAction.Default,
+    /** Replaces the default IME action (moving focus on Next, closing the keyboard on Done). */
+    onImeAction: (() -> Unit)? = null,
 ) {
     val supporting = error ?: hint
     OutlinedTextField(
@@ -877,7 +1004,9 @@ private fun FormField(
         keyboardOptions = KeyboardOptions(
             keyboardType = keyboardType,
             capitalization = if (capitalize) KeyboardCapitalization.Sentences else KeyboardCapitalization.None,
+            imeAction = imeAction,
         ),
+        keyboardActions = onImeAction?.let { action -> KeyboardActions { action() } } ?: KeyboardActions.Default,
         modifier = modifier,
     )
 }

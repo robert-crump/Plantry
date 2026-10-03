@@ -1,5 +1,6 @@
 package com.example.plantry.ui.recipe
 
+import com.example.plantry.data.BookPage
 import com.example.plantry.data.BuyUnit
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
@@ -113,6 +114,24 @@ class RecipeFormTest {
         assertEquals("4", form.ourServings)
         assertEquals("40", form.cookingTime)
         assertEquals(RecipeFormLine("1 Bund Koriander", 30.0, null, "Koriander", uncertain = true), form.lines[1])
+    }
+
+    @Test
+    fun withScan_takesSourceAndPageFromBook() {
+        val scan = ScannedRecipe("Linsen-Dal", servings = 4, cookingTimeMinutes = 40, page = null, lines = emptyList())
+
+        val form = RecipeForm().withScan(scan, BookPage("Plenty", 113))
+
+        assertEquals("Plenty", form.source)
+        assertEquals("113", form.page)
+    }
+
+    @Test
+    fun fieldErrors_ignoreTheLines() {
+        val incompleteLine = RecipeFormLine("1 Bund Koriander", 30.0, ingredientId = null)
+
+        assertFalse(valid.withLine(null, incompleteLine).errors().fields)
+        assertTrue(valid.copy(cookingTime = "").errors().fields)
     }
 
     @Test

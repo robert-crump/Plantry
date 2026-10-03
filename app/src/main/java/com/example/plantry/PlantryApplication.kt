@@ -1,6 +1,7 @@
 package com.example.plantry
 
 import android.app.Application
+import com.example.plantry.data.BookSession
 import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.NewIngredientFinder
@@ -80,6 +81,9 @@ class PlantryApplication : Application() {
             SharedPreferencesStorage(getSharedPreferences(BACKUP_PREFS, MODE_PRIVATE)),
         )
     }
+
+    /** The book of consecutive recipe scans. */
+    val bookSession = BookSession()
 
     val connectionTester: ConnectionTester = AnthropicConnectionTester()
 

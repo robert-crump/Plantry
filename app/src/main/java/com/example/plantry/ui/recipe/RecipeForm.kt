@@ -1,5 +1,7 @@
 package com.example.plantry.ui.recipe
 
+import com.example.plantry.data.BookPage
+import com.example.plantry.data.BookSession
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeDraft
@@ -45,11 +47,14 @@ data class RecipeForm(
     fun withLine(index: Int?, line: RecipeFormLine) =
         copy(lines = if (index == null) lines + line else lines.toMutableList().also { it[index] = line })
 
-    /** Takes what Claude read; the source is kept, since a page photo rarely shows the book. */
-    fun withScan(scan: ScannedRecipe) = RecipeForm(
+    /**
+     * Takes what Claude read, with source and page from [book] (see [BookSession.defaults]); by
+     * default the source is kept, since a page photo rarely shows the book.
+     */
+    fun withScan(scan: ScannedRecipe, book: BookPage = BookPage(source, scan.page)) = RecipeForm(
         title = scan.title,
-        source = source,
-        page = scan.page?.toString().orEmpty(),
+        source = book.source,
+        page = book.page?.toString().orEmpty(),
         bookServings = scan.servings?.toString().orEmpty(),
         ourServings = scan.servings?.toString().orEmpty(),
         cookingTime = scan.cookingTimeMinutes?.toString().orEmpty(),
@@ -174,7 +179,10 @@ data class RecipeFormErrors(
     /** Some line has no ingredient or no weight yet. */
     val lines: Boolean = false,
 ) {
-    val hasAny: Boolean get() = title || page || bookServings || ourServings || cookingTime || lines
+    /** Some recipe field (all but the lines) is invalid. */
+    val fields: Boolean get() = title || page || bookServings || ourServings || cookingTime
+
+    val hasAny: Boolean get() = fields || lines
 }
 
 /** An ingredient line as edited; a scanned line may still lack an ingredient or a weight. */

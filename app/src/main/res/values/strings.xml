@@ -81,6 +81,7 @@
     <string name="scan_skip">Von Hand ausfüllen</string>
     <string name="error_ingredient_required">Bitte eine Zutat aus den Vorschlägen wählen</string>
     <string name="action_apply">Übernehmen</string>
+    <string name="action_next">Weiter</string>
     <string name="recipe_modified">Angepasst</string>
     <string name="recipe_modified_hint">Die Zutaten weichen vom Original ab.</string>
 
