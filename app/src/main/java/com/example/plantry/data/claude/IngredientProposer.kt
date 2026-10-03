@@ -191,12 +191,13 @@ object ProposalPrompt {
         each 1 to 3 words that USDA descriptions use, e.g. "Räuchertofu" -> ["tofu smoked", "tofu"],
         "Kichererbsen aus der Dose" -> ["chickpeas canned", "chickpeas"]. Return one entry per
         food with the key as given.
-    """.trimIndent()
+    """.trimIndent() + "\n" + MatchingRules.SEARCH_FORMS
 
     /** How the scan asks for search terms of unmatched lines, so no extra call is needed. */
-    const val SEARCH_TERMS_RULE =
+    val SEARCH_TERMS_RULE =
         "English search phrases for the USDA SR Legacy database, from specific to general, " +
-            "1 to 3 words each, e.g. [\"tofu smoked\", \"tofu\"]"
+            "1 to 3 words each, e.g. [\"tofu smoked\", \"tofu\"]; " +
+            MatchingRules.SEARCH_FORMS.replace('\n', ' ').removeSuffix(".").replaceFirstChar { it.lowercase() }
 
     fun searchTermsMessage(foods: List<NewFood>) = buildString {
         appendLine("Foods (key, German name, recipe line):")
@@ -212,11 +213,10 @@ object ProposalPrompt {
 
             For each food return:
             - key: as given.
-            - fdcId: the candidate that best represents the food as used in the recipe: the same
-              food in the same state (raw vs. cooked, dried vs. canned). 0 if no candidate is the
-              same food; do not pick a different food just because it is similar.
-            - name: a short German display name as a shopper would write it, e.g. "Räuchertofu",
-              "Zwiebel, rot", "Reis, gekocht".
+            - fdcId: the candidate that best represents the food as used in the recipe, following
+              the USDA rules below. 0 if no candidate is the same food; do not pick a different
+              food just because it is similar.
+            - name: see the name rule below.
             - unitWeights: weights in grams of the units recipes use for this food, with German
               labels such as "EL", "TL", "Bund", "Dose", "Zehe". For foods counted in pieces, give
               one medium piece with the label "mittel". Empty if no unit applies.
@@ -224,23 +224,29 @@ object ProposalPrompt {
               fixed package (tofu, feta, canned beans, pasta), GRAMS if bought loose by weight.
             - packSizeGrams: the usual package size in a German supermarket if buyUnit is PACK,
               0 otherwise.
-            - storeSection: PRODUCE (fresh fruit, vegetables, herbs), DAIRY_CHILLED (dairy, tofu,
-              other chilled goods), DRY_GOODS (pasta, rice, cans, spices, oils), FROZEN, OTHER.
-            - staple: true for basics usually kept at home (salt, pepper, oil, dried spices,
-              flour, sugar, vinegar, soy sauce, stock), false otherwise.
-            - plantPoints: ONE for whole plant foods (vegetables, fruit, legumes, whole grains,
-              nuts, seeds, tofu), QUARTER for herbs and spices, ZERO for animal products and
-              refined foods (oil, sugar, white flour, white rice).
+            - storeSection, staple, plantPoints: see the rules below.
             - buyAsIngredientId, buyAsNewKey, buyAsYieldFactor: only if this food is bought as a
-              different food, e.g. cooked rice is bought as dry rice. Link to an entry of the
-              user's table (buyAsIngredientId) or to another new food of this request
-              (buyAsNewKey), never to anything else. buyAsYieldFactor is grams of the bought food
-              per gram of this one (0.4 for cooked -> dry rice). Otherwise 0, "" and 0.
-
-            The user's ingredient table (id, tab, German name):
+              different food (see the buy-as rule). Link to an entry of the user's table
+              (buyAsIngredientId) or to another new food of this request (buyAsNewKey), never to
+              anything else. buyAsYieldFactor is grams of the bought food per gram of this one.
+              Otherwise 0, "" and 0.
             """.trimIndent(),
         )
+        appendLine()
+        appendLine(MatchingRules.USDA_ENTRY)
+        appendLine()
+        appendRule("Name", MatchingRules.NAME)
+        appendRule("storeSection", MatchingRules.STORE_SECTION)
+        appendRule("staple", MatchingRules.STAPLE)
+        appendRule("plantPoints", MatchingRules.PLANT_POINTS)
+        appendRule("Buy-as", MatchingRules.BUY_AS)
+        appendLine("The user's ingredient table (id, tab, German name):")
         ingredients.sortedBy { it.name.lowercase() }.forEach { appendLine("${it.id}\t${it.name}") }
+    }
+
+    private fun StringBuilder.appendRule(title: String, rule: String) {
+        appendLine("$title: $rule")
+        appendLine()
     }
 
     fun proposeMessage(foods: List<FoodCandidates>) = buildString {

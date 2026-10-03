@@ -1,7 +1,8 @@
 # Ingredient matching rules
 
-Rules for mapping a cookbook ingredient to a Plantry ingredient. Used by the seed job and meant to
-be reused in the app's Claude prompt for new ingredients. Refined during the calibration round.
+Rules for mapping a cookbook ingredient to a Plantry ingredient. Used by the seed job and, condensed,
+by the app's Claude prompt for new ingredients (`app/.../data/claude/MatchingRules.kt`); change both
+together. Refined during the calibration round.
 
 ## USDA entry (SR Legacy)
 
