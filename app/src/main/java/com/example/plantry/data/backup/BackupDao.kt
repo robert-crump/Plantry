@@ -6,6 +6,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.ShoppingTick
@@ -39,6 +40,9 @@ abstract class BackupDao : BackupStore {
     @Query("SELECT * FROM shopping_ticks ORDER BY weekStart, ingredientId")
     abstract suspend fun getShoppingTicks(): List<ShoppingTick>
 
+    @Query("SELECT * FROM ingredient_aliases ORDER BY wording")
+    abstract suspend fun getAliases(): List<IngredientAlias>
+
     @Transaction
     override suspend fun snapshot() = BackupSnapshot(
         ingredients = getIngredients(),
@@ -47,11 +51,13 @@ abstract class BackupDao : BackupStore {
         cookLog = getCookLog(),
         weekPlan = getWeekPlan(),
         shoppingTicks = getShoppingTicks(),
+        aliases = getAliases(),
     )
 
     /** All or nothing: a file with broken references (e.g. a line pointing nowhere) changes nothing. */
     @Transaction
     override suspend fun replaceAll(snapshot: BackupSnapshot) {
+        deleteAliases()
         deleteShoppingTicks()
         deleteWeekPlan()
         deleteCookLog()
@@ -63,12 +69,16 @@ abstract class BackupDao : BackupStore {
         snapshot.ingredients.forEach { ingredient ->
             ingredient.buyAsIngredientId?.let { setBuyAs(ingredient.id, it) }
         }
+        insertAliases(snapshot.aliases)
         insertRecipes(snapshot.recipes)
         insertLines(snapshot.lines)
         insertCookLog(snapshot.cookLog)
         insertWeekPlan(snapshot.weekPlan)
         insertShoppingTicks(snapshot.shoppingTicks)
     }
+
+    @Query("DELETE FROM ingredient_aliases")
+    protected abstract suspend fun deleteAliases()
 
     @Query("DELETE FROM shopping_ticks")
     protected abstract suspend fun deleteShoppingTicks()
@@ -90,6 +100,9 @@ abstract class BackupDao : BackupStore {
 
     @Insert
     protected abstract suspend fun insertIngredients(ingredients: List<Ingredient>)
+
+    @Insert
+    protected abstract suspend fun insertAliases(aliases: List<IngredientAlias>)
 
     @Query("UPDATE ingredients SET buyAsIngredientId = :buyAsIngredientId WHERE id = :id")
     protected abstract suspend fun setBuyAs(id: Long, buyAsIngredientId: Long)

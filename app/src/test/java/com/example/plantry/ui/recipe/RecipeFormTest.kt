@@ -117,6 +117,51 @@ class RecipeFormTest {
     }
 
     @Test
+    fun withScan_learnedAliasWinsOverClaudesMatchAndResolvesTheLine() {
+        val scan = ScannedRecipe(
+            title = "Hummus",
+            servings = 2,
+            cookingTimeMinutes = 10,
+            page = null,
+            lines = listOf(
+                ScannedLine("1 Dose Kichererbsen", 240.0, ingredientId = 3, ingredientName = "Kichererbsen, abgetropft", uncertain = false),
+                ScannedLine("2 EL Tahin", 30.0, ingredientId = null, ingredientName = "Tahin", uncertain = false, searchTerms = listOf("tahini")),
+                ScannedLine("Salz", 2.0, ingredientId = null, ingredientName = "Salz", uncertain = false, searchTerms = listOf("salt")),
+            ),
+        )
+
+        val form = RecipeForm().withScan(scan, aliases = mapOf("kichererbsen abgetropft" to 7L, "tahin" to 8L))
+
+        assertEquals(listOf(7L, 8L, null), form.lines.map { it.ingredientId })
+        assertEquals(emptyList<String>(), form.lines[1].searchTerms)
+        assertEquals(listOf("salt"), form.lines[2].searchTerms)
+        assertNull(form.problem(form.lines[0]))
+        assertNull(form.problem(form.lines[1]))
+        // Aliased lines need no new ingredient.
+        assertEquals(listOf("Salz"), form.unmatchedFoods(ids()).map { it.name })
+    }
+
+    @Test
+    fun aliasesToLearn_takesEditorConfirmedLinesAndNewIngredients() {
+        val form = valid.copy(
+            lines = listOf(
+                // Claude's match, not confirmed by the user.
+                RecipeFormLine("200 g Tofu", 200.0, ingredientId = 7, ingredientName = "Tofu"),
+                RecipeFormLine("1 Dose Kichererbsen", 240.0, ingredientId = 3, ingredientName = "Kichererbsen, abgetropft", confirmed = true),
+                // Confirmed, but typed nothing: an existing line whose grams were changed.
+                RecipeFormLine("1 Tasse Reis", 185.0, ingredientId = 8, confirmed = true),
+                RecipeFormLine("200 g Räuchertofu", 200.0, ingredientId = -1, ingredientName = "Räuchertofu"),
+                RecipeFormLine("1 Zwiebel", 110.0, ingredientId = -2, ingredientName = "Zwiebel"),
+            ),
+        )
+
+        assertEquals(
+            listOf("Kichererbsen, abgetropft" to 3L, "Räuchertofu" to 21L),
+            form.aliasesToLearn(createdIds = mapOf(-1L to 21L)),
+        )
+    }
+
+    @Test
     fun withScan_takesSourceAndPageFromBook() {
         val scan = ScannedRecipe("Linsen-Dal", servings = 4, cookingTimeMinutes = 40, page = null, lines = emptyList())
 

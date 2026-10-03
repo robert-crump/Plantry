@@ -45,6 +45,23 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate6To7_keepsIngredientsAndAddsNoAliases() {
+        helper.createDatabase(DB_NAME, 6).use { db ->
+            db.execSQL(
+                "INSERT INTO ingredients (id, name, fdcId, usdaDescription, kcal, protein, carbs, sugar, fat, fibre, " +
+                    "unitWeights, buyUnit, packSizeGrams, storeSection, staple, plantPoints, buyAsIngredientId, " +
+                    "buyAsYieldFactor, reviewed) " +
+                    "VALUES (1, 'Reis', NULL, NULL, 0, 0, 0, 0, 0, 0, '[]', 'GRAMS', NULL, 'OTHER', 0, 'ZERO', NULL, NULL, 1)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 7, true).use { db ->
+            db.query("SELECT name FROM ingredients").use { assertEquals("Reis", it.apply { moveToFirst() }.getString(0)) }
+            db.query("SELECT COUNT(*) FROM ingredient_aliases").use { assertEquals(0, it.apply { moveToFirst() }.getInt(0)) }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }

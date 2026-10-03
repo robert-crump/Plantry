@@ -1,6 +1,7 @@
 package com.example.plantry.ui.recipe
 
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.IngredientAliases
 import com.example.plantry.data.RecipeIngredientDraft
 import com.example.plantry.ui.ingredient.formatDecimal
 import com.example.plantry.ui.ingredient.toPositiveDecimalOrNull
@@ -14,8 +15,23 @@ data class RecipeLineForm(
     val grams: String = "",
     val ingredientQuery: String = "",
     val ingredientId: Long? = null,
+    /**
+     * Claude's name for the food of a scanned line, which applying the line confirms as an alias of
+     * the chosen ingredient; blank for a line entered by hand.
+     */
+    val scannedName: String = "",
 ) {
     fun withIngredientQuery(query: String) = copy(ingredientQuery = query, ingredientId = null)
+
+    /**
+     * Selects the ingredient the typed text is a learned alias of, if none is selected yet; [names]
+     * by ingredient id.
+     */
+    fun withAlias(aliases: Map<String, Long>, names: Map<Long, String>): RecipeLineForm {
+        if (ingredientId != null) return this
+        val id = IngredientAliases.match(ingredientQuery, aliases) ?: return this
+        return withIngredient(id, names[id] ?: return this)
+    }
 
     fun withIngredient(ingredient: Ingredient) = withIngredient(ingredient.id, ingredient.name)
 
@@ -41,6 +57,11 @@ data class RecipeLineForm(
         )
     }
 
+    /** The validated line for the recipe form, marked as confirmed by the user. */
+    fun toFormLine(): RecipeFormLine? = toDraft()?.let {
+        RecipeFormLine(it.originalText, it.grams, it.ingredientId, ingredientName = scannedName, confirmed = true)
+    }
+
     companion object {
         fun from(line: RecipeIngredientDraft, ingredientName: String) = from(RecipeFormLine.from(line), ingredientName)
 
@@ -50,6 +71,7 @@ data class RecipeLineForm(
             grams = if (line.grams > 0.0) formatDecimal(line.grams) else "",
             ingredientQuery = ingredientName ?: line.ingredientName,
             ingredientId = line.ingredientId,
+            scannedName = line.ingredientName,
         )
     }
 }

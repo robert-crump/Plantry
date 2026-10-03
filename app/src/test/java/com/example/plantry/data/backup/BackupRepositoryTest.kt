@@ -3,6 +3,7 @@ package com.example.plantry.data.backup
 import com.example.plantry.data.BuyUnit
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.Recipe
@@ -16,6 +17,10 @@ import com.example.plantry.data.settings.SecretCipher
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.data.settings.SettingsStorage
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -64,7 +69,7 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 1"))
+        assertTrue(json.contains("\"formatVersion\": 2"))
     }
 
     @Test
@@ -98,11 +103,22 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 1", "\"formatVersion\": 2")
+        val newer = source.export().replace("\"formatVersion\": 2", "\"formatVersion\": 3")
 
         val error = readError(newer)
 
         assertEquals(InvalidBackupException.Reason.NEWER_VERSION, error.reason)
+    }
+
+    @Test
+    fun version1File_importsWithoutAliases() = runTest {
+        val v2 = Json.parseToJsonElement(source.export()).jsonObject
+        val v1 = JsonObject(v2 - "aliases" + ("formatVersion" to JsonPrimitive(1))).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(v1))
+
+        assertEquals(source.store.data.copy(aliases = emptyList()), target.store.data)
     }
 
     @Test
@@ -215,6 +231,7 @@ class BackupRepositoryTest {
             cookLog = listOf(CookLog(1, 2, LocalDate.of(2026, 9, 30)), CookLog(2, 7, LocalDate.of(2025, 12, 31))),
             weekPlan = listOf(WeekPlanSlot(saturday, 0, 2, done = true), WeekPlanSlot(saturday, 3, 7)),
             shoppingTicks = listOf(ShoppingTick(saturday, 5)),
+            aliases = listOf(IngredientAlias("reis basmati", 5), IngredientAlias("süßkartoffeln geschält", 3)),
         )
     }
 

@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.example.plantry.data.BuyUnit
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.PlantryDatabase
@@ -70,6 +71,7 @@ class BackupDaoTest {
         cookLog = listOf(CookLog(4, 3, LocalDate.of(2026, 9, 30))),
         weekPlan = listOf(WeekPlanSlot(saturday, 2, 3, done = true)),
         shoppingTicks = listOf(ShoppingTick(saturday, 5)),
+        aliases = listOf(IngredientAlias("basmati", 5), IngredientAlias("reis gegart", 1)),
     )
 
     @Test

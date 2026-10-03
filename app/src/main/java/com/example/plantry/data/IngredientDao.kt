@@ -2,6 +2,7 @@ package com.example.plantry.data
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
@@ -26,4 +27,11 @@ interface IngredientDao {
 
     @Update
     suspend fun update(ingredient: Ingredient)
+
+    @Query("SELECT * FROM ingredient_aliases")
+    fun observeAliases(): Flow<List<IngredientAlias>>
+
+    /** A wording already known points to the new ingredient afterwards. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAliases(aliases: List<IngredientAlias>)
 }

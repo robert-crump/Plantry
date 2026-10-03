@@ -5,6 +5,7 @@ import com.example.plantry.data.claude.ProposedBuyAs
 import com.example.plantry.data.usda.UsdaFood
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -164,10 +165,19 @@ class IngredientRepositoryTest {
         assertNull(repository.getIngredient(ids.getValue(-3))!!.buyAsIngredientId)
         assertNull(repository.getIngredient(ids.getValue(-4))!!.buyAsIngredientId)
     }
+
+    @Test
+    fun learnAliases_normalizesAndReplacesAnEarlierIngredient() = runTest {
+        repository.learnAliases(listOf("Kichererbsen, abgetropft" to 3L, "Reis" to 5L))
+        repository.learnAliases(listOf("kichererbsen abgetropft" to 4L, "" to 6L))
+
+        assertEquals(mapOf("kichererbsen abgetropft" to 4L, "reis" to 5L), repository.observeAliases().first())
+    }
 }
 
 private class FakeIngredientDao : IngredientDao {
     private val ingredients = MutableStateFlow<Map<Long, Ingredient>>(emptyMap())
+    private val aliases = MutableStateFlow<Map<String, Long>>(emptyMap())
     private var nextId = 1L
 
     override fun observeAll(): Flow<List<Ingredient>> =
@@ -188,5 +198,12 @@ private class FakeIngredientDao : IngredientDao {
 
     override suspend fun update(ingredient: Ingredient) {
         if (ingredient.id in ingredients.value) ingredients.value += ingredient.id to ingredient
+    }
+
+    override fun observeAliases(): Flow<List<IngredientAlias>> =
+        aliases.map { all -> all.map { (wording, id) -> IngredientAlias(wording, id) } }
+
+    override suspend fun upsertAliases(aliases: List<IngredientAlias>) {
+        this.aliases.value += aliases.associate { it.wording to it.ingredientId }
     }
 }

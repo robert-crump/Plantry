@@ -21,6 +21,40 @@ class RecipeLineFormTest {
     }
 
     @Test
+    fun applyingAScannedLine_confirmsClaudesNameForThePickedIngredient() {
+        val line = RecipeFormLine("1 Dose Kichererbsen", 240.0, ingredientId = null, ingredientName = "Kichererbsen, abgetropft")
+
+        val form = RecipeLineForm.from(line, null).withIngredientQuery("kicher").withIngredient(7, "Kichererbsen (Dose)")
+
+        assertEquals(
+            RecipeFormLine("1 Dose Kichererbsen", 240.0, 7, ingredientName = "Kichererbsen, abgetropft", confirmed = true),
+            form.toFormLine(),
+        )
+    }
+
+    @Test
+    fun applyingAHandEnteredLine_hasNoWordingToLearn() {
+        val form = RecipeLineForm(grams = "240").withIngredientQuery("süßkart").withIngredient(sweetPotato)
+
+        assertEquals("", form.toFormLine()!!.ingredientName)
+    }
+
+    @Test
+    fun withAlias_selectsTheAliasedIngredientOnlyWhenNoneIsSelected() {
+        val aliases = mapOf("süßkartoffeln geschält" to 3L)
+        val names = mapOf(3L to "Süßkartoffel", 4L to "Kürbis")
+
+        val typed = RecipeLineForm().withIngredientQuery("Süßkartoffeln, geschält").withAlias(aliases, names)
+        assertEquals(3L, typed.ingredientId)
+        assertEquals("Süßkartoffel", typed.ingredientQuery)
+
+        val picked = RecipeLineForm().withIngredientQuery("Süßkartoffeln, geschält").withIngredient(4, "Kürbis")
+        assertEquals(4L, picked.withAlias(aliases, names).ingredientId)
+
+        assertNull(RecipeLineForm().withIngredientQuery("Kürbis").withAlias(aliases, names).ingredientId)
+    }
+
+    @Test
     fun typingAfterPicking_clearsTheIngredient() {
         val form = RecipeLineForm().withIngredient(sweetPotato).withIngredientQuery("Süßkartoffe")
 

@@ -3,6 +3,7 @@ package com.example.plantry.data
 import com.example.plantry.data.claude.IngredientProposal
 import com.example.plantry.data.usda.UsdaFood
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class IngredientRepository(private val dao: IngredientDao) {
 
@@ -11,6 +12,16 @@ class IngredientRepository(private val dao: IngredientDao) {
     fun observeIngredient(id: Long): Flow<Ingredient?> = dao.observeById(id)
 
     suspend fun getIngredient(id: Long): Ingredient? = dao.getById(id)
+
+    /** Learned aliases: ingredient id by normalized wording, see [IngredientAliases]. */
+    fun observeAliases(): Flow<Map<String, Long>> =
+        dao.observeAliases().map { aliases -> aliases.associate { it.wording to it.ingredientId } }
+
+    /** Remembers each wording (as typed or read) as an alias of its ingredient. */
+    suspend fun learnAliases(learned: List<Pair<String, Long>>) {
+        val aliases = IngredientAliases.of(learned)
+        if (aliases.isNotEmpty()) dao.upsertAliases(aliases)
+    }
 
     /**
      * Creates an unreviewed ingredient with the nutrition and portion weights of [food] and returns

@@ -3,6 +3,7 @@ package com.example.plantry.data.backup
 import com.example.plantry.data.BuyUnit
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.Recipe
@@ -35,9 +36,12 @@ data class BackupFile(
     val cookLog: List<BackupCookLog>,
     val weekPlan: List<BackupWeekPlanSlot>,
     val shoppingTicks: List<BackupShoppingTick>,
+    /** Since version 2; version 1 files have none. */
+    val aliases: List<BackupAlias> = emptyList(),
 ) {
     companion object {
-        const val FORMAT_VERSION = 1
+        /** 2: learned ingredient aliases. */
+        const val FORMAT_VERSION = 2
 
         private val json = Json { prettyPrint = true }
 
@@ -127,6 +131,9 @@ data class BackupWeekPlanSlot(val weekStart: String, val position: Int, val reci
 @Serializable
 data class BackupShoppingTick(val weekStart: String, val ingredientId: Long)
 
+@Serializable
+data class BackupAlias(val wording: String, val ingredientId: Long)
+
 /** All database content, as exported and restored. */
 data class BackupSnapshot(
     val ingredients: List<Ingredient>,
@@ -135,6 +142,7 @@ data class BackupSnapshot(
     val cookLog: List<CookLog>,
     val weekPlan: List<WeekPlanSlot>,
     val shoppingTicks: List<ShoppingTick>,
+    val aliases: List<IngredientAlias> = emptyList(),
 )
 
 /** Recipe photos by recipe id. */
@@ -155,6 +163,7 @@ fun BackupSnapshot.toFile(photos: Photos, settings: BackupSettings): BackupFile 
         cookLog = cookLog.map { BackupCookLog(it.id, it.recipeId, it.cookedOn.toString()) },
         weekPlan = weekPlan.map { BackupWeekPlanSlot(it.weekStart.toString(), it.position, it.recipeId, it.done) },
         shoppingTicks = shoppingTicks.map { BackupShoppingTick(it.weekStart.toString(), it.ingredientId) },
+        aliases = aliases.map { BackupAlias(it.wording, it.ingredientId) },
     )
 }
 
@@ -171,6 +180,7 @@ fun BackupFile.toSnapshot(): BackupSnapshot = try {
         cookLog = cookLog.map { CookLog(it.id, it.recipeId, LocalDate.parse(it.cookedOn)) },
         weekPlan = weekPlan.map { WeekPlanSlot(LocalDate.parse(it.weekStart), it.position, it.recipeId, it.done) },
         shoppingTicks = shoppingTicks.map { ShoppingTick(LocalDate.parse(it.weekStart), it.ingredientId) },
+        aliases = aliases.map { IngredientAlias(it.wording, it.ingredientId) },
     )
 } catch (e: DateTimeParseException) {
     throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP, e)

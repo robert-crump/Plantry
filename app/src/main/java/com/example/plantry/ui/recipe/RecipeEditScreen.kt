@@ -71,6 +71,7 @@ import com.example.plantry.data.BookPage
 import com.example.plantry.data.BookSession
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.IngredientAliases
 import com.example.plantry.data.IngredientSuggestions
 import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.NewIngredientFinder
@@ -182,6 +183,10 @@ class RecipeEditViewModel(
     private val ingredients: StateFlow<List<Ingredient>> = ingredientRepository.observeIngredients()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    /** Learned aliases, ingredient id by normalized wording. */
+    private val aliases: StateFlow<Map<String, Long>> = ingredientRepository.observeAliases()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
     /**
      * Nutrition per portion of the lines as they are now, including a valid line in the open
      * editor, so the effect of a change shows before it is applied. Null without lines or valid
@@ -198,13 +203,19 @@ class RecipeEditViewModel(
         RecipeNutrition.calculate(nutritionLines(lines, all.associateBy { it.id }), servings)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Matches for the ingredient field of the open line editor: own table and new ingredients. */
-    val suggestions: StateFlow<List<Ingredient>> = combine(_state, ingredients) { state, ingredients ->
+    /**
+     * Matches for the ingredient field of the open line editor: own table and new ingredients, the
+     * ingredient the typed wording is a learned alias of first.
+     */
+    val suggestions: StateFlow<List<Ingredient>> = combine(_state, ingredients, aliases) { state, ingredients, aliases ->
         val form = state.lineEditor?.form
         if (form == null || form.ingredientId != null) {
             emptyList()
         } else {
-            IngredientSuggestions.match(form.ingredientQuery, ingredients + state.form.previewIngredients())
+            val all = ingredients + state.form.previewIngredients()
+            val aliased = IngredientAliases.match(form.ingredientQuery, aliases)?.let { id -> all.find { it.id == id } }
+            val matches = IngredientSuggestions.match(form.ingredientQuery, all)
+            if (aliased == null) matches else (listOf(aliased) + (matches - aliased)).take(IngredientSuggestions.DEFAULT_LIMIT)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -277,7 +288,7 @@ class RecipeEditViewModel(
                     is ScanResult.Success -> {
                         // Claude never reads the book, so the source always comes from the session.
                         val book = bookSession.defaults(BookPage(source = "", page = result.recipe.page))
-                        state.copy(form = state.form.withScan(result.recipe, book), scan = ScanState.Done)
+                        state.copy(form = state.form.withScan(result.recipe, book, aliases.value), scan = ScanState.Done)
                     }
                     is ScanResult.Failure -> state.copy(scan = ScanState.Failed(result.reason))
                 }
@@ -416,7 +427,8 @@ class RecipeEditViewModel(
     fun applyLine() {
         _state.update { state ->
             val editor = state.lineEditor ?: return@update state
-            val line = editor.form.toDraft()
+            // A typed wording the user confirmed before needs no picking.
+            val line = editor.form.withAlias(aliases.value, ingredientNames.value).toFormLine()
             if (line == null || !state.form.isReady(line.ingredientId)) {
                 state.copy(lineEditor = editor.copy(showErrors = true))
             } else {
@@ -447,6 +459,7 @@ class RecipeEditViewModel(
         viewModelScope.launch {
             val newIds = ingredientRepository.createProposed(state.form.newIngredientsToCreate())
             val saved = draft.withIngredientIds(newIds)
+            ingredientRepository.learnAliases(state.form.aliasesToLearn(newIds))
             val id = recipeId?.also { repository.update(it, saved) } ?: repository.create(saved)
             if (state.photoChanged && state.photo != null) photos.save(id, state.photo)
             if (isScan) bookSession.remember(saved.source, saved.page)

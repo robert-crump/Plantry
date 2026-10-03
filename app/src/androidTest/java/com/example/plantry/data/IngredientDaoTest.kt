@@ -71,4 +71,21 @@ class IngredientDaoTest {
             dao.getBuyAsLinks().toSet(),
         )
     }
+
+    @Test
+    fun upsertAliases_replacesAWordingAndCascadesWithTheIngredient() = runTest {
+        val dry = dao.insert(ingredient("Reis, trocken"))
+        val cooked = dao.insert(ingredient("Reis, gekocht"))
+        dao.upsertAliases(listOf(IngredientAlias("reis", dry), IngredientAlias("basmati", dry)))
+        dao.upsertAliases(listOf(IngredientAlias("reis", cooked)))
+
+        assertEquals(
+            setOf(IngredientAlias("reis", cooked), IngredientAlias("basmati", dry)),
+            dao.observeAliases().first().toSet(),
+        )
+
+        db.openHelper.writableDatabase.execSQL("DELETE FROM ingredients WHERE id = $dry")
+
+        assertEquals(listOf(IngredientAlias("reis", cooked)), dao.observeAliases().first())
+    }
 }

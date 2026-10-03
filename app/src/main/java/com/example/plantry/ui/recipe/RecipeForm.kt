@@ -3,6 +3,7 @@ package com.example.plantry.ui.recipe
 import com.example.plantry.data.BookPage
 import com.example.plantry.data.BookSession
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.IngredientAliases
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeDraft
 import com.example.plantry.data.RecipeIngredient
@@ -49,9 +50,14 @@ data class RecipeForm(
 
     /**
      * Takes what Claude read, with source and page from [book] (see [BookSession.defaults]); by
-     * default the source is kept, since a page photo rarely shows the book.
+     * default the source is kept, since a page photo rarely shows the book. A line whose food name
+     * is a learned alias (see [IngredientAliases]) gets that ingredient, whatever Claude matched.
      */
-    fun withScan(scan: ScannedRecipe, book: BookPage = BookPage(source, scan.page)) = RecipeForm(
+    fun withScan(
+        scan: ScannedRecipe,
+        book: BookPage = BookPage(source, scan.page),
+        aliases: Map<String, Long> = emptyMap(),
+    ) = RecipeForm(
         title = scan.title,
         source = book.source,
         page = book.page?.toString().orEmpty(),
@@ -59,7 +65,15 @@ data class RecipeForm(
         ourServings = scan.servings?.toString().orEmpty(),
         cookingTime = scan.cookingTimeMinutes?.toString().orEmpty(),
         lines = scan.lines.map {
-            RecipeFormLine(it.originalText, it.grams, it.ingredientId, it.ingredientName, it.uncertain, it.searchTerms)
+            val aliased = IngredientAliases.match(it.ingredientName, aliases)
+            RecipeFormLine(
+                originalText = it.originalText,
+                grams = it.grams,
+                ingredientId = aliased ?: it.ingredientId,
+                ingredientName = it.ingredientName,
+                uncertain = it.uncertain,
+                searchTerms = if (aliased != null) emptyList() else it.searchTerms,
+            )
         },
     )
 
@@ -146,6 +160,18 @@ data class RecipeForm(
         return newIngredients.filterKeys { it in used }.mapValues { it.value.proposal }
     }
 
+    /**
+     * The wordings the user confirmed, to remember as aliases: lines applied in the line editor and
+     * lines using a new ingredient (whose USDA entry had to be confirmed), with the new ingredients'
+     * temporary ids replaced by their [createdIds].
+     */
+    fun aliasesToLearn(createdIds: Map<Long, Long> = emptyMap()): List<Pair<String, Long>> = lines.mapNotNull { line ->
+        val id = line.ingredientId ?: return@mapNotNull null
+        if (!line.confirmed && id > 0) return@mapNotNull null
+        val ingredientId = if (id > 0) id else createdIds[id] ?: return@mapNotNull null
+        line.ingredientName.takeIf { it.isNotBlank() }?.let { it to ingredientId }
+    }
+
     /** The lines that are complete enough for nutrition. */
     fun completeLines(): List<RecipeIngredientDraft> = lines.mapNotNull { it.toDraft() }
 
@@ -217,6 +243,8 @@ data class RecipeFormLine(
     val uncertain: Boolean = false,
     /** English USDA search terms from the scan, while [ingredientId] is null. */
     val searchTerms: List<String> = emptyList(),
+    /** The user applied the line in the editor, confirming [ingredientName] means [ingredientId]. */
+    val confirmed: Boolean = false,
 ) {
     val complete: Boolean get() = ingredientId != null && grams > 0.0
 
