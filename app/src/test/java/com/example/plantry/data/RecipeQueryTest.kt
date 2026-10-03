@@ -35,6 +35,34 @@ class RecipeQueryTest {
     private fun List<RecipeListItem>.titles() = map { it.recipe.title }
 
     @Test
+    fun recipeCounts_distinctRecipesPerIngredient() {
+        val counts = RecipeQuery.recipeCounts(
+            listOf(line(1, lentils), line(1, lentils), line(2, lentils), line(2, tofu), line(3, salt)),
+            ingredients,
+        )
+
+        assertEquals(2, counts[lentils.id])
+        assertEquals(1, counts[tofu.id])
+        assertEquals(1, counts[salt.id])
+        assertEquals(null, counts[cumin.id])
+    }
+
+    @Test
+    fun recipeCounts_followBuyAsBothWays() {
+        val counts = RecipeQuery.recipeCounts(listOf(line(1, riceDry), line(2, riceCooked), line(2, riceDry)), ingredients)
+
+        assertEquals(2, counts[riceDry.id])
+        assertEquals(2, counts[riceCooked.id])
+    }
+
+    @Test
+    fun recipeCounts_skipLinesWithMissingIngredient() {
+        val missing = RecipeIngredient(recipeId = 1, position = 0, originalText = "", grams = 1.0, ingredientId = 99)
+
+        assertEquals(emptyMap<Long, Int>(), RecipeQuery.recipeCounts(listOf(missing), ingredients))
+    }
+
+    @Test
     fun title_isDefaultAndIgnoresCaseAndUmlauts() {
         val result = run(listOf(recipe(1, "Zucchini"), recipe(2, "äpfel"), recipe(3, "Bohnen"), recipe(4, "Apfelkuchen")))
 

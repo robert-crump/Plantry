@@ -246,7 +246,7 @@ fun PlantryNavHost() {
                 }
                 composable<IngredientListRoute> {
                     IngredientListScreen(
-                        viewModel = viewModel { IngredientListViewModel(ingredientRepository) },
+                        viewModel = viewModel { IngredientListViewModel(ingredientRepository, recipeRepository) },
                         onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
                         onAddIngredient = { navController.navigate(UsdaSearchRoute) },
                     )

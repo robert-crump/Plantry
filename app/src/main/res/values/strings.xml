@@ -154,6 +154,10 @@
     <string name="ingredients_filter_unreviewed">Nur ungeprüfte (%1$d)</string>
     <string name="ingredient_add">Zutat hinzufügen</string>
     <string name="ingredient_unreviewed">Ungeprüft</string>
+    <plurals name="ingredient_recipe_count">
+        <item quantity="one">%d Rezept</item>
+        <item quantity="other">%d Rezepte</item>
+    </plurals>
     <string name="ingredient_summary">%1$s kcal · %2$s g Protein je 100 g</string>
 
     <!-- USDA search -->

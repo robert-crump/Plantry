@@ -1,8 +1,11 @@
 package com.example.plantry.ui.ingredient
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -33,6 +37,8 @@ import com.example.plantry.R
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.RecipeQuery
+import com.example.plantry.data.RecipeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -42,19 +48,29 @@ import kotlinx.coroutines.flow.update
 
 data class IngredientListUiState(
     val ingredients: List<Ingredient>,
+    /** Recipes using each ingredient (buy-as links followed); missing ids mean 0. */
+    val recipeCounts: Map<Long, Int>,
     val unreviewedCount: Int,
     val onlyUnreviewed: Boolean,
 )
 
-class IngredientListViewModel(repository: IngredientRepository) : ViewModel() {
+class IngredientListViewModel(
+    repository: IngredientRepository,
+    recipeRepository: RecipeRepository,
+) : ViewModel() {
 
     private val onlyUnreviewed = MutableStateFlow(false)
 
     /** Null until the first emission, so the empty state doesn't flash on launch. */
     val state: StateFlow<IngredientListUiState?> =
-        combine(repository.observeIngredients(), onlyUnreviewed) { all, filter ->
+        combine(
+            repository.observeIngredients(),
+            recipeRepository.observeAllLines(),
+            onlyUnreviewed,
+        ) { all, lines, filter ->
             IngredientListUiState(
                 ingredients = if (filter) all.filterNot { it.reviewed } else all,
+                recipeCounts = RecipeQuery.recipeCounts(lines, all.associateBy { it.id }),
                 unreviewedCount = all.count { !it.reviewed },
                 onlyUnreviewed = filter,
             )
@@ -102,7 +118,11 @@ fun IngredientListScreen(
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {
                     items(current.ingredients, key = { it.id }) { ingredient ->
-                        IngredientRow(ingredient, onClick = { onIngredientClick(ingredient.id) })
+                        IngredientRow(
+                            ingredient,
+                            recipeCount = current.recipeCounts[ingredient.id] ?: 0,
+                            onClick = { onIngredientClick(ingredient.id) },
+                        )
                         HorizontalDivider()
                     }
                 }
@@ -112,13 +132,35 @@ fun IngredientListScreen(
 }
 
 @Composable
-private fun IngredientRow(ingredient: Ingredient, onClick: () -> Unit) {
+private fun IngredientRow(ingredient: Ingredient, recipeCount: Int, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(ingredient.name) },
-        supportingContent = { Text(nutritionSummary(ingredient.nutrition)) },
+        supportingContent = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                InfoChip(stringResource(ingredient.storeSection.label))
+                InfoChip(pluralStringResource(R.plurals.ingredient_recipe_count, recipeCount, recipeCount))
+            }
+        },
         trailingContent = if (ingredient.reviewed) null else ({ UnreviewedBadge() }),
         modifier = Modifier.clickable(onClick = onClick),
     )
+}
+
+/** A read-only chip with an outline, for the row's store section and recipe count. */
+@Composable
+private fun InfoChip(text: String) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+        )
+    }
 }
 
 /** E.g. "86 kcal · 1,6 g Protein je 100 g". */

@@ -87,6 +87,22 @@ object RecipeQuery {
             .distinctBy { it.lowercase() }
             .sortedWith(titleCollator)
 
+    /**
+     * How many recipes use each ingredient, keyed by id; ingredients no recipe uses are left out.
+     * Like the ingredient filter, buy-as links are followed, so "Reis" and "Reis, gekocht" count
+     * the recipes using either. Unlike the filter, staples are counted too.
+     */
+    fun recipeCounts(lines: List<RecipeIngredient>, ingredients: Map<Long, Ingredient>): Map<Long, Int> {
+        val recipesByRoot = mutableMapOf<Long, MutableSet<Long>>()
+        lines.forEach { line ->
+            val ingredient = ingredients[line.ingredientId] ?: return@forEach
+            recipesByRoot.getOrPut(WeekSummary.buyAsRoot(ingredient, ingredients).id) { mutableSetOf() } += line.recipeId
+        }
+        return ingredients.values.mapNotNull { ingredient ->
+            recipesByRoot[WeekSummary.buyAsRoot(ingredient, ingredients).id]?.let { ingredient.id to it.size }
+        }.toMap()
+    }
+
     private fun item(
         recipe: Recipe,
         recipeLines: List<RecipeIngredient>,
