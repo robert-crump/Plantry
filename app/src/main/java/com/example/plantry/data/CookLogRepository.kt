@@ -8,6 +8,10 @@ class CookLogRepository(private val dao: CookLogDao) {
 
     fun observeHistory(): Flow<List<CookLogEntry>> = dao.observeHistory()
 
+    /** The latest cook date per recipe; recipes never cooked are missing. */
+    fun observeLastCooked(): Flow<Map<Long, LocalDate>> =
+        dao.observeLastCooked().map { all -> all.associate { it.recipeId to it.lastCookedOn } }
+
     /** [today] is read on every emission, so the stats stay right across midnight. */
     fun observeStats(recipeId: Long, today: () -> LocalDate): Flow<CookingStats> =
         dao.observeDates(recipeId).map { CookingStats.from(it, today()) }

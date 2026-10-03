@@ -79,8 +79,9 @@ object WeekPlanRoute
 @Serializable
 object ShoppingListRoute
 
+/** With [ingredientId], the list opens filtered by that ingredient. */
 @Serializable
-object RecipeListRoute
+data class RecipeListRoute(val ingredientId: Long? = null)
 
 @Serializable
 data class RecipeDetailRoute(val recipeId: Long)
@@ -111,7 +112,7 @@ private enum class TopLevelDestination(
 ) {
     WEEK(WeekPlanRoute, R.string.nav_week, Icons.Filled.CalendarMonth),
     SHOPPING(ShoppingListRoute, R.string.nav_shopping, Icons.Filled.ShoppingCart),
-    RECIPES(RecipeListRoute, R.string.nav_recipes, Icons.AutoMirrored.Filled.MenuBook),
+    RECIPES(RecipeListRoute(), R.string.nav_recipes, Icons.AutoMirrored.Filled.MenuBook),
     INGREDIENTS(IngredientListRoute, R.string.nav_ingredients, Icons.Filled.Kitchen),
     SETTINGS(SettingsRoute, R.string.nav_settings, Icons.Filled.Settings),
 }
@@ -193,9 +194,12 @@ fun PlantryNavHost() {
                 composable<ShoppingListRoute> {
                     ShoppingListScreen(viewModel = viewModel { ShoppingListViewModel(app.shoppingListRepository) })
                 }
-                composable<RecipeListRoute> {
+                composable<RecipeListRoute> { entry ->
+                    val ingredientId = entry.toRoute<RecipeListRoute>().ingredientId
                     RecipeListScreen(
-                        viewModel = viewModel { RecipeListViewModel(recipeRepository) },
+                        viewModel = viewModel {
+                            RecipeListViewModel(recipeRepository, ingredientRepository, cookLogRepository, ingredientId)
+                        },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                         onAddRecipe = { navController.navigate(RecipeEditRoute()) },
                         onScanRecipe = { navController.navigate(RecipeEditRoute(scan = true)) },

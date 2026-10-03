@@ -312,7 +312,7 @@ private fun SummaryValue(value: String, label: String, modifier: Modifier = Modi
 }
 
 /** Plant points come in quarters: "12", "12,25", "12,5". */
-private fun formatPlantPoints(points: Double): String =
+internal fun formatPlantPoints(points: Double): String =
     DecimalFormat("0.##", DecimalFormatSymbols(Locale.GERMAN)).format(points)
 
 @Composable

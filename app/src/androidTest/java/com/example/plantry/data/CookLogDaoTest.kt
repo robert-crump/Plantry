@@ -64,7 +64,7 @@ class CookLogDaoTest {
     }
 
     @Test
-    fun getLastCooked_latestDatePerCookedRecipe() = runTest {
+    fun getAndObserveLastCooked_latestDatePerCookedRecipe() = runTest {
         val dal = insertRecipe("Dal")
         val chili = insertRecipe("Chili")
         insertRecipe("Nie gekocht")
@@ -76,6 +76,7 @@ class CookLogDaoTest {
             setOf(LastCooked(dal, today), LastCooked(chili, today.minusDays(3))),
             dao.getLastCooked().toSet(),
         )
+        assertEquals(dao.getLastCooked().toSet(), dao.observeLastCooked().first().toSet())
     }
 
     @Test

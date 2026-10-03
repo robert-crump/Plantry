@@ -78,6 +78,10 @@ private class FakeCookLogDao : CookLogDao {
     override fun observeDates(recipeId: Long): Flow<List<LocalDate>> =
         logs.map { all -> all.filter { it.recipeId == recipeId }.map { it.cookedOn } }
 
-    override suspend fun getLastCooked(): List<LastCooked> =
-        logs.value.groupBy { it.recipeId }.map { (id, entries) -> LastCooked(id, entries.maxOf { it.cookedOn }) }
+    override suspend fun getLastCooked(): List<LastCooked> = lastCooked(logs.value)
+
+    override fun observeLastCooked(): Flow<List<LastCooked>> = logs.map(::lastCooked)
+
+    private fun lastCooked(all: List<CookLog>) =
+        all.groupBy { it.recipeId }.map { (id, entries) -> LastCooked(id, entries.maxOf { it.cookedOn }) }
 }
