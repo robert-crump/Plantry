@@ -40,8 +40,8 @@ data class BackupFile(
     val aliases: List<BackupAlias> = emptyList(),
 ) {
     companion object {
-        /** 2: learned ingredient aliases. */
-        const val FORMAT_VERSION = 2
+        /** 2: learned ingredient aliases. 3: a recipe's cooking time may be null. */
+        const val FORMAT_VERSION = 3
 
         private val json = Json { prettyPrint = true }
 
@@ -110,7 +110,8 @@ data class BackupRecipe(
     val page: Int?,
     val bookServings: Int,
     val ourServings: Int,
-    val cookingTimeMinutes: Int,
+    /** Null since version 3. */
+    val cookingTimeMinutes: Int?,
     val modified: Boolean,
     /** The recipe photo, Base64-encoded; null when the recipe has none. */
     val photo: String?,

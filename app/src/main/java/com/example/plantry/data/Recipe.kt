@@ -12,7 +12,8 @@ data class Recipe(
     val page: Int?,
     val bookServings: Int,
     val ourServings: Int,
-    val cookingTimeMinutes: Int,
+    /** Null when the recipe states no time, as most handwritten ones. */
+    val cookingTimeMinutes: Int?,
     /** Set once the ingredient lines were edited after the recipe was first saved. */
     @ColumnInfo(defaultValue = "0") val modified: Boolean = false,
 )
@@ -24,6 +25,6 @@ data class RecipeDraft(
     val page: Int?,
     val bookServings: Int,
     val ourServings: Int?,
-    val cookingTimeMinutes: Int,
+    val cookingTimeMinutes: Int?,
     val lines: List<RecipeIngredientDraft>,
 )

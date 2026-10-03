@@ -16,7 +16,7 @@ class RecipeQueryTest {
 
     private val ingredients = listOf(riceDry, riceCooked, lentils, tofu, cumin, salt, oil).associateBy { it.id }
 
-    private fun recipe(id: Long, title: String, minutes: Int = 30, source: String = "") = Recipe(
+    private fun recipe(id: Long, title: String, minutes: Int? = 30, source: String = "") = Recipe(
         id = id, title = title, source = source, page = null,
         bookServings = 2, ourServings = 2, cookingTimeMinutes = minutes,
     )
@@ -104,6 +104,23 @@ class RecipeQueryTest {
         val result = run(listOf(recipe(1, "A", 45), recipe(2, "B", 15), recipe(3, "C", 30)), sort = RecipeSort.COOKING_TIME)
 
         assertEquals(listOf("B", "C", "A"), result.titles())
+    }
+
+    @Test
+    fun cookingTime_recipesWithoutTimeLast() {
+        val result = run(listOf(recipe(1, "A", null), recipe(2, "B", 45), recipe(3, "C", 15)), sort = RecipeSort.COOKING_TIME)
+
+        assertEquals(listOf("C", "B", "A"), result.titles())
+    }
+
+    @Test
+    fun maxCookingMinutes_keepsRecipesWithoutTime() {
+        val result = run(
+            listOf(recipe(1, "Schnell", 15), recipe(2, "Langsam", 60), recipe(3, "Ohne", null)),
+            filter = RecipeFilter(maxCookingMinutes = 30),
+        )
+
+        assertEquals(listOf("Ohne", "Schnell"), result.titles())
     }
 
     @Test

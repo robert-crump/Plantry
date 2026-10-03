@@ -22,6 +22,7 @@
     <string name="recipe_our_servings">Unsere Portionen</string>
     <string name="recipe_cooking_time">Kochzeit</string>
     <string name="recipe_cooking_time_minutes">Kochzeit (Minuten)</string>
+    <string name="recipe_cooking_time_hint">Optional</string>
     <string name="recipe_our_servings_hint">Standardmäßig wie laut Buch</string>
 
     <!-- Recipe formatting -->

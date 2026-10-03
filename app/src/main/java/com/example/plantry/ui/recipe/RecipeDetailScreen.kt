@@ -266,10 +266,9 @@ fun RecipeDetailScreen(
             DetailRow(stringResource(R.string.recipe_source), sourceLabel(current))
             DetailRow(stringResource(R.string.recipe_book_servings), current.bookServings.toString())
             DetailRow(stringResource(R.string.recipe_our_servings), current.ourServings.toString())
-            DetailRow(
-                stringResource(R.string.recipe_cooking_time),
-                stringResource(R.string.recipe_minutes, current.cookingTimeMinutes),
-            )
+            current.cookingTimeMinutes?.let { minutes ->
+                DetailRow(stringResource(R.string.recipe_cooking_time), stringResource(R.string.recipe_minutes, minutes))
+            }
 
             SectionTitle(R.string.recipe_section_lines)
             if (detail.lines.isEmpty()) {

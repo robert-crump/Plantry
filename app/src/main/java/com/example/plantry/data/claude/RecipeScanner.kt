@@ -123,7 +123,8 @@ object ScanPrompt {
             cooks from the book.
 
             - title: the recipe title as printed.
-            - servings: the number of servings stated; 0 if none is stated.
+            - servings: the number of servings stated; for a range such as "2-4" the higher number;
+              0 if none is stated.
             - cookingTimeMinutes: the total time stated, in minutes; 0 if none is stated.
             - page: the printed page number if visible; 0 otherwise.
             - lines: one entry per ingredient line, in order. Section headings such as

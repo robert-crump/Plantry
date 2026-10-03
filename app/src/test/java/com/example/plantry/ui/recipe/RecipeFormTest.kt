@@ -64,9 +64,24 @@ class RecipeFormTest {
     fun toDraft_rejectsInvalidInput() {
         assertNull(valid.copy(title = " ").toDraft())
         assertNull(valid.copy(bookServings = "0").toDraft())
-        assertNull(valid.copy(cookingTime = "").toDraft())
+        assertNull(valid.copy(cookingTime = "abc").toDraft())
         assertNull(valid.copy(page = "abc").toDraft())
         assertNull(valid.withOurServings("-1").toDraft())
+    }
+
+    @Test
+    fun cookingTime_isOptional() {
+        val draft = valid.copy(cookingTime = " ").toDraft()
+
+        assertEquals(null, draft?.cookingTimeMinutes)
+        assertEquals("Chili", draft?.title)
+    }
+
+    @Test
+    fun from_recipeWithoutCookingTime_leavesTheFieldEmpty() {
+        val recipe = Recipe(1, "Dal", "Handschriftlich", null, bookServings = 4, ourServings = 4, cookingTimeMinutes = null)
+
+        assertEquals("", RecipeForm.from(recipe, emptyList()).cookingTime)
     }
 
     @Test
@@ -74,7 +89,7 @@ class RecipeFormTest {
         val errors = RecipeForm(title = "Chili", bookServings = "x").errors()
 
         assertTrue(errors.bookServings)
-        assertTrue(errors.cookingTime)
+        assertFalse(errors.cookingTime)
         assertFalse(errors.title)
         assertFalse(errors.page)
         assertFalse(errors.ourServings)
@@ -176,7 +191,7 @@ class RecipeFormTest {
         val incompleteLine = RecipeFormLine("1 Bund Koriander", 30.0, ingredientId = null)
 
         assertFalse(valid.withLine(null, incompleteLine).errors().fields)
-        assertTrue(valid.copy(cookingTime = "").errors().fields)
+        assertTrue(valid.copy(cookingTime = "abc").errors().fields)
     }
 
     @Test

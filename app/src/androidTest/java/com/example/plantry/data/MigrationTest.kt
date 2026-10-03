@@ -62,6 +62,35 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate7To8_keepsRecipesAndLinesAndAllowsNoCookingTime() {
+        helper.createDatabase(DB_NAME, 7).use { db ->
+            db.execSQL(
+                "INSERT INTO recipes (id, title, source, page, bookServings, ourServings, cookingTimeMinutes, modified) " +
+                    "VALUES (1, 'Dal', '', NULL, 2, 2, 30, 0)",
+            )
+            db.execSQL(
+                "INSERT INTO ingredients (id, name, fdcId, usdaDescription, kcal, protein, carbs, sugar, fat, fibre, " +
+                    "unitWeights, buyUnit, packSizeGrams, storeSection, staple, plantPoints, buyAsIngredientId, " +
+                    "buyAsYieldFactor, reviewed) " +
+                    "VALUES (1, 'Linsen', NULL, NULL, 0, 0, 0, 0, 0, 0, '[]', 'GRAMS', NULL, 'OTHER', 0, 'ONE', NULL, NULL, 1)",
+            )
+            db.execSQL(
+                "INSERT INTO recipe_ingredients (id, recipeId, position, originalText, grams, ingredientId) " +
+                    "VALUES (1, 1, 0, '200 g Linsen', 200, 1)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 8, true).use { db ->
+            db.query("SELECT cookingTimeMinutes FROM recipes").use { assertEquals(30, it.apply { moveToFirst() }.getInt(0)) }
+            db.query("SELECT COUNT(*) FROM recipe_ingredients").use { assertEquals(1, it.apply { moveToFirst() }.getInt(0)) }
+            db.execSQL(
+                "INSERT INTO recipes (id, title, source, page, bookServings, ourServings, cookingTimeMinutes, modified) " +
+                    "VALUES (2, 'Quesadillas', '', NULL, 2, 2, NULL, 0)",
+            )
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }

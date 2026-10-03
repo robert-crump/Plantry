@@ -69,7 +69,8 @@ object RecipeQuery {
         }
         val source = filter.source?.trim()
         return recipes
-            .filter { recipe -> filter.maxCookingMinutes?.let { recipe.cookingTimeMinutes <= it } ?: true }
+            // A recipe without a time is never filtered out: it may well be quick.
+            .filter { recipe -> filter.maxCookingMinutes?.let { max -> recipe.cookingTimeMinutes?.let { it <= max } } ?: true }
             .filter { recipe -> source == null || recipe.source.trim().equals(source, ignoreCase = true) }
             .map { recipe -> item(recipe, linesByRecipe[recipe.id].orEmpty(), ingredients, lastCooked, wantedRoots) }
             .filter { wantedRoots.isEmpty() || it.matchedIngredients > 0 }
@@ -135,7 +136,8 @@ object RecipeQuery {
     private fun comparator(sort: RecipeSort): Comparator<RecipeListItem> = when (sort) {
         RecipeSort.TITLE -> compareBy(titleCollator) { it.recipe.title }
         RecipeSort.PROTEIN -> compareByDescending { it.proteinPerPortion }
-        RecipeSort.COOKING_TIME -> compareBy { it.recipe.cookingTimeMinutes }
+        // nullsLast: recipes without a time can't claim to be quick.
+        RecipeSort.COOKING_TIME -> compareBy(nullsLast()) { it.recipe.cookingTimeMinutes }
         RecipeSort.PLANT_POINTS -> compareByDescending { it.plantPoints }
         // nullsFirst: never cooked comes before any date.
         RecipeSort.LAST_COOKED -> compareBy(nullsFirst()) { it.lastCookedOn }

@@ -808,6 +808,7 @@ private fun RecipeFields(
         onValueChange = { onFormChange { copy(cookingTime = it) } },
         label = R.string.recipe_cooking_time_minutes,
         error = if (errors?.cookingTime == true) R.string.error_positive_number else null,
+        hint = R.string.recipe_cooking_time_hint,
         numeric = true,
         imeAction = if (onDone != null) ImeAction.Next else ImeAction.Done,
         onImeAction = onDone,

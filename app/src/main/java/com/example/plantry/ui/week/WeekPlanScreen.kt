@@ -401,8 +401,8 @@ private fun RecipePickerSheet(
             items(recipes, key = { it.id }) { recipe ->
                 ListItem(
                     headlineContent = { Text(recipe.title) },
-                    trailingContent = {
-                        Text(stringResource(R.string.recipe_minutes, recipe.cookingTimeMinutes))
+                    trailingContent = recipe.cookingTimeMinutes?.let { minutes ->
+                        { Text(stringResource(R.string.recipe_minutes, minutes)) }
                     },
                     modifier = Modifier.clickable { onPick(recipe.id) },
                 )

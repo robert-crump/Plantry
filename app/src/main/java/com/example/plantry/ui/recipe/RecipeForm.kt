@@ -185,7 +185,7 @@ data class RecipeForm(
         page = page.isNotBlank() && page.toPositiveIntOrNull() == null,
         bookServings = bookServings.toPositiveIntOrNull() == null,
         ourServings = ourServings.isNotBlank() && ourServings.toPositiveIntOrNull() == null,
-        cookingTime = cookingTime.toPositiveIntOrNull() == null,
+        cookingTime = cookingTime.isNotBlank() && cookingTime.toPositiveIntOrNull() == null,
         lines = lines.any { problem(it) != null },
     )
 
@@ -198,7 +198,7 @@ data class RecipeForm(
             page = page.toPositiveIntOrNull(),
             bookServings = bookServings.toPositiveIntOrNull()!!,
             ourServings = ourServings.toPositiveIntOrNull(),
-            cookingTimeMinutes = cookingTime.toPositiveIntOrNull()!!,
+            cookingTimeMinutes = cookingTime.toPositiveIntOrNull(),
             lines = completeLines(),
         )
     }
@@ -210,7 +210,7 @@ data class RecipeForm(
             page = recipe.page?.toString().orEmpty(),
             bookServings = recipe.bookServings.toString(),
             ourServings = recipe.ourServings.toString(),
-            cookingTime = recipe.cookingTimeMinutes.toString(),
+            cookingTime = recipe.cookingTimeMinutes?.toString().orEmpty(),
             ourServingsEdited = true,
             lines = lines.map { RecipeFormLine.from(it.toDraft()) },
         )
