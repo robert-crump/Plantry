@@ -14,3 +14,8 @@
 .cxx
 local.properties
 progress.txt
+
+# Seed photos and generated data contain cookbook content
+/tools/seed/input/*
+!/tools/seed/input/.gitkeep
+/tools/seed/output/
