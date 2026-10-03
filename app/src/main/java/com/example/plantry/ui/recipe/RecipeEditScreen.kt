@@ -57,7 +57,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -146,6 +148,8 @@ data class LineEditorState(
     /** Claude is proposing a new ingredient for the typed name. */
     val proposing: Boolean = false,
     val proposalFailure: ClaudeFailure? = null,
+    /** Applying opens the next problem line, see [RecipeForm.nextProblem]. */
+    val toNextProblem: Boolean = false,
 )
 
 /**
@@ -393,9 +397,14 @@ class RecipeEditViewModel(
     }
 
     fun editLine(index: Int) {
-        val line = _state.value.form.lines[index]
+        _state.update { it.copy(lineEditor = lineEditor(it.form, index)) }
+    }
+
+    /** Opened on a problem line, applying it moves on to the next problem line. */
+    private fun lineEditor(form: RecipeForm, index: Int): LineEditorState {
+        val line = form.lines[index]
         val name = line.ingredientId?.let { ingredientNames.value[it] }
-        _state.update { it.copy(lineEditor = LineEditorState(index, RecipeLineForm.from(line, name))) }
+        return LineEditorState(index, RecipeLineForm.from(line, name), toNextProblem = form.problem(line) != null)
     }
 
     fun onLineFormChange(transform: RecipeLineForm.() -> RecipeLineForm) {
@@ -411,7 +420,9 @@ class RecipeEditViewModel(
             if (line == null || !state.form.isReady(line.ingredientId)) {
                 state.copy(lineEditor = editor.copy(showErrors = true))
             } else {
-                state.copy(form = state.form.withLine(editor.index, line), lineEditor = null)
+                val form = state.form.withLine(editor.index, line)
+                val next = editor.index?.takeIf { editor.toNextProblem }?.let(form::nextProblem)
+                state.copy(form = form, lineEditor = next?.let { lineEditor(form, it) })
             }
         }
     }
@@ -449,7 +460,6 @@ class RecipeEditViewModel(
 fun RecipeEditScreen(
     viewModel: RecipeEditViewModel,
     onBack: () -> Unit,
-    onCreateIngredient: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val preview by viewModel.preview.collectAsStateWithLifecycle()
@@ -489,7 +499,10 @@ fun RecipeEditScreen(
                 },
                 actions = {
                     if (showLines) {
-                        TextButton(onClick = viewModel::save) { Text(stringResource(R.string.action_save)) }
+                        // Enabled once no line needs attention; field errors still show on a click.
+                        TextButton(onClick = viewModel::save, enabled = !form.errors().lines) {
+                            Text(stringResource(R.string.action_save))
+                        }
                     } else if (showFields) {
                         TextButton(onClick = viewModel::showLines) { Text(stringResource(R.string.action_next)) }
                     }
@@ -557,24 +570,27 @@ fun RecipeEditScreen(
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(top = 16.dp),
                         )
-                        if (errors?.lines == true) {
+                        val problems = form.lines.count { form.problem(it) != null }
+                        if (problems > 0) {
                             Text(
-                                stringResource(R.string.error_lines_incomplete),
+                                pluralStringResource(R.plurals.recipe_lines_to_check, problems, problems),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
+                                color = if (errors?.lines == true) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         ProposalStatus(state.proposals, onRetry = viewModel::proposeNewIngredients)
-                        form.lines.forEachIndexed { index, line ->
+                        // Problem lines first, so only the top of the list needs attention.
+                        form.checklistOrder().forEach { index ->
+                            val line = form.lines[index]
                             val newId = line.ingredientId?.takeIf { it in form.newIngredients }
                             LineItem(
                                 line = line,
                                 ingredientName = line.ingredientId?.let { ingredientNames[it] },
-                                ready = form.isReady(line.ingredientId),
+                                problem = form.problem(line),
                                 onClick = { viewModel.editLine(index) },
                                 onRemove = { viewModel.removeLine(index) },
                             )
-                            if (newId != null) {
+                            if (newId != null && !form.isReady(newId)) {
                                 NewIngredientMatch(
                                     newIngredient = form.newIngredients.getValue(newId),
                                     isError = errors?.lines == true,
@@ -597,12 +613,12 @@ fun RecipeEditScreen(
             LineEditorDialog(
                 editor = editor,
                 newIngredient = editor.form.ingredientId?.let { form.newIngredients[it] },
+                hasNextProblem = editor.toNextProblem && editor.index?.let(form::nextProblem) != null,
                 suggestions = suggestions,
                 proteinPerPortion = preview?.perPortion?.protein,
                 onChange = viewModel::onLineFormChange,
                 onApply = viewModel::applyLine,
                 onDismiss = viewModel::dismissLineEditor,
-                onCreateIngredient = onCreateIngredient,
                 onProposeIngredient = viewModel::proposeForLine,
                 onConfirmNew = viewModel::confirmNewIngredient,
                 onChangeNew = viewModel::openUsdaPicker,
@@ -832,26 +848,32 @@ private fun SourceField(
 }
 
 /**
- * One ingredient line; lines without an ingredient, with an unconfirmed new ingredient, or that
- * Claude was unsure about stand out.
+ * One checklist row: original text, grams and the matched ingredient. A [problem] line stands out
+ * and says what is missing; a resolved one shows a ✓.
  */
 @Composable
 private fun LineItem(
     line: RecipeFormLine,
     ingredientName: String?,
-    ready: Boolean,
+    problem: LineProblem?,
     onClick: () -> Unit,
     onRemove: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
-    val (container, label) = when {
-        !line.complete -> colors.errorContainer to R.string.recipe_line_incomplete
-        !ready -> colors.tertiaryContainer to R.string.recipe_line_new_ingredient
-        line.uncertain -> colors.tertiaryContainer to R.string.recipe_line_uncertain
-        else -> Color.Transparent to null
+    val (container, label) = when (problem) {
+        LineProblem.NO_INGREDIENT -> colors.errorContainer to R.string.recipe_line_problem_ingredient
+        LineProblem.NO_GRAMS -> colors.errorContainer to R.string.recipe_line_problem_grams
+        LineProblem.NEW_INGREDIENT -> colors.tertiaryContainer to R.string.recipe_line_new_ingredient
+        LineProblem.UNCERTAIN -> colors.tertiaryContainer to R.string.recipe_line_uncertain
+        null -> Color.Transparent to null
     }
     ListItem(
         overlineContent = label?.let { { Text(stringResource(it)) } },
+        leadingContent = if (problem == null) {
+            { Icon(Icons.Filled.Check, stringResource(R.string.recipe_line_resolved), tint = colors.primary) }
+        } else {
+            null
+        },
         headlineContent = { Text(line.originalText) },
         supportingContent = {
             Text(
@@ -878,12 +900,13 @@ private fun LineItem(
 private fun LineEditorDialog(
     editor: LineEditorState,
     newIngredient: NewIngredient?,
+    /** Applying moves on to another problem line, so the confirm button reads "Weiter". */
+    hasNextProblem: Boolean,
     suggestions: List<Ingredient>,
     proteinPerPortion: Double?,
     onChange: (RecipeLineForm.() -> RecipeLineForm) -> Unit,
     onApply: () -> Unit,
     onDismiss: () -> Unit,
-    onCreateIngredient: () -> Unit,
     onProposeIngredient: () -> Unit,
     onConfirmNew: (Long) -> Unit,
     onChangeNew: (Long) -> Unit,
@@ -906,13 +929,18 @@ private fun LineEditorDialog(
                     label = R.string.recipe_line_text,
                     hint = R.string.recipe_line_text_hint,
                     capitalize = true,
+                    imeAction = ImeAction.Next,
                 )
+                // With an ingredient already chosen, the keyboard's action on the grams applies the line.
+                val gramsLast = form.ingredientId != null
                 FormField(
                     value = form.grams,
                     onValueChange = { onChange { copy(grams = it) } },
                     label = R.string.recipe_line_grams,
                     error = if (errors?.grams == true) R.string.error_positive_decimal else null,
                     keyboardType = KeyboardType.Decimal,
+                    imeAction = if (!gramsLast) ImeAction.Next else if (hasNextProblem) ImeAction.Go else ImeAction.Done,
+                    onImeAction = if (gramsLast) onApply else null,
                 )
                 FormField(
                     value = form.ingredientQuery,
@@ -920,6 +948,8 @@ private fun LineEditorDialog(
                     label = R.string.recipe_line_ingredient,
                     error = if (errors?.ingredient == true) R.string.error_ingredient_required else null,
                     capitalize = true,
+                    imeAction = if (hasNextProblem) ImeAction.Go else ImeAction.Done,
+                    onImeAction = onApply,
                 )
                 suggestions.forEach { ingredient ->
                     ListItem(
@@ -964,16 +994,15 @@ private fun LineEditorDialog(
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
-                    // The editor stays open; back from the new ingredient returns to it.
-                    TextButton(onClick = onCreateIngredient) {
-                        Icon(Icons.Filled.Add, contentDescription = null)
-                        Text(stringResource(R.string.recipe_line_create_ingredient), Modifier.padding(start = 8.dp))
-                    }
                 }
                 proteinPerPortion?.let { ProteinIndicator(it, Modifier.padding(top = 8.dp)) }
             }
         },
-        confirmButton = { TextButton(onClick = onApply) { Text(stringResource(R.string.action_apply)) } },
+        confirmButton = {
+            TextButton(onClick = onApply) {
+                Text(stringResource(if (hasNextProblem) R.string.action_next else R.string.action_apply))
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

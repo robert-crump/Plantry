@@ -53,9 +53,14 @@
     <string name="recipe_line_grams">Menge (g)</string>
     <string name="recipe_line_ingredient">Zutat aus deiner Tabelle</string>
     <string name="recipe_line_no_match">Keine passende Zutat in deiner Tabelle.</string>
-    <string name="recipe_line_create_ingredient">Neue Zutat anlegen</string>
     <string name="recipe_line_uncertain">Unsicher – bitte prüfen</string>
-    <string name="recipe_line_incomplete">Zutat oder Menge fehlt</string>
+    <string name="recipe_line_problem_ingredient">Zutat fehlt</string>
+    <string name="recipe_line_problem_grams">Menge fehlt</string>
+    <string name="recipe_line_resolved">Geklärt</string>
+    <plurals name="recipe_lines_to_check">
+        <item quantity="one">Noch %1$d Zeile prüfen</item>
+        <item quantity="other">Noch %1$d Zeilen prüfen</item>
+    </plurals>
     <string name="recipe_line_no_ingredient">keine Zutat</string>
     <string name="recipe_line_new_ingredient">Neue Zutat – USDA-Eintrag bestätigen</string>
     <string name="recipe_line_propose_ingredient">„%1$s“ mit Claude neu anlegen</string>
@@ -69,7 +74,6 @@
     <string name="new_ingredient_proposing">Claude schlägt neue Zutaten vor …</string>
     <string name="new_ingredient_proposing_one">Claude schlägt die Zutat vor …</string>
     <string name="new_ingredient_failed">Neue Zutaten konnten nicht vorgeschlagen werden. %1$s</string>
-    <string name="error_lines_incomplete">Jede Zeile braucht eine Zutat aus deiner Tabelle und eine Menge.</string>
     <string name="recipe_photo">Foto der Rezeptseite</string>
     <string name="photo_take">Foto aufnehmen</string>
     <string name="photo_retake">Neues Foto</string>

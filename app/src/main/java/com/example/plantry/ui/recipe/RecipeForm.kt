@@ -114,6 +114,27 @@ data class RecipeForm(
         else -> newIngredients[ingredientId]?.ready == true
     }
 
+    /** What still needs the user's attention on [line], or null once it is resolved (✓). */
+    fun problem(line: RecipeFormLine): LineProblem? = when {
+        line.ingredientId == null -> LineProblem.NO_INGREDIENT
+        !isReady(line.ingredientId) -> LineProblem.NEW_INGREDIENT
+        line.grams <= 0.0 -> LineProblem.NO_GRAMS
+        line.uncertain -> LineProblem.UNCERTAIN
+        else -> null
+    }
+
+    /** Line indices as the checklist shows them: problem lines first, each group in recipe order. */
+    fun checklistOrder(): List<Int> = lines.indices.sortedBy { problem(lines[it]) == null }
+
+    /**
+     * The problem line to edit after the one at [index]: the next one in recipe order, wrapping
+     * around, or null when no other problem is left.
+     */
+    fun nextProblem(index: Int): Int? {
+        val problems = lines.indices.filter { it != index && problem(lines[it]) != null }
+        return problems.firstOrNull { it > index } ?: problems.firstOrNull()
+    }
+
     /** New ingredients that have a USDA entry, with their temporary id, for previews and suggestions. */
     fun previewIngredients(): List<Ingredient> = newIngredients
         .filterValues { it.proposal.food != null }
@@ -139,7 +160,7 @@ data class RecipeForm(
         bookServings = bookServings.toPositiveIntOrNull() == null,
         ourServings = ourServings.isNotBlank() && ourServings.toPositiveIntOrNull() == null,
         cookingTime = cookingTime.toPositiveIntOrNull() == null,
-        lines = lines.any { it.toDraft() == null || !isReady(it.ingredientId) },
+        lines = lines.any { problem(it) != null },
     )
 
     /** Returns the validated draft, or null if any field is invalid. */
@@ -176,7 +197,7 @@ data class RecipeFormErrors(
     val bookServings: Boolean,
     val ourServings: Boolean,
     val cookingTime: Boolean,
-    /** Some line has no ingredient or no weight yet. */
+    /** Some line is still a problem, see [RecipeForm.problem]. */
     val lines: Boolean = false,
 ) {
     /** Some recipe field (all but the lines) is invalid. */
@@ -205,6 +226,18 @@ data class RecipeFormLine(
     companion object {
         fun from(line: RecipeIngredientDraft) = RecipeFormLine(line.originalText, line.grams, line.ingredientId)
     }
+}
+
+/** Why a line needs attention before the recipe can be saved, most pressing first. */
+enum class LineProblem {
+    NO_INGREDIENT,
+
+    /** A new ingredient whose USDA entry is not confirmed yet. */
+    NEW_INGREDIENT,
+    NO_GRAMS,
+
+    /** Claude was unsure about the line; applying it in the editor confirms it. */
+    UNCERTAIN,
 }
 
 /** A new ingredient Claude proposed; its USDA entry must be confirmed before saving. */

@@ -247,6 +247,66 @@ class RecipeFormTest {
         assertEquals(listOf(-1L), picked.previewIngredients().map { it.id })
     }
 
+    private val checklist = valid.withNewIngredient(-1, proposal("Räuchertofu")).copy(
+        lines = listOf(
+            RecipeFormLine("200 g Tofu", 200.0, ingredientId = 7),
+            RecipeFormLine("1 Bund Koriander", 30.0, ingredientId = null, ingredientName = "Koriander"),
+            RecipeFormLine("1 Tasse Reis", 185.0, ingredientId = 8),
+            RecipeFormLine("200 g Räuchertofu", 200.0, ingredientId = -1),
+            RecipeFormLine("Salz", 0.0, ingredientId = 9),
+            RecipeFormLine("1 Zwiebel", 110.0, ingredientId = 10, uncertain = true),
+        ),
+    )
+
+    @Test
+    fun problem_detectsEachKindOfProblemLine() {
+        assertEquals(
+            listOf(null, LineProblem.NO_INGREDIENT, null, LineProblem.NEW_INGREDIENT, LineProblem.NO_GRAMS, LineProblem.UNCERTAIN),
+            checklist.lines.map(checklist::problem),
+        )
+    }
+
+    @Test
+    fun confirmedNewIngredient_isNoLongerAProblem() {
+        val form = checklist.confirmNewIngredient(-1)
+
+        assertNull(form.problem(form.lines[3]))
+    }
+
+    @Test
+    fun uncertainLine_blocksSaveUntilApplied() {
+        val form = valid.withLine(null, RecipeFormLine("1 Zwiebel", 110.0, ingredientId = 10, uncertain = true))
+
+        assertTrue(form.errors().lines)
+        assertNull(form.toDraft())
+        assertFalse(form.withLine(0, RecipeIngredientDraft("1 Zwiebel", 110.0, 10)).errors().lines)
+    }
+
+    @Test
+    fun checklistOrder_putsProblemLinesFirstInRecipeOrder() {
+        assertEquals(listOf(1, 3, 4, 5, 0, 2), checklist.checklistOrder())
+    }
+
+    @Test
+    fun nextProblem_isTheFollowingProblemLineWrappingAround() {
+        assertEquals(3, checklist.nextProblem(1))
+        assertEquals(3, checklist.nextProblem(2))
+        assertEquals(1, checklist.nextProblem(5))
+    }
+
+    @Test
+    fun nextProblem_isNullWhenNoOtherProblemIsLeft() {
+        val form = valid.copy(
+            lines = listOf(
+                RecipeFormLine("200 g Tofu", 200.0, ingredientId = 7),
+                RecipeFormLine("Salz", 0.0, ingredientId = 9),
+            ),
+        )
+
+        assertNull(form.nextProblem(1))
+        assertEquals(listOf(1, 0), form.checklistOrder())
+    }
+
     @Test
     fun withIngredientIds_replacesTemporaryIds() {
         val draft = RecipeDraft("Bowl", "", null, 2, null, 20, listOf(tofu, tofu.copy(ingredientId = -1)))

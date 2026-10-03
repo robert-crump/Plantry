@@ -231,7 +231,6 @@ fun PlantryNavHost() {
                             )
                         },
                         onBack = { navController.popBackStack() },
-                        onCreateIngredient = { navController.navigate(UsdaSearchRoute) },
                     )
                 }
                 composable<CookHistoryRoute> {
