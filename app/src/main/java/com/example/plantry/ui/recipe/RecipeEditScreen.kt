@@ -628,7 +628,6 @@ fun RecipeEditScreen(
                 newIngredient = editor.form.ingredientId?.let { form.newIngredients[it] },
                 hasNextProblem = editor.toNextProblem && editor.index?.let(form::nextProblem) != null,
                 suggestions = suggestions,
-                proteinPerPortion = preview?.perPortion?.protein,
                 onChange = viewModel::onLineFormChange,
                 onApply = viewModel::applyLine,
                 onDismiss = viewModel::dismissLineEditor,
@@ -917,7 +916,6 @@ private fun LineEditorDialog(
     /** Applying moves on to another problem line, so the confirm button reads "Weiter". */
     hasNextProblem: Boolean,
     suggestions: List<Ingredient>,
-    proteinPerPortion: Double?,
     onChange: (RecipeLineForm.() -> RecipeLineForm) -> Unit,
     onApply: () -> Unit,
     onDismiss: () -> Unit,
@@ -1009,7 +1007,6 @@ private fun LineEditorDialog(
                         )
                     }
                 }
-                proteinPerPortion?.let { ProteinIndicator(it, Modifier.padding(top = 8.dp)) }
             }
         },
         confirmButton = {
