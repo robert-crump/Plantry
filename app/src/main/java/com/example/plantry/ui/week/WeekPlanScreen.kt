@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Card
@@ -161,6 +162,7 @@ private val dayFormat = DateTimeFormatter.ofPattern("EEE d. MMM", Locale.GERMAN)
 fun WeekPlanScreen(
     viewModel: WeekPlanViewModel,
     onRecipeClick: (Long) -> Unit,
+    onOpenShopping: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val recipes by viewModel.recipes.collectAsStateWithLifecycle()
@@ -200,6 +202,11 @@ fun WeekPlanScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onOpenShopping) {
+                        Icon(Icons.Filled.ShoppingCart, contentDescription = stringResource(R.string.week_shopping))
                     }
                 },
             )

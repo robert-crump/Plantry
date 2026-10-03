@@ -237,6 +237,7 @@
 
     <!-- Week plan -->
     <string name="week_title">Diese Woche</string>
+    <string name="week_shopping">Einkaufsliste</string>
     <string name="week_range">%1$s – %2$s</string>
     <string name="week_slot_pick">Rezept wählen</string>
     <string name="week_slot_done">Gekocht</string>
@@ -271,7 +272,6 @@
 
     <!-- Navigation -->
     <string name="nav_week">Woche</string>
-    <string name="nav_shopping">Einkaufen</string>
     <string name="nav_recipes">Rezepte</string>
     <string name="nav_ingredients">Zutaten</string>
 

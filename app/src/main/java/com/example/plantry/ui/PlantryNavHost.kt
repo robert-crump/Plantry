@@ -15,7 +15,6 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -120,7 +119,6 @@ private enum class TopLevelDestination(
     val icon: ImageVector,
 ) {
     WEEK(WeekPlanRoute, R.string.nav_week, Icons.Filled.CalendarMonth),
-    SHOPPING(ShoppingListRoute, R.string.nav_shopping, Icons.Filled.ShoppingCart),
     RECIPES(RecipeListRoute(), R.string.nav_recipes, Icons.AutoMirrored.Filled.MenuBook),
     INGREDIENTS(IngredientListRoute, R.string.nav_ingredients, Icons.Filled.Kitchen),
     SETTINGS(SettingsRoute, R.string.nav_settings, Icons.Filled.Settings),
@@ -214,10 +212,14 @@ fun PlantryNavHost() {
                     WeekPlanScreen(
                         viewModel = viewModel { WeekPlanViewModel(weekPlanRepository, app.weekPlanner, recipeRepository, ingredientRepository) },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
+                        onOpenShopping = { navController.navigate(ShoppingListRoute) },
                     )
                 }
                 composable<ShoppingListRoute> {
-                    ShoppingListScreen(viewModel = viewModel { ShoppingListViewModel(app.shoppingListRepository) })
+                    ShoppingListScreen(
+                        viewModel = viewModel { ShoppingListViewModel(app.shoppingListRepository) },
+                        onBack = { navController.popBackStack() },
+                    )
                 }
                 composable<RecipeListRoute> { entry ->
                     val ingredientId = entry.toRoute<RecipeListRoute>().ingredientId
