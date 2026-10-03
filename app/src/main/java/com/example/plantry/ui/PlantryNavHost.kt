@@ -16,6 +16,8 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -26,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -54,6 +57,8 @@ import com.example.plantry.ui.ingredient.IngredientDetailScreen
 import com.example.plantry.ui.ingredient.IngredientDetailViewModel
 import com.example.plantry.ui.ingredient.IngredientListScreen
 import com.example.plantry.ui.ingredient.IngredientListViewModel
+import com.example.plantry.ui.ingredient.IngredientSortScreen
+import com.example.plantry.ui.ingredient.IngredientSortViewModel
 import com.example.plantry.ui.ingredient.UsdaSearchScreen
 import com.example.plantry.ui.ingredient.UsdaSearchViewModel
 import com.example.plantry.ui.recipe.RecipeDetailScreen
@@ -70,6 +75,7 @@ import com.example.plantry.ui.shopping.ShoppingListScreen
 import com.example.plantry.ui.shopping.ShoppingListViewModel
 import com.example.plantry.ui.week.WeekPlanScreen
 import com.example.plantry.ui.week.WeekPlanViewModel
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
@@ -95,6 +101,9 @@ object CookHistoryRoute
 
 @Serializable
 object IngredientListRoute
+
+@Serializable
+object IngredientSortRoute
 
 @Serializable
 object UsdaSearchRoute
@@ -137,6 +146,10 @@ fun PlantryNavHost() {
     var backupReminderDismissed by rememberSaveable { mutableStateOf(false) }
     val showBackupReminder = backupReminder && !backupReminderDismissed && currentTopLevel != null
     val scope = rememberCoroutineScope()
+
+    val unreviewedCount by remember {
+        ingredientRepository.observeIngredients().map { all -> all.count { !it.reviewed } }
+    }.collectAsStateWithLifecycle(0)
     LifecycleResumeEffect(Unit) {
         scope.launch { app.backupRepository.refreshReminder() }
         onPauseOrDispose {}
@@ -158,7 +171,15 @@ fun PlantryNavHost() {
                                     restoreState = true
                                 }
                             },
-                            icon = { Icon(top.icon, contentDescription = null) },
+                            icon = {
+                                if (top == TopLevelDestination.INGREDIENTS && unreviewedCount > 0) {
+                                    BadgedBox(badge = { Badge { Text(unreviewedCount.toString()) } }) {
+                                        Icon(top.icon, contentDescription = null)
+                                    }
+                                } else {
+                                    Icon(top.icon, contentDescription = null)
+                                }
+                            },
                             label = { Text(stringResource(top.label)) },
                         )
                     }
@@ -249,6 +270,13 @@ fun PlantryNavHost() {
                         viewModel = viewModel { IngredientListViewModel(ingredientRepository, recipeRepository) },
                         onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
                         onAddIngredient = { navController.navigate(UsdaSearchRoute) },
+                        onOpenSort = { navController.navigate(IngredientSortRoute) },
+                    )
+                }
+                composable<IngredientSortRoute> {
+                    IngredientSortScreen(
+                        viewModel = viewModel { IngredientSortViewModel(ingredientRepository) },
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 composable<UsdaSearchRoute> {

@@ -12,11 +12,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -85,11 +87,21 @@ fun IngredientListScreen(
     viewModel: IngredientListViewModel,
     onIngredientClick: (Long) -> Unit,
     onAddIngredient: () -> Unit,
+    onOpenSort: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.ingredients_title)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.ingredients_title)) },
+                actions = {
+                    IconButton(onClick = onOpenSort) {
+                        Icon(Icons.Filled.Category, contentDescription = stringResource(R.string.sort_title))
+                    }
+                },
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddIngredient) {
                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.ingredient_add))

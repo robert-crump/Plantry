@@ -66,6 +66,17 @@ class IngredientRepository(private val dao: IngredientDao) {
         return ids
     }
 
+    /** Sets the plant points or store section of [group] on each of [ids]; reviewed stays as it is. */
+    suspend fun moveTo(ids: Set<Long>, group: SortGroup) {
+        if (ids.isEmpty()) return
+        val changed = IngredientSorting.move(dao.getByIds(ids.toList()), ids, group)
+        if (changed.isNotEmpty()) dao.updateAll(changed)
+    }
+
+    suspend fun markReviewed(ids: Collection<Long>) {
+        if (ids.isNotEmpty()) dao.markReviewed(ids.toList())
+    }
+
     /**
      * Saves the user's edits and marks the ingredient reviewed. Returns an error, and saves nothing,
      * if the buy-as link would point to the ingredient itself or close a cycle.

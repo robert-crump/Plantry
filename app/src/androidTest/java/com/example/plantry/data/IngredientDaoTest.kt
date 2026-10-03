@@ -88,4 +88,22 @@ class IngredientDaoTest {
 
         assertEquals(listOf(IngredientAlias("reis", cooked)), dao.observeAliases().first())
     }
+
+    @Test
+    fun bulkUpdate_getByIdsUpdateAllAndMarkReviewed() = runTest {
+        val dry = dao.insert(ingredient("Reis, trocken").copy(reviewed = false))
+        val cooked = dao.insert(ingredient("Reis, gekocht").copy(reviewed = false))
+        val other = dao.insert(ingredient("Basmati").copy(reviewed = false))
+
+        val selected = dao.getByIds(listOf(dry, cooked))
+        assertEquals(setOf(dry, cooked), selected.map { it.id }.toSet())
+        dao.updateAll(selected.map { it.copy(plantPoints = PlantPoints.ONE) })
+        dao.markReviewed(listOf(cooked, other))
+
+        val all = dao.observeAll().first().associateBy { it.id }
+        assertEquals(PlantPoints.ONE, all.getValue(dry).plantPoints)
+        assertEquals(PlantPoints.ONE, all.getValue(cooked).plantPoints)
+        assertEquals(PlantPoints.ZERO, all.getValue(other).plantPoints)
+        assertEquals(listOf(false, true, true), listOf(dry, cooked, other).map { all.getValue(it).reviewed })
+    }
 }

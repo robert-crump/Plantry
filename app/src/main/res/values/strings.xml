@@ -160,6 +160,22 @@
     </plurals>
     <string name="ingredient_summary">%1$s kcal · %2$s g Protein je 100 g</string>
 
+    <!-- Sortieren: bulk-classify ingredients -->
+    <string name="sort_title">Sortieren</string>
+    <string name="sort_view_plant_points">Pflanzenpunkte</string>
+    <string name="sort_view_store_section">Supermarkt</string>
+    <string name="sort_only_unreviewed">Nur ungeprüft (%1$d)</string>
+    <string name="sort_confirm_all">Alle bestätigen</string>
+    <plurals name="sort_selection_hint">
+        <item quantity="one">%d ausgewählt – Gruppe antippen zum Verschieben</item>
+        <item quantity="other">%d ausgewählt – Gruppe antippen zum Verschieben</item>
+    </plurals>
+    <string name="sort_clear_selection">Auswahl aufheben</string>
+    <string name="sort_move_here">Hierher verschieben</string>
+    <string name="sort_group_points_one">1 Punkt</string>
+    <string name="sort_group_points_quarter">¼ Punkt</string>
+    <string name="sort_group_points_zero">0 Punkte</string>
+
     <!-- USDA search -->
     <string name="usda_search_title">Neue Zutat</string>
     <string name="usda_search_hint">USDA-Datenbank durchsuchen (englisch)</string>

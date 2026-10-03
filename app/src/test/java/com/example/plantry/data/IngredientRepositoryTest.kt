@@ -173,6 +173,34 @@ class IngredientRepositoryTest {
 
         assertEquals(mapOf("kichererbsen abgetropft" to 4L, "reis" to 5L), repository.observeAliases().first())
     }
+
+    @Test
+    fun moveTo_savesTheGroupValueForEachSelectedIngredient() = runTest {
+        val cooked = repository.createFromUsda(riceCooked, "Reis, gekocht")
+        val dry = repository.createFromUsda(riceDry, "Reis")
+        val other = repository.createFromUsda(riceDry, "Naturreis")
+
+        repository.moveTo(setOf(cooked, dry), SortGroup.Section(StoreSection.DRY_GOODS))
+        repository.moveTo(setOf(cooked), SortGroup.Points(PlantPoints.ONE))
+
+        assertEquals(StoreSection.DRY_GOODS, repository.getIngredient(cooked)!!.storeSection)
+        assertEquals(PlantPoints.ONE, repository.getIngredient(cooked)!!.plantPoints)
+        assertEquals(StoreSection.DRY_GOODS, repository.getIngredient(dry)!!.storeSection)
+        assertEquals(PlantPoints.ZERO, repository.getIngredient(dry)!!.plantPoints)
+        assertEquals(StoreSection.OTHER, repository.getIngredient(other)!!.storeSection)
+        assertFalse(repository.getIngredient(cooked)!!.reviewed)
+    }
+
+    @Test
+    fun markReviewed_marksOnlyTheGivenIngredients() = runTest {
+        val cooked = repository.createFromUsda(riceCooked, "Reis, gekocht")
+        val dry = repository.createFromUsda(riceDry, "Reis")
+
+        repository.markReviewed(listOf(cooked))
+
+        assertTrue(repository.getIngredient(cooked)!!.reviewed)
+        assertFalse(repository.getIngredient(dry)!!.reviewed)
+    }
 }
 
 private class FakeIngredientDao : IngredientDao {
@@ -196,8 +224,16 @@ private class FakeIngredientDao : IngredientDao {
         return id
     }
 
+    override suspend fun getByIds(ids: List<Long>): List<Ingredient> = ids.mapNotNull { ingredients.value[it] }
+
     override suspend fun update(ingredient: Ingredient) {
         if (ingredient.id in ingredients.value) ingredients.value += ingredient.id to ingredient
+    }
+
+    override suspend fun updateAll(ingredients: List<Ingredient>) = ingredients.forEach { update(it) }
+
+    override suspend fun markReviewed(ids: List<Long>) {
+        ingredients.value = ingredients.value.mapValues { (id, it) -> if (id in ids) it.copy(reviewed = true) else it }
     }
 
     override fun observeAliases(): Flow<List<IngredientAlias>> =
