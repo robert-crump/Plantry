@@ -136,10 +136,14 @@ fun PlantryNavHost() {
     val cookLogRepository = app.cookLogRepository
     val weekPlanRepository = app.weekPlanRepository
 
-    val currentDestination = navController.currentBackStackEntryAsState().value?.destination
+    val currentEntry = navController.currentBackStackEntryAsState().value
+    val currentDestination = currentEntry?.destination
+    // The recipe list filtered from the ingredient list is a sub-screen: back arrow, no bottom bar.
+    val filteredRecipeList = currentDestination?.hasRoute(RecipeListRoute::class) == true &&
+        currentEntry.toRoute<RecipeListRoute>().ingredientId != null
     val currentTopLevel = TopLevelDestination.entries.firstOrNull { top ->
         currentDestination?.hasRoute(top.route::class) == true
-    }
+    }?.takeUnless { filteredRecipeList }
 
     // Checked on every resume; "Später" hides it until the app is restarted.
     val backupReminder by app.backupRepository.reminder.collectAsStateWithLifecycle()
@@ -225,6 +229,7 @@ fun PlantryNavHost() {
                         onAddRecipe = { navController.navigate(RecipeEditRoute()) },
                         onScanRecipe = { navController.navigate(RecipeEditRoute(scan = true)) },
                         onOpenHistory = { navController.navigate(CookHistoryRoute) },
+                        onBack = if (ingredientId != null) ({ navController.popBackStack() }) else null,
                     )
                 }
                 composable<RecipeDetailRoute> { entry ->
@@ -269,6 +274,7 @@ fun PlantryNavHost() {
                     IngredientListScreen(
                         viewModel = viewModel { IngredientListViewModel(ingredientRepository, recipeRepository) },
                         onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
+                        onRecipesClick = { navController.navigate(RecipeListRoute(ingredientId = it)) },
                         onAddIngredient = { navController.navigate(UsdaSearchRoute) },
                         onOpenSort = { navController.navigate(IngredientSortRoute) },
                     )

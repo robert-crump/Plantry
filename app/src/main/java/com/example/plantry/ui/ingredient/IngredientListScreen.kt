@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -86,6 +88,7 @@ class IngredientListViewModel(
 fun IngredientListScreen(
     viewModel: IngredientListViewModel,
     onIngredientClick: (Long) -> Unit,
+    onRecipesClick: (Long) -> Unit,
     onAddIngredient: () -> Unit,
     onOpenSort: () -> Unit,
 ) {
@@ -130,10 +133,16 @@ fun IngredientListScreen(
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {
                     items(current.ingredients, key = { it.id }) { ingredient ->
+                        val recipeCount = current.recipeCounts[ingredient.id] ?: 0
                         IngredientRow(
                             ingredient,
-                            recipeCount = current.recipeCounts[ingredient.id] ?: 0,
+                            recipeCount = recipeCount,
                             onClick = { onIngredientClick(ingredient.id) },
+                            onRecipesClick = if (RecipeQuery.canFilterBy(ingredient, recipeCount)) {
+                                { onRecipesClick(ingredient.id) }
+                            } else {
+                                null
+                            },
                         )
                         HorizontalDivider()
                     }
@@ -144,13 +153,25 @@ fun IngredientListScreen(
 }
 
 @Composable
-private fun IngredientRow(ingredient: Ingredient, recipeCount: Int, onClick: () -> Unit) {
+private fun IngredientRow(
+    ingredient: Ingredient,
+    recipeCount: Int,
+    onClick: () -> Unit,
+    onRecipesClick: (() -> Unit)?,
+) {
     ListItem(
         headlineContent = { Text(ingredient.name) },
         supportingContent = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
                 InfoChip(stringResource(ingredient.storeSection.label))
-                InfoChip(pluralStringResource(R.plurals.ingredient_recipe_count, recipeCount, recipeCount))
+                InfoChip(
+                    pluralStringResource(R.plurals.ingredient_recipe_count, recipeCount, recipeCount),
+                    onClick = onRecipesClick,
+                )
             }
         },
         trailingContent = if (ingredient.reviewed) null else ({ UnreviewedBadge() }),
@@ -158,19 +179,41 @@ private fun IngredientRow(ingredient: Ingredient, recipeCount: Int, onClick: () 
     )
 }
 
-/** A read-only chip with an outline, for the row's store section and recipe count. */
+/**
+ * An outlined chip for the row's store section and recipe count. With [onClick] it is tappable
+ * and shows a chevron; without it is read-only.
+ */
 @Composable
-private fun InfoChip(text: String) {
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        color = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+private fun InfoChip(text: String, onClick: (() -> Unit)? = null) {
+    val content: @Composable () -> Unit = {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 8.dp, end = if (onClick == null) 8.dp else 4.dp, top = 4.dp, bottom = 4.dp),
+        ) {
+            Text(text, style = MaterialTheme.typography.labelLarge)
+            if (onClick != null) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+    val shape = MaterialTheme.shapes.small
+    val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    if (onClick == null) {
+        Surface(
+            shape = shape,
+            border = border,
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            content = content,
+        )
+    } else {
+        Surface(
+            onClick = onClick,
+            shape = shape,
+            border = border,
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary,
+            content = content,
         )
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
@@ -151,6 +152,8 @@ fun RecipeListScreen(
     onAddRecipe: () -> Unit,
     onScanRecipe: () -> Unit,
     onOpenHistory: () -> Unit,
+    /** Set when opened as a sub-screen (filtered from the ingredient list); shows a back arrow. */
+    onBack: (() -> Unit)? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -158,6 +161,13 @@ fun RecipeListScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.recipes_title)) },
+                navigationIcon = {
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                        }
+                    }
+                },
                 actions = {
                     state?.takeIf { it.recipeCount > 0 }?.let { SortMenu(it.sort, viewModel::setSort) }
                     IconButton(onClick = onOpenHistory) {

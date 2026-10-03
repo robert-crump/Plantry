@@ -103,6 +103,12 @@ object RecipeQuery {
         }.toMap()
     }
 
+    /**
+     * Whether the ingredient list may open the recipe list filtered by [ingredient]: only when
+     * recipes use it and it isn't a staple, since the filter never matches staple lines.
+     */
+    fun canFilterBy(ingredient: Ingredient, recipeCount: Int): Boolean = recipeCount > 0 && !ingredient.staple
+
     private fun item(
         recipe: Recipe,
         recipeLines: List<RecipeIngredient>,

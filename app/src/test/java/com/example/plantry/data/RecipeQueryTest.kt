@@ -56,6 +56,24 @@ class RecipeQueryTest {
     }
 
     @Test
+    fun canFilterBy_onlyUsedNonStaples() {
+        assertEquals(true, RecipeQuery.canFilterBy(lentils, 3))
+        assertEquals(false, RecipeQuery.canFilterBy(lentils, 0))
+        assertEquals(false, RecipeQuery.canFilterBy(salt, 3))
+    }
+
+    @Test
+    fun filterFromRecipeCount_findsTheCountedRecipes() {
+        val recipes = listOf(recipe(1, "Reis pur"), recipe(2, "Gebratener Reis"), recipe(3, "Tofu"))
+        val lines = listOf(line(1, riceDry), line(2, riceCooked), line(3, tofu))
+
+        val items = run(recipes, lines, RecipeFilter(ingredientIds = setOf(riceDry.id)))
+
+        assertEquals(RecipeQuery.recipeCounts(lines, ingredients)[riceDry.id], items.size)
+        assertEquals(listOf("Gebratener Reis", "Reis pur"), items.titles())
+    }
+
+    @Test
     fun recipeCounts_skipLinesWithMissingIngredient() {
         val missing = RecipeIngredient(recipeId = 1, position = 0, originalText = "", grams = 1.0, ingredientId = 99)
 
