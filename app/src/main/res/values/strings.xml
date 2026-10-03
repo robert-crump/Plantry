@@ -91,15 +91,18 @@
         <item quantity="other">Noch %1$d Zeilen prüfen</item>
     </plurals>
     <string name="recipe_line_no_ingredient">keine Zutat</string>
-    <string name="recipe_line_new_ingredient">Neue Zutat – USDA-Eintrag bestätigen</string>
+    <string name="recipe_line_new_ingredient">Neue Zutat – Nährwerte bestätigen</string>
     <string name="recipe_line_propose_ingredient">„%1$s“ mit Claude neu anlegen</string>
     <string name="new_ingredient_match">%1$s → %2$s (USDA)</string>
     <string name="new_ingredient_no_usda">%1$s → kein passender USDA-Eintrag gefunden</string>
+    <string name="new_ingredient_label">%1$s → Nährwerte von der Packung</string>
     <string name="new_ingredient_confirm">Bestätigen</string>
     <string name="new_ingredient_confirmed">Bestätigt</string>
     <string name="new_ingredient_change">Ändern</string>
     <string name="new_ingredient_pick">USDA-Eintrag wählen</string>
     <string name="new_ingredient_picker_title">USDA-Eintrag wählen</string>
+    <string name="new_ingredient_without_usda">Ohne USDA (Nährwerte eingeben)</string>
+    <string name="new_ingredient_edit_label">Nährwerte ändern</string>
     <string name="new_ingredient_proposing">Claude schlägt neue Zutaten vor …</string>
     <string name="new_ingredient_proposing_one">Claude schlägt die Zutat vor …</string>
     <string name="new_ingredient_failed">Neue Zutaten konnten nicht vorgeschlagen werden. %1$s</string>
@@ -150,7 +153,7 @@
 
     <!-- Ingredient list -->
     <string name="ingredients_title">Zutaten</string>
-    <string name="ingredients_empty">Noch keine Zutaten. Lege mit + eine Zutat aus der USDA-Datenbank an.</string>
+    <string name="ingredients_empty">Noch keine Zutaten. Lege mit + eine Zutat an – aus der USDA-Datenbank oder mit den Nährwerten von der Packung.</string>
     <string name="ingredients_empty_unreviewed">Alle Zutaten sind geprüft.</string>
     <string name="ingredients_filter_unreviewed">Nur ungeprüfte (%1$d)</string>
     <string name="ingredient_add">Zutat hinzufügen</string>
@@ -184,6 +187,9 @@
     <string name="usda_search_no_results">Keine Treffer</string>
     <string name="usda_create_title">Zutat anlegen</string>
     <string name="usda_create_name">Deutscher Name</string>
+    <string name="usda_search_without">Nicht gefunden? Ohne USDA anlegen</string>
+    <string name="label_nutrition_title">Nährwerte von der Packung</string>
+    <string name="label_nutrition_hint">Je 100 g, wie auf der Packung. Fehlt eine Angabe (oft Ballaststoffe), trage 0 ein.</string>
     <string name="action_create">Anlegen</string>
 
     <!-- Ingredient detail -->

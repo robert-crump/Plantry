@@ -75,12 +75,14 @@ import com.example.plantry.data.IngredientAliases
 import com.example.plantry.data.IngredientSuggestions
 import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.NewIngredientFinder
+import com.example.plantry.data.Nutrition
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.SourceSuggestions
 import com.example.plantry.data.claude.ClaudeFailure
 import com.example.plantry.data.claude.ClaudeResult
 import com.example.plantry.data.claude.NewFood
+import com.example.plantry.data.claude.NutritionSource
 import com.example.plantry.data.claude.RecipeScanner
 import com.example.plantry.data.claude.ScanResult
 import com.example.plantry.data.usda.UsdaCatalog
@@ -92,6 +94,8 @@ import kotlinx.coroutines.flow.mapLatest
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.ui.settings.message
 import com.example.plantry.data.nutritionLines
+import com.example.plantry.ui.ingredient.LabelNutritionDialog
+import com.example.plantry.ui.ingredient.LabelNutritionForm
 import com.example.plantry.ui.ingredient.formatDecimal
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -120,6 +124,8 @@ data class RecipeEditUiState(
     val proposals: ProposalState = ProposalState.Idle,
     /** Null while no other USDA entry is being picked. */
     val usdaPicker: UsdaPickerState? = null,
+    /** The new ingredient whose package values are being entered, if any. */
+    val labelNutritionFor: Long? = null,
     /** A scan is reviewed in two steps: the recipe fields first, then (once true) the lines. */
     val linesStep: Boolean = false,
 )
@@ -383,6 +389,22 @@ class RecipeEditViewModel(
         _state.update { it.copy(usdaPicker = null) }
     }
 
+    /** Opens the package values for new ingredient [id]; replaces the USDA picker if it is open. */
+    fun openLabelNutrition(id: Long) {
+        _state.update { it.copy(usdaPicker = null, labelNutritionFor = id) }
+    }
+
+    fun saveLabelNutrition(nutrition: Nutrition) {
+        _state.update { state ->
+            val id = state.labelNutritionFor ?: return@update state
+            state.copy(form = state.form.withNewIngredientLabel(id, nutrition), labelNutritionFor = null)
+        }
+    }
+
+    fun dismissLabelNutrition() {
+        _state.update { it.copy(labelNutritionFor = null) }
+    }
+
     /** Gives up on reading and shows the empty form; the photo is kept. */
     fun skipScan() {
         _state.update { it.copy(scan = ScanState.Done) }
@@ -609,6 +631,7 @@ fun RecipeEditScreen(
                                     isError = errors?.lines == true,
                                     onConfirm = { viewModel.confirmNewIngredient(newId) },
                                     onChange = { viewModel.openUsdaPicker(newId) },
+                                    onEnterLabel = { viewModel.openLabelNutrition(newId) },
                                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
                                 )
                             }
@@ -634,6 +657,7 @@ fun RecipeEditScreen(
                 onProposeIngredient = viewModel::proposeForLine,
                 onConfirmNew = viewModel::confirmNewIngredient,
                 onChangeNew = viewModel::openUsdaPicker,
+                onEnterLabelNew = viewModel::openLabelNutrition,
             )
         }
 
@@ -645,7 +669,18 @@ fun RecipeEditScreen(
                 results = results,
                 onQueryChange = viewModel::onUsdaQueryChange,
                 onPick = viewModel::pickUsda,
+                onWithoutUsda = { viewModel.openLabelNutrition(picker.ingredientId) },
                 onDismiss = viewModel::dismissUsdaPicker,
+            )
+        }
+
+        state.labelNutritionFor?.let { id ->
+            val source = form.newIngredients[id]?.proposal?.source
+            LabelNutritionDialog(
+                confirmLabel = R.string.action_apply,
+                onConfirm = { _, nutrition -> viewModel.saveLabelNutrition(nutrition) },
+                onDismiss = viewModel::dismissLabelNutrition,
+                initial = (source as? NutritionSource.Label)?.let { LabelNutritionForm.from(it.nutrition) } ?: LabelNutritionForm(),
             )
         }
     }
@@ -922,6 +957,7 @@ private fun LineEditorDialog(
     onProposeIngredient: () -> Unit,
     onConfirmNew: (Long) -> Unit,
     onChangeNew: (Long) -> Unit,
+    onEnterLabelNew: (Long) -> Unit,
 ) {
     val form = editor.form
     val errors = if (editor.showErrors) form.errors() else null
@@ -984,6 +1020,7 @@ private fun LineEditorDialog(
                         isError = editor.showErrors,
                         onConfirm = { onConfirmNew(ingredientId) },
                         onChange = { onChangeNew(ingredientId) },
+                        onEnterLabel = { onEnterLabelNew(ingredientId) },
                     )
                 }
                 if (ingredientId == null) {

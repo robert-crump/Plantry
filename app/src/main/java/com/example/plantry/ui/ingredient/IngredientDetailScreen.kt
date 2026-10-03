@@ -385,7 +385,7 @@ private fun FormField(
     )
 }
 
-private val Nutrient.label: Int
+internal val Nutrient.label: Int
     get() = when (this) {
         Nutrient.KCAL -> R.string.nutrient_kcal
         Nutrient.PROTEIN -> R.string.nutrient_protein

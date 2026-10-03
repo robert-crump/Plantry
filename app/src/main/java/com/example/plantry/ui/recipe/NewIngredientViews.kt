@@ -32,12 +32,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.plantry.R
+import com.example.plantry.data.claude.NutritionSource
 import com.example.plantry.data.usda.UsdaFood
 import com.example.plantry.ui.ingredient.nutritionSummary
 
 /**
  * The USDA entry proposed for a new ingredient, e.g. "Räuchertofu → Tofu, smoked (USDA)", which the
- * user confirms or changes. The rest of the proposal is reviewed later on the ingredient screen.
+ * user confirms, changes, or replaces with the package's values. The rest of the proposal is
+ * reviewed later on the ingredient screen.
  */
 @Composable
 fun NewIngredientMatch(
@@ -45,16 +47,17 @@ fun NewIngredientMatch(
     isError: Boolean,
     onConfirm: () -> Unit,
     onChange: () -> Unit,
+    onEnterLabel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val proposal = newIngredient.proposal
-    val food = proposal.food
+    val source = proposal.source
     Column(modifier) {
         Text(
-            if (food == null) {
-                stringResource(R.string.new_ingredient_no_usda, proposal.name)
-            } else {
-                stringResource(R.string.new_ingredient_match, proposal.name, food.description)
+            when (source) {
+                null -> stringResource(R.string.new_ingredient_no_usda, proposal.name)
+                is NutritionSource.Usda -> stringResource(R.string.new_ingredient_match, proposal.name, source.food.description)
+                is NutritionSource.Label -> stringResource(R.string.new_ingredient_label, proposal.name)
             },
             style = MaterialTheme.typography.bodyMedium,
             color = if (isError && !newIngredient.ready) MaterialTheme.colorScheme.error else Color.Unspecified,
@@ -75,23 +78,30 @@ fun NewIngredientMatch(
                         modifier = Modifier.padding(start = 4.dp),
                     )
                 }
-            } else if (food != null) {
+            } else if (source != null) {
                 FilledTonalButton(onClick = onConfirm) { Text(stringResource(R.string.new_ingredient_confirm)) }
             }
             TextButton(onClick = onChange) {
-                Text(stringResource(if (food == null) R.string.new_ingredient_pick else R.string.new_ingredient_change))
+                Text(stringResource(if (source is NutritionSource.Usda) R.string.new_ingredient_change else R.string.new_ingredient_pick))
+            }
+            TextButton(onClick = onEnterLabel) {
+                Text(stringResource(if (source is NutritionSource.Label) R.string.new_ingredient_edit_label else R.string.new_ingredient_without_usda))
             }
         }
     }
 }
 
-/** Searches the bundled USDA data for another entry; [results] is null while it is loading. */
+/**
+ * Searches the bundled USDA data for another entry; [results] is null while it is loading.
+ * [onWithoutUsda] switches to entering the package's values instead.
+ */
 @Composable
 fun UsdaPickerDialog(
     query: String,
     results: List<UsdaFood>?,
     onQueryChange: (String) -> Unit,
     onPick: (UsdaFood) -> Unit,
+    onWithoutUsda: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -124,7 +134,9 @@ fun UsdaPickerDialog(
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            TextButton(onClick = onWithoutUsda) { Text(stringResource(R.string.new_ingredient_without_usda)) }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

@@ -1,6 +1,7 @@
 package com.example.plantry.data
 
 import com.example.plantry.data.claude.IngredientProposal
+import com.example.plantry.data.claude.NutritionSource
 import com.example.plantry.data.claude.ProposedBuyAs
 import com.example.plantry.data.usda.UsdaFood
 import kotlinx.coroutines.flow.Flow
@@ -50,6 +51,35 @@ class IngredientRepositoryTest {
         assertEquals(riceCooked.description, ingredient.usdaDescription)
         assertEquals(riceCooked.nutrition, ingredient.nutrition)
         assertEquals(riceCooked.portions, ingredient.unitWeights)
+        assertFalse(ingredient.reviewed)
+    }
+
+    @Test
+    fun createFromLabel_hasNoUsdaReferenceAndIsUnreviewed() = runTest {
+        val label = Nutrition(52.0, 1.0, 9.0, 4.0, 1.5, 0.0)
+
+        val ingredient = repository.getIngredient(repository.createFromLabel(" Haferdrink ", label))!!
+
+        assertEquals("Haferdrink", ingredient.name)
+        assertNull(ingredient.fdcId)
+        assertNull(ingredient.usdaDescription)
+        assertEquals(label, ingredient.nutrition)
+        assertTrue(ingredient.unitWeights.isEmpty())
+        assertEquals(BuyUnit.GRAMS, ingredient.buyUnit)
+        assertFalse(ingredient.reviewed)
+    }
+
+    @Test
+    fun createProposed_withLabelNutrition_hasNoUsdaReference() = runTest {
+        val label = Nutrition(52.0, 1.0, 9.0, 4.0, 1.5, 0.0)
+        val oatDrink = proposal(riceDry, "Haferdrink").copy(source = NutritionSource.Label(label))
+
+        val ingredient = repository.getIngredient(repository.createProposed(mapOf(-1L to oatDrink)).getValue(-1))!!
+
+        assertNull(ingredient.fdcId)
+        assertNull(ingredient.usdaDescription)
+        assertEquals(label, ingredient.nutrition)
+        assertEquals(BuyUnit.PACK, ingredient.buyUnit)
         assertFalse(ingredient.reviewed)
     }
 
@@ -107,7 +137,7 @@ class IngredientRepositoryTest {
 
     private fun proposal(food: UsdaFood, name: String, buyAs: ProposedBuyAs? = null) = IngredientProposal(
         name = name,
-        food = food,
+        source = NutritionSource.Usda(food),
         searchTerms = emptyList(),
         unitWeights = emptyList(),
         buyUnit = BuyUnit.PACK,

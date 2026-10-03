@@ -66,7 +66,7 @@ class ProposalParserTest {
         assertEquals(
             IngredientProposal(
                 name = "Räuchertofu",
-                food = smokedTofu,
+                source = NutritionSource.Usda(smokedTofu),
                 searchTerms = listOf("tofu smoked"),
                 unitWeights = listOf(UnitWeight("Packung", 200.0)),
                 buyUnit = BuyUnit.PACK,

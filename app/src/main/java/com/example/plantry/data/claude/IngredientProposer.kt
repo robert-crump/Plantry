@@ -10,6 +10,7 @@ import com.anthropic.models.messages.OutputConfig
 import com.anthropic.models.messages.StopReason
 import com.example.plantry.data.BuyUnit
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.UnitWeight
@@ -41,11 +42,24 @@ data class FoodCandidates(val food: NewFood, val candidates: List<UsdaFood>)
 /** What a new ingredient is bought as; a negative [ingredientId] is another new ingredient of the same save. */
 data class ProposedBuyAs(val ingredientId: Long, val yieldFactor: Double?)
 
+/** Where a new ingredient's nutrition comes from: a USDA entry or the values on the package. */
+sealed interface NutritionSource {
+    /** Per 100 g. */
+    val nutrition: Nutrition
+
+    data class Usda(val food: UsdaFood) : NutritionSource {
+        override val nutrition: Nutrition get() = food.nutrition
+    }
+
+    /** Typed in from the package label; the ingredient gets no USDA reference. */
+    data class Label(override val nutrition: Nutrition) : NutritionSource
+}
+
 /** Claude's validated proposal for a new ingredient. */
 data class IngredientProposal(
     val name: String,
-    /** The USDA entry for the nutrition; null when no candidate fits, so the user must pick one. */
-    val food: UsdaFood?,
+    /** Null when no USDA candidate fits, so the user must pick one or enter the label values. */
+    val source: NutritionSource?,
     val searchTerms: List<String>,
     val unitWeights: List<UnitWeight>,
     val buyUnit: BuyUnit,
@@ -55,19 +69,22 @@ data class IngredientProposal(
     val plantPoints: PlantPoints,
     val buyAs: ProposedBuyAs?,
 ) {
+    /** The USDA entry, if the nutrition comes from one. */
+    val food: UsdaFood? get() = (source as? NutritionSource.Usda)?.food
+
     /**
      * The unreviewed ingredient to create, without its buy-as link (set once all new ingredients
-     * have ids). Claude's unit weights win; USDA portions are the fallback. Requires [food].
+     * have ids). Claude's unit weights win; USDA portions are the fallback. Requires [source].
      */
     fun toIngredient(id: Long = 0): Ingredient {
-        val food = checkNotNull(food) { "a new ingredient needs a USDA entry" }
+        val source = checkNotNull(source) { "a new ingredient needs a nutrition source" }
         return Ingredient(
             id = id,
             name = name,
-            fdcId = food.fdcId,
-            usdaDescription = food.description,
-            nutrition = food.nutrition,
-            unitWeights = unitWeights.ifEmpty { food.portions },
+            fdcId = food?.fdcId,
+            usdaDescription = food?.description,
+            nutrition = source.nutrition,
+            unitWeights = unitWeights.ifEmpty { food?.portions.orEmpty() },
             buyUnit = buyUnit,
             packSizeGrams = packSizeGrams,
             storeSection = storeSection,
@@ -392,7 +409,7 @@ object ProposalParser {
             ?: newIds[answer.buyAsNewKey.trim()]?.takeIf { it != food.id }
         return IngredientProposal(
             name = answer.name.trim().ifEmpty { food.name.trim() },
-            food = candidates.candidates.firstOrNull { it.fdcId == answer.fdcId },
+            source = candidates.candidates.firstOrNull { it.fdcId == answer.fdcId }?.let(NutritionSource::Usda),
             searchTerms = food.searchTerms,
             unitWeights = answer.unitWeights
                 .filter { it.label.isNotBlank() && it.grams.isFinite() && it.grams > 0.0 }

@@ -4,12 +4,14 @@ import com.example.plantry.data.BookPage
 import com.example.plantry.data.BookSession
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAliases
+import com.example.plantry.data.Nutrition
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeDraft
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeIngredientDraft
 import com.example.plantry.data.claude.IngredientProposal
 import com.example.plantry.data.claude.NewFood
+import com.example.plantry.data.claude.NutritionSource
 import com.example.plantry.data.claude.ProposalParser
 import com.example.plantry.data.claude.ScannedRecipe
 import com.example.plantry.data.toDraft
@@ -108,20 +110,25 @@ data class RecipeForm(
     fun withNewIngredient(id: Long, proposal: IngredientProposal) =
         copy(newIngredients = newIngredients + (id to NewIngredient(proposal)))
 
-    /** Confirms the proposed USDA entry; without one there is nothing to confirm. */
+    /** Confirms the proposed nutrition source; without one there is nothing to confirm. */
     fun confirmNewIngredient(id: Long) =
-        updateNewIngredient(id) { if (it.proposal.food == null) it else it.copy(confirmed = true) }
+        updateNewIngredient(id) { if (it.proposal.source == null) it else it.copy(confirmed = true) }
 
     /** The user picked [food] instead of the proposed entry, which also confirms it. */
-    fun withNewIngredientFood(id: Long, food: UsdaFood) =
-        updateNewIngredient(id) { NewIngredient(it.proposal.copy(food = food), confirmed = true) }
+    fun withNewIngredientFood(id: Long, food: UsdaFood) = withNewIngredientSource(id, NutritionSource.Usda(food))
+
+    /** The user typed in the package's values per 100 g instead of a USDA entry, which also confirms it. */
+    fun withNewIngredientLabel(id: Long, nutrition: Nutrition) = withNewIngredientSource(id, NutritionSource.Label(nutrition))
+
+    private fun withNewIngredientSource(id: Long, source: NutritionSource) =
+        updateNewIngredient(id) { NewIngredient(it.proposal.copy(source = source), confirmed = true) }
 
     private fun updateNewIngredient(id: Long, transform: (NewIngredient) -> NewIngredient): RecipeForm {
         val existing = newIngredients[id] ?: return this
         return copy(newIngredients = newIngredients + (id to transform(existing)))
     }
 
-    /** Whether [ingredientId] is a stored ingredient or a new one whose USDA entry is confirmed. */
+    /** Whether [ingredientId] is a stored ingredient or a new one whose nutrition source is confirmed. */
     fun isReady(ingredientId: Long?): Boolean = when {
         ingredientId == null -> false
         ingredientId > 0 -> true
@@ -149,9 +156,9 @@ data class RecipeForm(
         return problems.firstOrNull { it > index } ?: problems.firstOrNull()
     }
 
-    /** New ingredients that have a USDA entry, with their temporary id, for previews and suggestions. */
+    /** New ingredients that have nutrition, with their temporary id, for previews and suggestions. */
     fun previewIngredients(): List<Ingredient> = newIngredients
-        .filterValues { it.proposal.food != null }
+        .filterValues { it.proposal.source != null }
         .map { (id, new) -> new.proposal.toIngredient(id) }
 
     /** The proposals to create on save: those a line uses. */
@@ -162,7 +169,7 @@ data class RecipeForm(
 
     /**
      * The wordings the user confirmed, to remember as aliases: lines applied in the line editor and
-     * lines using a new ingredient (whose USDA entry had to be confirmed), with the new ingredients'
+     * lines using a new ingredient (whose nutrition source had to be confirmed), with the new ingredients'
      * temporary ids replaced by their [createdIds].
      */
     fun aliasesToLearn(createdIds: Map<Long, Long> = emptyMap()): List<Pair<String, Long>> = lines.mapNotNull { line ->
@@ -260,7 +267,7 @@ data class RecipeFormLine(
 enum class LineProblem {
     NO_INGREDIENT,
 
-    /** A new ingredient whose USDA entry is not confirmed yet. */
+    /** A new ingredient whose nutrition source is not confirmed yet. */
     NEW_INGREDIENT,
     NO_GRAMS,
 
@@ -268,9 +275,9 @@ enum class LineProblem {
     UNCERTAIN,
 }
 
-/** A new ingredient Claude proposed; its USDA entry must be confirmed before saving. */
+/** A new ingredient Claude proposed; its nutrition source must be confirmed before saving. */
 data class NewIngredient(val proposal: IngredientProposal, val confirmed: Boolean = false) {
-    val ready: Boolean get() = confirmed && proposal.food != null
+    val ready: Boolean get() = confirmed && proposal.source != null
 }
 
 /** Replaces the temporary ids of new ingredients with the ids they were created with. */

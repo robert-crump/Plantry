@@ -27,13 +27,30 @@ class IngredientRepository(private val dao: IngredientDao) {
      * Creates an unreviewed ingredient with the nutrition and portion weights of [food] and returns
      * its id. The remaining attributes get neutral defaults until the user reviews it.
      */
-    suspend fun createFromUsda(food: UsdaFood, name: String): Long = dao.insert(
+    suspend fun createFromUsda(food: UsdaFood, name: String): Long =
+        insertUnreviewed(name, food.nutrition, food.portions, food.fdcId, food.description)
+
+    /**
+     * Creates an unreviewed ingredient without a USDA reference, with the [nutrition] per 100 g
+     * from the package label, and returns its id. Other attributes get the same defaults as
+     * [createFromUsda].
+     */
+    suspend fun createFromLabel(name: String, nutrition: Nutrition): Long =
+        insertUnreviewed(name, nutrition, unitWeights = emptyList(), fdcId = null, usdaDescription = null)
+
+    private suspend fun insertUnreviewed(
+        name: String,
+        nutrition: Nutrition,
+        unitWeights: List<UnitWeight>,
+        fdcId: Long?,
+        usdaDescription: String?,
+    ): Long = dao.insert(
         Ingredient(
             name = name.trim(),
-            fdcId = food.fdcId,
-            usdaDescription = food.description,
-            nutrition = food.nutrition,
-            unitWeights = food.portions,
+            fdcId = fdcId,
+            usdaDescription = usdaDescription,
+            nutrition = nutrition,
+            unitWeights = unitWeights,
             buyUnit = BuyUnit.GRAMS,
             packSizeGrams = null,
             storeSection = StoreSection.OTHER,
@@ -49,7 +66,7 @@ class IngredientRepository(private val dao: IngredientDao) {
      * Creates the unreviewed ingredients Claude proposed, keyed by their temporary (negative) ids,
      * and returns the new id for each. Buy-as links are set afterwards, so they can point to another
      * ingredient of the same batch; links to unknown ingredients, or that would close a cycle, are
-     * dropped. Every proposal needs a USDA entry.
+     * dropped. Every proposal needs a nutrition source.
      */
     suspend fun createProposed(proposals: Map<Long, IngredientProposal>): Map<Long, Long> {
         val ids = proposals.mapValues { (_, proposal) -> dao.insert(proposal.toIngredient()) }

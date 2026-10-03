@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.Nutrition
 import com.example.plantry.data.usda.UsdaCatalog
 import com.example.plantry.data.usda.UsdaFood
 import kotlinx.coroutines.Dispatchers
@@ -77,6 +79,11 @@ class UsdaSearchViewModel(
     fun create(food: UsdaFood, name: String, onCreated: (Long) -> Unit) {
         viewModelScope.launch { onCreated(repository.createFromUsda(food, name)) }
     }
+
+    /** Creates an ingredient without a USDA entry, from the package's values. */
+    fun createFromLabel(name: String, nutrition: Nutrition, onCreated: (Long) -> Unit) {
+        viewModelScope.launch { onCreated(repository.createFromLabel(name, nutrition)) }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,6 +96,7 @@ fun UsdaSearchScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     var picked by rememberSaveable { mutableStateOf<Long?>(null) }
+    var withoutUsda by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -114,6 +122,11 @@ fun UsdaSearchScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             )
+            // Always offered: a generic USDA hit may not match a branded product's label.
+            TextButton(onClick = { withoutUsda = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
+                Icon(Icons.Filled.EditNote, contentDescription = null)
+                Text(stringResource(R.string.usda_search_without), Modifier.padding(start = 8.dp))
+            }
             val results = state.results
             when {
                 results == null -> CenteredHint(R.string.usda_search_loading)
@@ -137,6 +150,15 @@ fun UsdaSearchScreen(
                 food = pickedFood,
                 onDismiss = { picked = null },
                 onCreate = { name -> viewModel.create(pickedFood, name, onCreated) },
+            )
+        }
+        if (withoutUsda) {
+            LabelNutritionDialog(
+                confirmLabel = R.string.action_create,
+                onConfirm = { name, nutrition -> viewModel.createFromLabel(name, nutrition, onCreated) },
+                onDismiss = { withoutUsda = false },
+                initial = LabelNutritionForm(name = query.trim()),
+                askName = true,
             )
         }
     }

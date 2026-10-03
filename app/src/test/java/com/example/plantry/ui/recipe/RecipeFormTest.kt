@@ -8,6 +8,7 @@ import com.example.plantry.data.Recipe
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.claude.IngredientProposal
 import com.example.plantry.data.claude.NewFood
+import com.example.plantry.data.claude.NutritionSource
 import com.example.plantry.data.usda.UsdaFood
 import com.example.plantry.data.RecipeDraft
 import com.example.plantry.data.RecipeIngredient
@@ -234,7 +235,7 @@ class RecipeFormTest {
     private val smokedTofu = UsdaFood(172476, "Tofu, smoked", Nutrition(160.0, 16.0, 3.0, 1.0, 9.0, 1.0), emptyList())
 
     private fun proposal(name: String, food: UsdaFood? = smokedTofu) = IngredientProposal(
-        name, food, emptyList(), emptyList(), BuyUnit.GRAMS, null, StoreSection.OTHER, false, PlantPoints.ONE, null,
+        name, food?.let(NutritionSource::Usda), emptyList(), emptyList(), BuyUnit.GRAMS, null, StoreSection.OTHER, false, PlantPoints.ONE, null,
     )
 
     private val scanned = valid.copy(
@@ -305,6 +306,32 @@ class RecipeFormTest {
         assertTrue(picked.isReady(-1))
         assertEquals(smokedTofu, picked.newIngredients.getValue(-1).proposal.food)
         assertEquals(listOf(-1L), picked.previewIngredients().map { it.id })
+    }
+
+    @Test
+    fun proposalWithoutUsdaEntry_labelValuesConfirmIt() {
+        val label = Nutrition(180.0, 18.0, 2.0, 1.0, 11.0, 0.0)
+        val form = valid.withNewIngredient(-1, proposal("Räuchertofu", food = null))
+            .withLine(null, RecipeFormLine("200 g Räuchertofu", 200.0, ingredientId = -1))
+
+        val labelled = form.withNewIngredientLabel(-1, label)
+
+        assertTrue(labelled.isReady(-1))
+        assertFalse(labelled.errors().lines)
+        val preview = labelled.previewIngredients().single()
+        assertEquals(label, preview.nutrition)
+        assertNull(preview.fdcId)
+        assertNull(preview.usdaDescription)
+    }
+
+    @Test
+    fun labelValues_replaceAProposedUsdaEntry() {
+        val label = Nutrition(180.0, 18.0, 2.0, 1.0, 11.0, 0.0)
+        val form = valid.withNewIngredient(-1, proposal("Räuchertofu")).withNewIngredientLabel(-1, label)
+
+        val proposal = form.newIngredients.getValue(-1).proposal
+        assertEquals(NutritionSource.Label(label), proposal.source)
+        assertNull(proposal.food)
     }
 
     private val checklist = valid.withNewIngredient(-1, proposal("Räuchertofu")).copy(
