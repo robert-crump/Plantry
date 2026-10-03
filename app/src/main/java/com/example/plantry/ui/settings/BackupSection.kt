@@ -6,20 +6,16 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.ViewModel
@@ -116,18 +112,26 @@ fun BackupSection(viewModel: BackupViewModel, snackbarHostState: SnackbarHostSta
         uri?.let(viewModel::read)
     }
 
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.backup_export)) },
-        supportingContent = { Text(stringResource(R.string.backup_export_hint)) },
-        leadingContent = { Icon(Icons.Filled.Upload, contentDescription = null) },
-        modifier = Modifier.clickable(enabled = !state.busy) { exportLauncher.launch(viewModel.nextFileName()) },
-    )
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.backup_import)) },
-        supportingContent = { Text(stringResource(R.string.backup_import_hint)) },
-        leadingContent = { Icon(Icons.Filled.Download, contentDescription = null) },
-        // Some file managers don't know the JSON type, so any file can be picked.
-        modifier = Modifier.clickable(enabled = !state.busy) { importLauncher.launch(arrayOf(MIME_TYPE, "*/*")) },
+    SettingsGroup(
+        {
+            SettingsRow(
+                icon = Icons.Filled.Upload,
+                title = stringResource(R.string.backup_export),
+                summary = stringResource(R.string.backup_export_hint),
+                enabled = !state.busy,
+                onClick = { exportLauncher.launch(viewModel.nextFileName()) },
+            )
+        },
+        {
+            SettingsRow(
+                icon = Icons.Filled.Download,
+                title = stringResource(R.string.backup_import),
+                summary = stringResource(R.string.backup_import_hint),
+                enabled = !state.busy,
+                // Some file managers don't know the JSON type, so any file can be picked.
+                onClick = { importLauncher.launch(arrayOf(MIME_TYPE, "*/*")) },
+            )
+        },
     )
 
     state.pendingImport?.let { file ->

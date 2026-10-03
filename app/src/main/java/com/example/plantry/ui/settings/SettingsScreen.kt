@@ -12,22 +12,30 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.EventRepeat
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,9 +44,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -106,93 +117,74 @@ class SettingsViewModel(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewModel) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val connectionTest by viewModel.connectionTest.collectAsStateWithLifecycle()
     var editingKey by rememberSaveable { mutableStateOf(false) }
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
+    var choosingModel by rememberSaveable { mutableStateOf(false) }
     var editingCooldown by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
 
-    Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()),
+            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            SectionHeader(R.string.settings_api_key)
-            ListItem(
-                headlineContent = {
-                    Text(settings.maskedApiKey ?: stringResource(R.string.settings_api_key_missing))
+            SectionHeader(R.string.settings_claude)
+            SettingsGroup(
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.Key,
+                        title = stringResource(R.string.settings_api_key),
+                        summary = settings.maskedApiKey ?: stringResource(R.string.settings_api_key_missing),
+                        onClick = { editingKey = true },
+                        trailing = if (settings.hasApiKey) {
+                            {
+                                IconButton(onClick = { confirmingDelete = true }) {
+                                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.settings_api_key_delete))
+                                }
+                            }
+                        } else {
+                            null
+                        },
+                    )
                 },
-                supportingContent = { Text(stringResource(R.string.settings_api_key_hint)) },
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.AutoAwesome,
+                        title = stringResource(R.string.settings_scan_model),
+                        summary = stringResource(settings.scanModel.label),
+                        onClick = { choosingModel = true },
+                    )
+                },
+                {
+                    ConnectionRow(
+                        state = connectionTest,
+                        enabled = settings.hasApiKey && connectionTest != ConnectionTestState.Running,
+                        onClick = viewModel::testConnection,
+                    )
+                },
             )
-            Row(
-                Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedButton(onClick = { editingKey = true }) {
-                    Text(
-                        stringResource(
-                            if (settings.hasApiKey) R.string.settings_api_key_replace else R.string.settings_api_key_enter,
-                        ),
-                    )
-                }
-                if (settings.hasApiKey) {
-                    TextButton(onClick = { confirmingDelete = true }) {
-                        Text(stringResource(R.string.action_delete))
-                    }
-                }
-            }
-
-            SectionHeader(R.string.settings_scan_model)
-            Column(Modifier.selectableGroup()) {
-                ScanModel.entries.forEach { model ->
-                    ListItem(
-                        headlineContent = { Text(stringResource(model.label)) },
-                        supportingContent = { Text(stringResource(model.description)) },
-                        leadingContent = { RadioButton(selected = model == settings.scanModel, onClick = null) },
-                        modifier = Modifier.selectable(
-                            selected = model == settings.scanModel,
-                            onClick = { viewModel.setScanModel(model) },
-                            role = Role.RadioButton,
-                        ),
-                    )
-                }
-            }
-
-            SectionHeader(R.string.settings_connection)
-            Row(
-                Modifier.padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                OutlinedButton(
-                    onClick = viewModel::testConnection,
-                    enabled = settings.hasApiKey && connectionTest != ConnectionTestState.Running,
-                ) {
-                    Text(stringResource(R.string.settings_connection_test))
-                }
-                if (connectionTest == ConnectionTestState.Running) {
-                    CircularProgressIndicator(Modifier.size(24.dp))
-                }
-            }
-            (connectionTest as? ConnectionTestState.Done)?.let { done ->
-                ConnectionResultText(done.result, Modifier.padding(16.dp))
-            }
+            SectionHint(R.string.settings_api_key_hint)
 
             SectionHeader(R.string.settings_week_plan)
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_cooldown)) },
-                supportingContent = { Text(stringResource(R.string.settings_cooldown_hint)) },
-                trailingContent = {
-                    Text(pluralStringResource(R.plurals.settings_cooldown_days, settings.cooldownDays, settings.cooldownDays))
+            SettingsGroup(
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.EventRepeat,
+                        title = stringResource(R.string.settings_cooldown),
+                        summary = pluralStringResource(
+                            R.plurals.settings_cooldown_days,
+                            settings.cooldownDays,
+                            settings.cooldownDays,
+                        ),
+                        onClick = { editingCooldown = true },
+                    )
                 },
-                modifier = Modifier.clickable { editingCooldown = true },
             )
+            SectionHint(R.string.settings_cooldown_hint)
 
             SectionHeader(R.string.settings_backup)
             BackupSection(backupViewModel, snackbar)
@@ -204,6 +196,21 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
             onSave = { key -> viewModel.saveApiKey(key).also { saved -> if (saved) editingKey = false } },
             onDismiss = { editingKey = false },
             dismissLabel = R.string.action_cancel,
+        )
+    }
+
+    if (choosingModel) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_scan_model),
+            options = ScanModel.entries,
+            selected = settings.scanModel,
+            label = { stringResource(it.label) },
+            description = { stringResource(it.description) },
+            onSelect = {
+                viewModel.setScanModel(it)
+                choosingModel = false
+            },
+            onDismiss = { choosingModel = false },
         )
     }
 
@@ -237,26 +244,148 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
 private fun SectionHeader(@StringRes text: Int) {
     Text(
         stringResource(text),
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 4.dp),
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
     )
 }
 
 @Composable
-private fun ConnectionResultText(result: ConnectionResult, modifier: Modifier = Modifier) {
-    when (result) {
-        ConnectionResult.Success -> Text(
-            stringResource(R.string.settings_connection_success),
-            color = MaterialTheme.colorScheme.primary,
-            modifier = modifier,
-        )
-        is ConnectionResult.Failure -> Text(
-            stringResource(result.reason.message),
-            color = MaterialTheme.colorScheme.error,
-            modifier = modifier,
-        )
+private fun SectionHint(@StringRes text: Int) {
+    Text(
+        stringResource(text),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 32.dp),
+    )
+}
+
+private val GroupOuterCorner = 24.dp
+private val GroupInnerCorner = 4.dp
+
+/** Rounded rows separated by a small gap; only the outer corners of the first and last row are large. */
+@Composable
+internal fun SettingsGroup(vararg rows: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        rows.forEachIndexed { index, row ->
+            val top = if (index == 0) GroupOuterCorner else GroupInnerCorner
+            val bottom = if (index == rows.lastIndex) GroupOuterCorner else GroupInnerCorner
+            Surface(
+                shape = RoundedCornerShape(top, top, bottom, bottom),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                row()
+            }
+        }
     }
+}
+
+@Composable
+internal fun SettingsRow(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit,
+    summary: String? = null,
+    enabled: Boolean = true,
+    summaryColor: Color = Color.Unspecified,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    val disabled = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = summary?.let { { Text(it, color = if (enabled) summaryColor else disabled) } },
+        leadingContent = { Icon(icon, contentDescription = null) },
+        trailingContent = trailing,
+        colors = if (enabled) {
+            ListItemDefaults.colors(containerColor = Color.Transparent)
+        } else {
+            ListItemDefaults.colors(
+                containerColor = Color.Transparent,
+                headlineColor = disabled,
+                leadingIconColor = disabled,
+            )
+        },
+        modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
+    )
+}
+
+private const val DISABLED_ALPHA = 0.38f
+
+/** The test runs from the row; its result replaces the summary. */
+@Composable
+private fun ConnectionRow(state: ConnectionTestState, enabled: Boolean, onClick: () -> Unit) {
+    val result = (state as? ConnectionTestState.Done)?.result
+    SettingsRow(
+        icon = Icons.Filled.NetworkCheck,
+        title = stringResource(R.string.settings_connection_test),
+        summary = when (result) {
+            null -> stringResource(R.string.settings_connection_hint)
+            ConnectionResult.Success -> stringResource(R.string.settings_connection_success)
+            is ConnectionResult.Failure -> stringResource(result.reason.message)
+        },
+        summaryColor = when (result) {
+            null -> Color.Unspecified
+            ConnectionResult.Success -> MaterialTheme.colorScheme.primary
+            is ConnectionResult.Failure -> MaterialTheme.colorScheme.error
+        },
+        enabled = enabled,
+        onClick = onClick,
+        trailing = if (state == ConnectionTestState.Running) {
+            { CircularProgressIndicator(Modifier.size(24.dp)) }
+        } else {
+            null
+        },
+    )
+}
+
+@Composable
+private fun <T> ChoiceDialog(
+    title: String,
+    options: List<T>,
+    selected: T,
+    label: @Composable (T) -> String,
+    description: @Composable (T) -> String,
+    onSelect: (T) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                options.forEach { option ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = option == selected,
+                                role = Role.RadioButton,
+                                onClick = { onSelect(option) },
+                            ),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = option == selected, onClick = null, modifier = Modifier.padding(12.dp))
+                        Column {
+                            Text(label(option), style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                description(option),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
 }
 
 /**

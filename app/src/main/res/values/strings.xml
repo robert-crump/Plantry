@@ -277,12 +277,11 @@
 
     <!-- Settings -->
     <string name="nav_settings">Einstellungen</string>
-    <string name="settings_title">Einstellungen</string>
+    <string name="settings_claude">Claude</string>
     <string name="settings_api_key">Anthropic-API-Schlüssel</string>
+    <string name="settings_api_key_delete">API-Schlüssel löschen</string>
     <string name="settings_api_key_missing">Kein Schlüssel gespeichert</string>
     <string name="settings_api_key_hint">Verschlüsselt nur auf diesem Gerät gespeichert</string>
-    <string name="settings_api_key_enter">Schlüssel eingeben</string>
-    <string name="settings_api_key_replace">Schlüssel ersetzen</string>
     <string name="settings_api_key_delete_title">API-Schlüssel löschen?</string>
     <string name="settings_api_key_delete_message">Ohne Schlüssel können keine Rezepte gescannt werden.</string>
     <string name="settings_api_key_dialog_title">API-Schlüssel</string>
@@ -304,8 +303,8 @@
         <item quantity="one">%d Tag</item>
         <item quantity="other">%d Tage</item>
     </plurals>
-    <string name="settings_connection">Verbindung</string>
     <string name="settings_connection_test">Verbindung testen</string>
+    <string name="settings_connection_hint">Prüft Schlüssel und Modell mit einer kurzen Anfrage</string>
     <string name="settings_connection_success">Verbindung erfolgreich.</string>
 
     <!-- Claude errors -->
