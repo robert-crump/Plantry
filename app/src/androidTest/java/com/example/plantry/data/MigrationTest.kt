@@ -169,6 +169,25 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate10To11_keepsTheRestAndAddsEmptyGeplant() {
+        helper.createDatabase(DB_NAME, 10).use { db ->
+            db.execSQL(
+                "INSERT INTO recipes (id, title, source, page, bookServings, ourServings, cookingTimeMinutes, modified) " +
+                    "VALUES (1, 'Dal', '', NULL, 2, 2, 30, 0)",
+            )
+            db.execSQL(
+                "INSERT INTO cook_log (id, recipeId, cookedOn, title, plantPoints, proteinPerPortion, carbsPerPortion) " +
+                    "VALUES (1, 1, 20729, 'Dal', 2.0, 20.0, 40.0)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 11, true).use { db ->
+            db.query("SELECT title FROM cook_log").use { assertEquals("Dal", it.apply { moveToFirst() }.getString(0)) }
+            db.query("SELECT COUNT(*) FROM planned_recipes").use { assertEquals(0, it.apply { moveToFirst() }.getInt(0)) }
+        }
+    }
+
     private fun ingredientSql(id: Long, name: String, points: String, protein: Double, carbs: Double, buyAs: Long? = null) =
         "INSERT INTO ingredients (id, name, fdcId, usdaDescription, kcal, protein, carbs, sugar, fat, fibre, " +
             "unitWeights, buyUnit, packSizeGrams, storeSection, staple, plantPoints, buyAsIngredientId, " +

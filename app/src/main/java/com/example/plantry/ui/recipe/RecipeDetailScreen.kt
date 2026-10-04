@@ -3,7 +3,8 @@ package com.example.plantry.ui.recipe
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,6 +15,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
@@ -27,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -52,8 +56,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.CookLogRepository
+import com.example.plantry.data.Cooked
 import com.example.plantry.data.CookingStats
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeNutrition
@@ -82,13 +88,16 @@ data class RecipeDetailUiState(
     val lines: List<RecipeLineItem>,
     val nutrition: RecipeNutrition,
     val cooking: CookingStats,
+    /** On Geplant. */
+    val planned: Boolean,
 )
 
 class RecipeDetailViewModel(
     private val recipeId: Long,
     private val repository: RecipeRepository,
     ingredientRepository: IngredientRepository,
-    private val cookLogRepository: CookLogRepository,
+    cookLogRepository: CookLogRepository,
+    private val plannedRepository: PlannedRepository,
     private val photos: RecipePhotoRepository,
     private val clock: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
@@ -102,7 +111,8 @@ class RecipeDetailViewModel(
         repository.observeLines(recipeId),
         ingredientRepository.observeIngredients(),
         cookLogRepository.observeStats(recipeId, clock),
-    ) { recipe, lines, ingredients, cooking ->
+        plannedRepository.observeIsPlanned(recipeId),
+    ) { recipe, lines, ingredients, cooking, planned ->
         if (recipe == null) return@combine null
         val byId = ingredients.associateBy { it.id }
         RecipeDetailUiState(
@@ -113,6 +123,7 @@ class RecipeDetailViewModel(
                 recipe.ourServings,
             ),
             cooking = cooking,
+            planned = planned,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -120,9 +131,9 @@ class RecipeDetailViewModel(
     private val _cookDate = MutableStateFlow<LocalDate?>(null)
     val cookDate: StateFlow<LocalDate?> = _cookDate.asStateFlow()
 
-    /** The id of the entry just logged, until its undo snackbar is gone. */
-    private val _justLogged = MutableStateFlow<Long?>(null)
-    val justLogged: StateFlow<Long?> = _justLogged.asStateFlow()
+    /** The recipe just logged, until its undo snackbar is gone. */
+    private val _justLogged = MutableStateFlow<Cooked?>(null)
+    val justLogged: StateFlow<Cooked?> = _justLogged.asStateFlow()
 
     fun today(): LocalDate = clock()
 
@@ -130,21 +141,29 @@ class RecipeDetailViewModel(
         _cookDate.value = date.takeIf { it != today() }
     }
 
-    /** Logs the recipe as cooked on the chosen date, then resets the date to today. */
+    /**
+     * Logs the recipe as cooked on the chosen date and takes it off Geplant, then resets the
+     * date to today.
+     */
     fun markCooked() {
         val date = _cookDate.value ?: today()
         viewModelScope.launch {
-            _justLogged.value = cookLogRepository.log(recipeId, date)
+            _justLogged.value = plannedRepository.cook(recipeId, date)
             _cookDate.value = null
         }
+    }
+
+    fun plan() {
+        viewModelScope.launch { plannedRepository.plan(recipeId) }
     }
 
     fun onUndoShown() {
         _justLogged.value = null
     }
 
-    fun undoCooked(logId: Long) {
-        viewModelScope.launch { cookLogRepository.delete(logId) }
+    /** Deletes the log entry and puts the recipe back on Geplant if it was there. */
+    fun undoCooked(cooked: Cooked) {
+        viewModelScope.launch { plannedRepository.undoCook(cooked) }
     }
 
     fun delete(onDeleted: () -> Unit) {
@@ -175,9 +194,9 @@ fun RecipeDetailScreen(
     val undoLabel = stringResource(R.string.action_undo)
 
     LaunchedEffect(justLogged) {
-        val logId = justLogged ?: return@LaunchedEffect
+        val cooked = justLogged ?: return@LaunchedEffect
         val result = snackbar.showSnackbar(loggedMessage, actionLabel = undoLabel, duration = SnackbarDuration.Short)
-        if (result == SnackbarResult.ActionPerformed) viewModel.undoCooked(logId)
+        if (result == SnackbarResult.ActionPerformed) viewModel.undoCooked(cooked)
         // Cleared only now: clearing it earlier would change the key and cancel this snackbar.
         viewModel.onUndoShown()
     }
@@ -233,10 +252,12 @@ fun RecipeDetailScreen(
             }
             CookedSection(
                 stats = detail.cooking,
+                planned = detail.planned,
                 cookDate = cookDate ?: viewModel.today(),
                 today = viewModel.today(),
                 onPickDate = { pickCookDate = true },
                 onCooked = viewModel::markCooked,
+                onPlan = viewModel::plan,
             )
             photo?.let { bytes ->
                 ZoomablePhoto(
@@ -318,14 +339,17 @@ fun RecipeDetailScreen(
     }
 }
 
-/** Last cooked, times cooked, and the "Gekocht" action with its date chip. */
+/** Last cooked, times cooked, the "Gekocht" action with its date chip, and "Planen". */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CookedSection(
     stats: CookingStats,
+    planned: Boolean,
     cookDate: LocalDate,
     today: LocalDate,
     onPickDate: () -> Unit,
     onCooked: () -> Unit,
+    onPlan: () -> Unit,
 ) {
     ListItem(
         headlineContent = { Text(lastCookedLabel(stats)) },
@@ -335,10 +359,10 @@ private fun CookedSection(
             null
         },
     )
-    Row(
+    FlowRow(
         Modifier.padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         AssistChip(
             onClick = onPickDate,
@@ -348,6 +372,18 @@ private fun CookedSection(
         Button(onClick = onCooked) {
             Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(ButtonDefaults.IconSize))
             Text(stringResource(R.string.cooked_action), Modifier.padding(start = 8.dp))
+        }
+        // While planned, the button stays as a disabled "Geplant" marker.
+        OutlinedButton(onClick = onPlan, enabled = !planned) {
+            Icon(
+                if (planned) Icons.AutoMirrored.Filled.PlaylistAddCheck else Icons.AutoMirrored.Filled.PlaylistAdd,
+                contentDescription = null,
+                Modifier.size(ButtonDefaults.IconSize),
+            )
+            Text(
+                stringResource(if (planned) R.string.planned_state else R.string.plan_action),
+                Modifier.padding(start = 8.dp),
+            )
         }
     }
 }

@@ -7,6 +7,7 @@ import androidx.room.Transaction
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
+import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
 
@@ -35,6 +36,9 @@ abstract class BackupDao : BackupStore {
     @Query("SELECT * FROM ingredient_aliases ORDER BY wording")
     abstract suspend fun getAliases(): List<IngredientAlias>
 
+    @Query("SELECT * FROM planned_recipes ORDER BY recipeId")
+    abstract suspend fun getPlanned(): List<PlannedRecipe>
+
     @Transaction
     override suspend fun snapshot() = BackupSnapshot(
         ingredients = getIngredients(),
@@ -42,12 +46,14 @@ abstract class BackupDao : BackupStore {
         lines = getLines(),
         cookLog = getCookLog(),
         aliases = getAliases(),
+        planned = getPlanned(),
     )
 
     /** All or nothing: a file with broken references (e.g. a line pointing nowhere) changes nothing. */
     @Transaction
     override suspend fun replaceAll(snapshot: BackupSnapshot) {
         deleteAliases()
+        deletePlanned()
         deleteCookLog()
         deleteLines()
         deleteRecipes()
@@ -61,10 +67,14 @@ abstract class BackupDao : BackupStore {
         insertRecipes(snapshot.recipes)
         insertLines(snapshot.lines)
         insertCookLog(snapshot.cookLog)
+        insertPlanned(snapshot.planned)
     }
 
     @Query("DELETE FROM ingredient_aliases")
     protected abstract suspend fun deleteAliases()
+
+    @Query("DELETE FROM planned_recipes")
+    protected abstract suspend fun deletePlanned()
 
     @Query("DELETE FROM cook_log")
     protected abstract suspend fun deleteCookLog()
@@ -95,4 +105,7 @@ abstract class BackupDao : BackupStore {
 
     @Insert
     protected abstract suspend fun insertCookLog(entries: List<CookLog>)
+
+    @Insert
+    protected abstract suspend fun insertPlanned(entries: List<PlannedRecipe>)
 }

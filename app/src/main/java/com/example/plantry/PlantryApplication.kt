@@ -6,6 +6,7 @@ import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.NewIngredientFinder
 import com.example.plantry.data.PhotoCompressor
+import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.PlantryDatabase
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
@@ -35,6 +36,10 @@ class PlantryApplication : Application() {
 
     val cookLogRepository: CookLogRepository by lazy {
         CookLogRepository(database.cookLogDao()) { RecipeSnapshot.load(it, database.recipeDao(), database.ingredientDao()) }
+    }
+
+    val plannedRepository: PlannedRepository by lazy {
+        PlannedRepository(database.plannedRecipeDao(), cookLogRepository)
     }
 
     val recipeSuggester: RecipeSuggester by lazy {

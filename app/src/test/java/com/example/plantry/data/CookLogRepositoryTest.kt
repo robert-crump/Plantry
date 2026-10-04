@@ -83,7 +83,7 @@ class CookLogRepositoryTest {
 }
 
 /** In-memory [CookLogDao]; history ordering is covered by the instrumented CookLogDaoTest. */
-private class FakeCookLogDao : CookLogDao {
+internal class FakeCookLogDao : CookLogDao {
     val logs = MutableStateFlow<List<CookLog>>(emptyList())
     private var nextId = 1L
 

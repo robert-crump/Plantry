@@ -6,6 +6,7 @@ import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
+import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeStats
@@ -70,7 +71,7 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 5"))
+        assertTrue(json.contains("\"formatVersion\": 6"))
     }
 
     @Test
@@ -104,7 +105,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 5", "\"formatVersion\": 6")
+        val newer = source.export().replace("\"formatVersion\": 6", "\"formatVersion\": 7")
 
         val error = readError(newer)
 
@@ -120,6 +121,17 @@ class BackupRepositoryTest {
         target.repository.import(target.repository.read(v1))
 
         assertEquals(source.store.data.copy(aliases = emptyList()), target.store.data)
+    }
+
+    @Test
+    fun version5File_importsWithoutPlanned() = runTest {
+        val v6 = Json.parseToJsonElement(source.export()).jsonObject
+        val v5 = JsonObject(v6 - "planned" + ("formatVersion" to JsonPrimitive(5))).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(v5))
+
+        assertEquals(source.store.data.copy(planned = emptyList()), target.store.data)
     }
 
     @Test
@@ -287,6 +299,7 @@ class BackupRepositoryTest {
                 CookLog(3, recipeId = null, LocalDate.of(2025, 11, 1), "Gelöscht", RecipeStats(3.0, 31.0, 55.0)),
             ),
             aliases = listOf(IngredientAlias("reis basmati", 5), IngredientAlias("süßkartoffeln geschält", 3)),
+            planned = listOf(PlannedRecipe(2, LocalDate.of(2026, 9, 29)), PlannedRecipe(7, LocalDate.of(2026, 10, 2))),
         )
     }
 

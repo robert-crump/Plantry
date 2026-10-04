@@ -13,8 +13,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.plantry.data.backup.BackupDao
 
 @Database(
-    entities = [Recipe::class, Ingredient::class, RecipeIngredient::class, CookLog::class, IngredientAlias::class],
-    version = 10,
+    entities = [Recipe::class, Ingredient::class, RecipeIngredient::class, CookLog::class, IngredientAlias::class, PlannedRecipe::class],
+    version = 11,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -24,6 +24,7 @@ import com.example.plantry.data.backup.BackupDao
         AutoMigration(from = 6, to = 7),
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9, spec = PlantryDatabase.DropWeekPlan::class),
+        AutoMigration(from = 10, to = 11),
     ],
 )
 @TypeConverters(Converters::class)
@@ -34,6 +35,8 @@ abstract class PlantryDatabase : RoomDatabase() {
     abstract fun ingredientDao(): IngredientDao
 
     abstract fun cookLogDao(): CookLogDao
+
+    abstract fun plannedRecipeDao(): PlannedRecipeDao
 
     abstract fun backupDao(): BackupDao
 

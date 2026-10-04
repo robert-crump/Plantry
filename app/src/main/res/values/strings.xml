@@ -133,6 +133,12 @@
     <string name="cook_history_empty">Noch nichts gekocht. Trage ein Rezept über „Gekocht“ ein.</string>
     <string name="cook_history_deleted">Eintrag gelöscht</string>
     <string name="recipe_stats_grams">%1$dg</string>
+    <string name="plan_action">Planen</string>
+    <string name="planned_state">Geplant</string>
+    <string name="planned_title">Geplant</string>
+    <string name="planned_history_title">Verlauf</string>
+    <string name="planned_remove">Entfernen</string>
+    <string name="planned_removed">Von „Geplant“ entfernt</string>
     <string name="date_today">Heute</string>
     <string name="date_yesterday">Gestern</string>
     <string name="action_undo">Rückgängig</string>

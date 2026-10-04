@@ -9,6 +9,7 @@ import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.PlantryDatabase
 import com.example.plantry.data.Recipe
@@ -72,6 +73,7 @@ class BackupDaoTest {
             CookLog(6, null, LocalDate.of(2026, 9, 1), "Weg", RecipeStats(2.5, 30.0, 50.0)),
         ),
         aliases = listOf(IngredientAlias("basmati", 5), IngredientAlias("reis gegart", 1)),
+        planned = listOf(PlannedRecipe(3, LocalDate.of(2026, 10, 1))),
     )
 
     @Test
