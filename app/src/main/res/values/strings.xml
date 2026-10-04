@@ -7,6 +7,7 @@
     <string name="action_edit">Bearbeiten</string>
     <string name="action_delete">Löschen</string>
     <string name="action_cancel">Abbrechen</string>
+    <string name="action_ok">OK</string>
     <string name="action_replace">Ersetzen</string>
 
     <!-- Recipe list -->
@@ -238,6 +239,10 @@
     <string name="ingredient_section_buy_as">Gekauft als</string>
     <string name="ingredient_buy_as_none">Keine (wird selbst gekauft)</string>
     <string name="ingredient_buy_as_yield">Faktor (g Einkauf je g Zutat)</string>
+    <string name="ingredient_delete_title">Zutat löschen?</string>
+    <string name="ingredient_delete_message">„%1$s“ wird endgültig gelöscht.</string>
+    <string name="ingredient_delete_blocked_title">Zutat wird noch verwendet</string>
+    <string name="ingredient_delete_blocked_message">„%1$s“ steht in diesen Rezepten und kann erst gelöscht werden, wenn sie dort ersetzt oder entfernt ist:\n\n%2$s</string>
 
     <string name="nutrient_kcal">kcal</string>
     <string name="nutrient_protein">Eiweiß (g)</string>

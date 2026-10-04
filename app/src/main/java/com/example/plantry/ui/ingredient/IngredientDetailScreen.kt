@@ -16,6 +16,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -73,7 +75,12 @@ data class IngredientDetailUiState(
     val showErrors: Boolean = false,
     val buyAsError: BuyAsError? = null,
     val saved: Boolean = false,
+    /** Set while the delete dialog is open: the recipes that still use the ingredient, if any. */
+    val deleteCheck: DeleteCheck? = null,
+    val deleted: Boolean = false,
 )
+
+data class DeleteCheck(val usedIn: List<String>)
 
 class IngredientDetailViewModel(
     private val ingredientId: Long,
@@ -110,6 +117,27 @@ class IngredientDetailViewModel(
             _state.update { if (error == null) it.copy(saved = true) else it.copy(buyAsError = error) }
         }
     }
+
+    /** Opens the delete dialog, which either confirms or lists the recipes that block it. */
+    fun requestDelete() {
+        viewModelScope.launch {
+            val usedIn = repository.recipesUsing(ingredientId)
+            _state.update { it.copy(deleteCheck = DeleteCheck(usedIn)) }
+        }
+    }
+
+    fun dismissDelete() {
+        _state.update { it.copy(deleteCheck = null) }
+    }
+
+    fun delete() {
+        viewModelScope.launch {
+            val usedIn = repository.delete(ingredientId)
+            _state.update {
+                if (usedIn.isEmpty()) it.copy(deleteCheck = null, deleted = true) else it.copy(deleteCheck = DeleteCheck(usedIn))
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,7 +148,7 @@ fun IngredientDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val buyAsOptions by viewModel.buyAsOptions.collectAsStateWithLifecycle()
-    LaunchedEffect(state.saved) { if (state.saved) onBack() }
+    LaunchedEffect(state.saved, state.deleted) { if (state.saved || state.deleted) onBack() }
 
     val ingredient = state.ingredient
     val form = state.form
@@ -138,6 +166,9 @@ fun IngredientDetailScreen(
                 },
                 actions = {
                     if (ingredient != null) {
+                        IconButton(onClick = viewModel::requestDelete) {
+                            Icon(Icons.Filled.Delete, stringResource(R.string.action_delete))
+                        }
                         TextButton(onClick = viewModel::save) { Text(stringResource(R.string.action_save)) }
                     }
                 },
@@ -145,6 +176,14 @@ fun IngredientDetailScreen(
         },
     ) { padding ->
         if (ingredient == null) return@Scaffold
+        state.deleteCheck?.let { check ->
+            DeleteDialog(
+                name = ingredient.name,
+                usedIn = check.usedIn,
+                onConfirm = viewModel::delete,
+                onDismiss = viewModel::dismissDelete,
+            )
+        }
         Column(
             Modifier
                 .fillMaxSize()
@@ -299,6 +338,34 @@ fun IngredientDetailScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun DeleteDialog(name: String, usedIn: List<String>, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    if (usedIn.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(R.string.ingredient_delete_blocked_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.ingredient_delete_blocked_message,
+                        name,
+                        usedIn.joinToString("\n") { "• $it" },
+                    ),
+                )
+            },
+            confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_ok)) } },
+        )
+    } else {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(R.string.ingredient_delete_title)) },
+            text = { Text(stringResource(R.string.ingredient_delete_message, name)) },
+            confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.action_delete)) } },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        )
     }
 }
 

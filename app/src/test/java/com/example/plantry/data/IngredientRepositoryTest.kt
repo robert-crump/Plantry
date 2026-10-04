@@ -231,6 +231,23 @@ class IngredientRepositoryTest {
         assertTrue(repository.getIngredient(cooked)!!.reviewed)
         assertFalse(repository.getIngredient(dry)!!.reviewed)
     }
+
+    @Test
+    fun delete_removesAnUnusedIngredient() = runTest {
+        val id = repository.createFromUsda(riceCooked, "Reis, gekocht")
+
+        assertEquals(emptyList<String>(), repository.delete(id))
+        assertNull(repository.getIngredient(id))
+    }
+
+    @Test
+    fun delete_keepsAnIngredientUsedInRecipes() = runTest {
+        val id = repository.createFromUsda(riceCooked, "Reis, gekocht")
+        dao.recipeTitles[id] = listOf("Curry", "Risotto")
+
+        assertEquals(listOf("Curry", "Risotto"), repository.delete(id))
+        assertEquals("Reis, gekocht", repository.getIngredient(id)?.name)
+    }
 }
 
 private class FakeIngredientDao : IngredientDao {
@@ -264,6 +281,15 @@ private class FakeIngredientDao : IngredientDao {
 
     override suspend fun markReviewed(ids: List<Long>) {
         ingredients.value = ingredients.value.mapValues { (id, it) -> if (id in ids) it.copy(reviewed = true) else it }
+    }
+
+    /** Recipe titles by ingredient id. */
+    val recipeTitles = mutableMapOf<Long, List<String>>()
+
+    override suspend fun getRecipeTitlesUsing(id: Long): List<String> = recipeTitles[id].orEmpty()
+
+    override suspend fun deleteById(id: Long) {
+        ingredients.value -= id
     }
 
     override fun observeAliases(): Flow<List<IngredientAlias>> =

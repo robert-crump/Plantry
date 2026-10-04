@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -44,6 +45,17 @@ class IngredientDaoTest {
         buyAsYieldFactor = buyAs?.let { 0.4 },
         reviewed = true,
     )
+
+    private fun recipe(title: String) = Recipe(
+        title = title,
+        source = "Buch",
+        page = null,
+        bookServings = 2,
+        ourServings = 2,
+        cookingTimeMinutes = null,
+    )
+
+    private fun line(ingredientId: Long) = RecipeIngredientDraft("100 g", 100.0, ingredientId)
 
     @Test
     fun insert_thenGetById_roundTripsAllAttributes() = runTest {
@@ -87,6 +99,31 @@ class IngredientDaoTest {
         db.openHelper.writableDatabase.execSQL("DELETE FROM ingredients WHERE id = $dry")
 
         assertEquals(listOf(IngredientAlias("reis", cooked)), dao.observeAliases().first())
+    }
+
+    @Test
+    fun getRecipeTitlesUsing_listsEachRecipeOnceByTitle() = runTest {
+        val rice = dao.insert(ingredient("Reis, trocken"))
+        val other = dao.insert(ingredient("Basmati"))
+        val recipes = db.recipeDao()
+        recipes.insertWithLines(recipe("Risotto"), listOf(line(rice), line(rice)))
+        recipes.insertWithLines(recipe("curry"), listOf(line(rice)))
+        recipes.insertWithLines(recipe("Pilaw"), listOf(line(other)))
+
+        assertEquals(listOf("curry", "Risotto"), dao.getRecipeTitlesUsing(rice))
+    }
+
+    @Test
+    fun deleteById_unlinksBuyAsAndRemovesAliases() = runTest {
+        val dry = dao.insert(ingredient("Reis, trocken"))
+        val cooked = dao.insert(ingredient("Reis, gekocht", buyAs = dry))
+        dao.upsertAliases(listOf(IngredientAlias("reis", dry)))
+
+        dao.deleteById(dry)
+
+        assertNull(dao.getById(dry))
+        assertNull(dao.getById(cooked)?.buyAsIngredientId)
+        assertEquals(emptyList<IngredientAlias>(), dao.observeAliases().first())
     }
 
     @Test

@@ -94,6 +94,19 @@ class IngredientRepository(private val dao: IngredientDao) {
         if (ids.isNotEmpty()) dao.markReviewed(ids.toList())
     }
 
+    /** Titles of the recipes that use the ingredient, see [delete]. */
+    suspend fun recipesUsing(id: Long): List<String> = dao.getRecipeTitlesUsing(id)
+
+    /**
+     * Deletes the ingredient unless a recipe still uses it. Returns the titles of those recipes,
+     * empty if the ingredient was deleted.
+     */
+    suspend fun delete(id: Long): List<String> {
+        val usedIn = dao.getRecipeTitlesUsing(id)
+        if (usedIn.isEmpty()) dao.deleteById(id)
+        return usedIn
+    }
+
     /**
      * Saves the user's edits and marks the ingredient reviewed. Returns an error, and saves nothing,
      * if the buy-as link would point to the ingredient itself or close a cycle.

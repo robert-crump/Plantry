@@ -37,6 +37,19 @@ interface IngredientDao {
     @Query("UPDATE ingredients SET reviewed = 1 WHERE id IN (:ids)")
     suspend fun markReviewed(ids: List<Long>)
 
+    /** Titles of the recipes with a line of [id]; while there are any, the ingredient can't be deleted. */
+    @Query(
+        """
+        SELECT DISTINCT r.title FROM recipes r JOIN recipe_ingredients ri ON ri.recipeId = r.id
+        WHERE ri.ingredientId = :id ORDER BY r.title COLLATE NOCASE
+        """,
+    )
+    suspend fun getRecipeTitlesUsing(id: Long): List<String>
+
+    /** Aliases go with the ingredient; ingredients bought as it lose their buy-as link. */
+    @Query("DELETE FROM ingredients WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
     @Query("SELECT * FROM ingredient_aliases")
     fun observeAliases(): Flow<List<IngredientAlias>>
 
