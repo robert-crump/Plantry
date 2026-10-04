@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -70,7 +69,6 @@ import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeSort
 import com.example.plantry.ui.cooklog.lastCookedLabel
-import com.example.plantry.ui.week.formatPlantPoints
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -151,7 +149,6 @@ fun RecipeListScreen(
     onRecipeClick: (Long) -> Unit,
     onAddRecipe: () -> Unit,
     onScanRecipe: () -> Unit,
-    onOpenHistory: () -> Unit,
     /** Set when opened as a sub-screen (filtered from the ingredient list); shows a back arrow. */
     onBack: (() -> Unit)? = null,
 ) {
@@ -170,9 +167,6 @@ fun RecipeListScreen(
                 },
                 actions = {
                     state?.takeIf { it.recipeCount > 0 }?.let { SortMenu(it.sort, viewModel::setSort) }
-                    IconButton(onClick = onOpenHistory) {
-                        Icon(Icons.Filled.History, stringResource(R.string.cook_history_open))
-                    }
                 },
             )
         },

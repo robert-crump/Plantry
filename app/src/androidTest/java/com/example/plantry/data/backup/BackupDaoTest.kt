@@ -13,10 +13,8 @@ import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.PlantryDatabase
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
-import com.example.plantry.data.ShoppingTick
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.UnitWeight
-import com.example.plantry.data.WeekPlanSlot
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -32,7 +30,6 @@ class BackupDaoTest {
     private lateinit var db: PlantryDatabase
     private lateinit var dao: BackupDao
 
-    private val saturday = LocalDate.of(2026, 9, 26)
 
     @Before
     fun setUp() {
@@ -69,8 +66,6 @@ class BackupDaoTest {
         recipes = listOf(Recipe(3, "Curry", "Buch", 12, 4, 2, 30, modified = true)),
         lines = listOf(RecipeIngredient(8, 3, 0, "1 Tasse Reis", 180.0, 1), RecipeIngredient(9, 3, 1, "Reis", 50.0, 5)),
         cookLog = listOf(CookLog(4, 3, LocalDate.of(2026, 9, 30))),
-        weekPlan = listOf(WeekPlanSlot(saturday, 2, 3, done = true)),
-        shoppingTicks = listOf(ShoppingTick(saturday, 5)),
         aliases = listOf(IngredientAlias("basmati", 5), IngredientAlias("reis gegart", 1)),
     )
 

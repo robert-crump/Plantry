@@ -8,10 +8,8 @@ import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
-import com.example.plantry.data.ShoppingTick
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.UnitWeight
-import com.example.plantry.data.WeekPlanSlot
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -34,16 +32,21 @@ data class BackupFile(
     val ingredients: List<BackupIngredient>,
     val recipes: List<BackupRecipe>,
     val cookLog: List<BackupCookLog>,
-    val weekPlan: List<BackupWeekPlanSlot>,
-    val shoppingTicks: List<BackupShoppingTick>,
     /** Since version 2; version 1 files have none. */
     val aliases: List<BackupAlias> = emptyList(),
 ) {
     companion object {
-        /** 2: learned ingredient aliases. 3: a recipe's cooking time may be null. */
-        const val FORMAT_VERSION = 3
+        /**
+         * 2: learned ingredient aliases. 3: a recipe's cooking time may be null. 4: no week plan
+         * and shopping ticks any more.
+         */
+        const val FORMAT_VERSION = 4
 
-        private val json = Json { prettyPrint = true }
+        /** Unknown keys are skipped, so older files with `weekPlan` and `shoppingTicks` still import. */
+        private val json = Json {
+            prettyPrint = true
+            ignoreUnknownKeys = true
+        }
 
         fun encode(file: BackupFile): String = json.encodeToString(file)
 
@@ -127,12 +130,6 @@ data class BackupLine(val id: Long, val originalText: String, val grams: Double,
 data class BackupCookLog(val id: Long, val recipeId: Long, val cookedOn: String)
 
 @Serializable
-data class BackupWeekPlanSlot(val weekStart: String, val position: Int, val recipeId: Long, val done: Boolean)
-
-@Serializable
-data class BackupShoppingTick(val weekStart: String, val ingredientId: Long)
-
-@Serializable
 data class BackupAlias(val wording: String, val ingredientId: Long)
 
 /** All database content, as exported and restored. */
@@ -141,8 +138,6 @@ data class BackupSnapshot(
     val recipes: List<Recipe>,
     val lines: List<RecipeIngredient>,
     val cookLog: List<CookLog>,
-    val weekPlan: List<WeekPlanSlot>,
-    val shoppingTicks: List<ShoppingTick>,
     val aliases: List<IngredientAlias> = emptyList(),
 )
 
@@ -162,8 +157,6 @@ fun BackupSnapshot.toFile(photos: Photos, settings: BackupSettings): BackupFile 
             )
         },
         cookLog = cookLog.map { BackupCookLog(it.id, it.recipeId, it.cookedOn.toString()) },
-        weekPlan = weekPlan.map { BackupWeekPlanSlot(it.weekStart.toString(), it.position, it.recipeId, it.done) },
-        shoppingTicks = shoppingTicks.map { BackupShoppingTick(it.weekStart.toString(), it.ingredientId) },
         aliases = aliases.map { BackupAlias(it.wording, it.ingredientId) },
     )
 }
@@ -179,8 +172,6 @@ fun BackupFile.toSnapshot(): BackupSnapshot = try {
             }
         },
         cookLog = cookLog.map { CookLog(it.id, it.recipeId, LocalDate.parse(it.cookedOn)) },
-        weekPlan = weekPlan.map { WeekPlanSlot(LocalDate.parse(it.weekStart), it.position, it.recipeId, it.done) },
-        shoppingTicks = shoppingTicks.map { ShoppingTick(LocalDate.parse(it.weekStart), it.ingredientId) },
         aliases = aliases.map { IngredientAlias(it.wording, it.ingredientId) },
     )
 } catch (e: DateTimeParseException) {

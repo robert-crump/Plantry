@@ -9,8 +9,6 @@ import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
-import com.example.plantry.data.ShoppingTick
-import com.example.plantry.data.WeekPlanSlot
 
 /** Reads and replaces the whole database; backed by [BackupDao] in the app and by a fake in tests. */
 interface BackupStore {
@@ -34,12 +32,6 @@ abstract class BackupDao : BackupStore {
     @Query("SELECT * FROM cook_log ORDER BY id")
     abstract suspend fun getCookLog(): List<CookLog>
 
-    @Query("SELECT * FROM week_plan_slots ORDER BY weekStart, position")
-    abstract suspend fun getWeekPlan(): List<WeekPlanSlot>
-
-    @Query("SELECT * FROM shopping_ticks ORDER BY weekStart, ingredientId")
-    abstract suspend fun getShoppingTicks(): List<ShoppingTick>
-
     @Query("SELECT * FROM ingredient_aliases ORDER BY wording")
     abstract suspend fun getAliases(): List<IngredientAlias>
 
@@ -49,8 +41,6 @@ abstract class BackupDao : BackupStore {
         recipes = getRecipes(),
         lines = getLines(),
         cookLog = getCookLog(),
-        weekPlan = getWeekPlan(),
-        shoppingTicks = getShoppingTicks(),
         aliases = getAliases(),
     )
 
@@ -58,8 +48,6 @@ abstract class BackupDao : BackupStore {
     @Transaction
     override suspend fun replaceAll(snapshot: BackupSnapshot) {
         deleteAliases()
-        deleteShoppingTicks()
-        deleteWeekPlan()
         deleteCookLog()
         deleteLines()
         deleteRecipes()
@@ -73,18 +61,10 @@ abstract class BackupDao : BackupStore {
         insertRecipes(snapshot.recipes)
         insertLines(snapshot.lines)
         insertCookLog(snapshot.cookLog)
-        insertWeekPlan(snapshot.weekPlan)
-        insertShoppingTicks(snapshot.shoppingTicks)
     }
 
     @Query("DELETE FROM ingredient_aliases")
     protected abstract suspend fun deleteAliases()
-
-    @Query("DELETE FROM shopping_ticks")
-    protected abstract suspend fun deleteShoppingTicks()
-
-    @Query("DELETE FROM week_plan_slots")
-    protected abstract suspend fun deleteWeekPlan()
 
     @Query("DELETE FROM cook_log")
     protected abstract suspend fun deleteCookLog()
@@ -115,10 +95,4 @@ abstract class BackupDao : BackupStore {
 
     @Insert
     protected abstract suspend fun insertCookLog(entries: List<CookLog>)
-
-    @Insert
-    protected abstract suspend fun insertWeekPlan(slots: List<WeekPlanSlot>)
-
-    @Insert
-    protected abstract suspend fun insertShoppingTicks(ticks: List<ShoppingTick>)
 }

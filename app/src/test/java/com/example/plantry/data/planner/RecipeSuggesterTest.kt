@@ -8,7 +8,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate
 
-class WeekPlannerTest {
+class RecipeSuggesterTest {
 
     private val today = LocalDate.of(2026, 10, 2)
     private val tofu = ingredient(1, "Tofu", Nutrition(protein = 15.0))
@@ -23,7 +23,7 @@ class WeekPlannerTest {
 
     @Test
     fun candidates_proteinPerPortionAndDaysSinceCooked() {
-        val candidates = WeekPlanner.candidates(
+        val candidates = RecipeSuggester.candidates(
             recipes = listOf(recipe(1, servings = 2), recipe(2)),
             lines = listOf(line(1, 400.0)),
             ingredients = listOf(tofu),

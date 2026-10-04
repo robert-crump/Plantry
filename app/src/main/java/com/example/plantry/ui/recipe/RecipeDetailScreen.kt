@@ -59,8 +59,6 @@ import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
-import com.example.plantry.data.SlotRef
-import com.example.plantry.data.WeekPlanRepository
 import com.example.plantry.data.nutritionLines
 import com.example.plantry.data.toDraft
 import com.example.plantry.ui.cooklog.CookDatePickerDialog
@@ -86,15 +84,11 @@ data class RecipeDetailUiState(
     val cooking: CookingStats,
 )
 
-/** A cooking log entry just made, and the menu slot it marked done, if any; for undo. */
-data class JustCooked(val logId: Long, val slot: SlotRef?)
-
 class RecipeDetailViewModel(
     private val recipeId: Long,
     private val repository: RecipeRepository,
     ingredientRepository: IngredientRepository,
     private val cookLogRepository: CookLogRepository,
-    private val weekPlanRepository: WeekPlanRepository,
     private val photos: RecipePhotoRepository,
     private val clock: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
@@ -126,9 +120,9 @@ class RecipeDetailViewModel(
     private val _cookDate = MutableStateFlow<LocalDate?>(null)
     val cookDate: StateFlow<LocalDate?> = _cookDate.asStateFlow()
 
-    /** The entry just logged, until its undo snackbar is gone. */
-    private val _justLogged = MutableStateFlow<JustCooked?>(null)
-    val justLogged: StateFlow<JustCooked?> = _justLogged.asStateFlow()
+    /** The id of the entry just logged, until its undo snackbar is gone. */
+    private val _justLogged = MutableStateFlow<Long?>(null)
+    val justLogged: StateFlow<Long?> = _justLogged.asStateFlow()
 
     fun today(): LocalDate = clock()
 
@@ -136,16 +130,11 @@ class RecipeDetailViewModel(
         _cookDate.value = date.takeIf { it != today() }
     }
 
-    /**
-     * Logs the recipe as cooked on the chosen date and marks it done on that week's menu, then
-     * resets the date to today.
-     */
+    /** Logs the recipe as cooked on the chosen date, then resets the date to today. */
     fun markCooked() {
         val date = _cookDate.value ?: today()
         viewModelScope.launch {
-            val logId = cookLogRepository.log(recipeId, date)
-            val slot = weekPlanRepository.markCooked(recipeId, date)
-            _justLogged.value = JustCooked(logId, slot)
+            _justLogged.value = cookLogRepository.log(recipeId, date)
             _cookDate.value = null
         }
     }
@@ -154,11 +143,8 @@ class RecipeDetailViewModel(
         _justLogged.value = null
     }
 
-    fun undoCooked(cooked: JustCooked) {
-        viewModelScope.launch {
-            cookLogRepository.delete(cooked.logId)
-            cooked.slot?.let { weekPlanRepository.setDone(it, done = false) }
-        }
+    fun undoCooked(logId: Long) {
+        viewModelScope.launch { cookLogRepository.delete(logId) }
     }
 
     fun delete(onDeleted: () -> Unit) {
@@ -186,14 +172,12 @@ fun RecipeDetailScreen(
     var pickCookDate by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val loggedMessage = stringResource(R.string.cooked_logged)
-    val loggedOnMenuMessage = stringResource(R.string.cooked_logged_on_menu)
     val undoLabel = stringResource(R.string.action_undo)
 
     LaunchedEffect(justLogged) {
-        val cooked = justLogged ?: return@LaunchedEffect
-        val message = if (cooked.slot != null) loggedOnMenuMessage else loggedMessage
-        val result = snackbar.showSnackbar(message, actionLabel = undoLabel, duration = SnackbarDuration.Short)
-        if (result == SnackbarResult.ActionPerformed) viewModel.undoCooked(cooked)
+        val logId = justLogged ?: return@LaunchedEffect
+        val result = snackbar.showSnackbar(loggedMessage, actionLabel = undoLabel, duration = SnackbarDuration.Short)
+        if (result == SnackbarResult.ActionPerformed) viewModel.undoCooked(logId)
         // Cleared only now: clearing it earlier would change the key and cancel this snackbar.
         viewModel.onUndoShown()
     }

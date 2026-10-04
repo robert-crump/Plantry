@@ -8,37 +8,24 @@ import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeDao
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeNutrition
-import com.example.plantry.data.SlotRef
-import com.example.plantry.data.WeekPlanRepository
 import com.example.plantry.data.nutritionLines
 import com.example.plantry.data.toDraft
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import kotlin.random.Random
 
-/** Fills the week's menu with suggestions from [MealPlanner]. */
-class WeekPlanner(
+/** Suggests recipes from the whole collection with [MealPlanner], scored by cooldown and protein. */
+class RecipeSuggester(
     private val recipeDao: RecipeDao,
     private val ingredientDao: IngredientDao,
     private val cookLogDao: CookLogDao,
-    private val weekPlan: WeekPlanRepository,
     /** Read on every suggestion, so a changed setting applies right away. */
     private val cooldownDays: () -> Int,
     private val random: Random = Random.Default,
 ) {
-    /** Fills the empty slots of [weekStart]; manual picks stay. Returns how many slots were filled. */
-    suspend fun suggestWeek(weekStart: LocalDate, today: LocalDate): Int {
-        val candidates = candidates(today)
-        val planner = MealPlanner.default(cooldownDays())
-        return weekPlan.fillEmpty(weekStart) { onMenu, count -> planner.suggest(candidates, onMenu, count, random) }
-    }
-
-    /** Replaces the recipe in [slot] with another suggestion. Returns false if there was none. */
-    suspend fun swap(slot: SlotRef, today: LocalDate): Boolean {
-        val candidates = candidates(today)
-        val planner = MealPlanner.default(cooldownDays())
-        return weekPlan.swap(slot) { onMenu -> planner.suggest(candidates, onMenu, 1, random).firstOrNull() }
-    }
+    /** Up to [count] distinct recipe ids, none of them in [exclude]. */
+    suspend fun suggest(today: LocalDate, count: Int, exclude: Set<Long> = emptySet()): List<Long> =
+        MealPlanner.default(cooldownDays()).suggest(candidates(today), exclude, count, random)
 
     private suspend fun candidates(today: LocalDate): List<Candidate> = candidates(
         recipes = recipeDao.observeAll().first(),

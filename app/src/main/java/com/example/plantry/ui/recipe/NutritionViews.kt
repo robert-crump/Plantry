@@ -20,7 +20,13 @@ import com.example.plantry.R
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.ProteinRating
 import com.example.plantry.data.RecipeNutrition
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 import java.util.Locale
+
+/** Plant points come in quarters: "12", "12,25", "12,5". */
+internal fun formatPlantPoints(points: Double): String =
+    DecimalFormat("0.##", DecimalFormatSymbols(Locale.GERMAN)).format(points)
 
 /** Traffic light dot, protein per portion and the rating in words. */
 @Composable

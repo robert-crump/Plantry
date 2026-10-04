@@ -65,7 +65,7 @@ object RecipeQuery {
     ): List<RecipeListItem> {
         val linesByRecipe = lines.groupBy { it.recipeId }
         val wantedRoots = filter.ingredientIds.mapNotNull { id ->
-            ingredients[id]?.let { WeekSummary.buyAsRoot(it, ingredients).id }
+            ingredients[id]?.let { buyAsRoot(it, ingredients).id }
         }
         val source = filter.source?.trim()
         return recipes
@@ -97,10 +97,10 @@ object RecipeQuery {
         val recipesByRoot = mutableMapOf<Long, MutableSet<Long>>()
         lines.forEach { line ->
             val ingredient = ingredients[line.ingredientId] ?: return@forEach
-            recipesByRoot.getOrPut(WeekSummary.buyAsRoot(ingredient, ingredients).id) { mutableSetOf() } += line.recipeId
+            recipesByRoot.getOrPut(buyAsRoot(ingredient, ingredients).id) { mutableSetOf() } += line.recipeId
         }
         return ingredients.values.mapNotNull { ingredient ->
-            recipesByRoot[WeekSummary.buyAsRoot(ingredient, ingredients).id]?.let { ingredient.id to it.size }
+            recipesByRoot[buyAsRoot(ingredient, ingredients).id]?.let { ingredient.id to it.size }
         }.toMap()
     }
 
@@ -118,8 +118,8 @@ object RecipeQuery {
         wantedRoots: List<Long>,
     ): RecipeListItem {
         val used = recipeLines.mapNotNull { ingredients[it.ingredientId] }
-        val roots = used.mapTo(mutableSetOf()) { WeekSummary.buyAsRoot(it, ingredients) }
-        val matchableRoots = used.filterNot { it.staple }.mapTo(mutableSetOf()) { WeekSummary.buyAsRoot(it, ingredients).id }
+        val roots = used.mapTo(mutableSetOf()) { buyAsRoot(it, ingredients) }
+        val matchableRoots = used.filterNot { it.staple }.mapTo(mutableSetOf()) { buyAsRoot(it, ingredients).id }
         val nutrition = RecipeNutrition.calculate(
             nutritionLines(recipeLines.sortedBy { it.position }.map { it.toDraft() }, ingredients),
             recipe.ourServings,

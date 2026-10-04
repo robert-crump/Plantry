@@ -42,3 +42,7 @@ fun resolveBuyAs(ingredient: Ingredient, ingredients: Map<Long, Ingredient>): Bu
     }
     return BuyAsTarget(current, factor)
 }
+
+/** The end of [ingredient]'s buy-as chain; the ingredient itself if it has no link. */
+fun buyAsRoot(ingredient: Ingredient, ingredients: Map<Long, Ingredient>): Ingredient =
+    resolveBuyAs(ingredient, ingredients).ingredient

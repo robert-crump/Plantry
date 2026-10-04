@@ -124,14 +124,12 @@
     <!-- Cooking log -->
     <string name="cooked_action">Gekocht</string>
     <string name="cooked_logged">Als gekocht eingetragen</string>
-    <string name="cooked_logged_on_menu">Als gekocht eingetragen und im Wochenplan abgehakt</string>
     <string name="cooked_never">Noch nie gekocht</string>
     <string name="cooked_last_today">Zuletzt heute gekocht</string>
     <string name="cooked_last_yesterday">Zuletzt gestern gekocht</string>
     <string name="cooked_last_days_ago">Zuletzt vor %1$d Tagen gekocht</string>
     <string name="cooked_times">%1$d× gekocht</string>
-    <string name="cook_history_title">Gekocht-Verlauf</string>
-    <string name="cook_history_open">Verlauf</string>
+    <string name="cooking_title">Kochen</string>
     <string name="cook_history_empty">Noch nichts gekocht. Trage ein Rezept über „Gekocht“ ein.</string>
     <string name="cook_history_deleted">Eintrag gelöscht</string>
     <string name="date_today">Heute</string>
@@ -242,43 +240,8 @@
     <string name="error_buy_as_self">Eine Zutat kann nicht als sie selbst gekauft werden</string>
     <string name="error_buy_as_cycle">Diese Verknüpfung würde einen Kreis bilden</string>
 
-    <!-- Week plan -->
-    <string name="week_title">Diese Woche</string>
-    <string name="week_shopping">Einkaufsliste</string>
-    <string name="week_range">%1$s – %2$s</string>
-    <string name="week_slot_pick">Rezept wählen</string>
-    <string name="week_slot_done">Gekocht</string>
-    <string name="week_slot_replace">Ersetzen</string>
-    <string name="week_slot_remove">Entfernen</string>
-    <string name="week_picker_title">Rezept für diese Woche</string>
-    <string name="week_picker_empty">Keine weiteren Rezepte vorhanden.</string>
-    <plurals name="week_rollover_message">
-        <item quantity="one">Ein Rezept aus der letzten Woche wurde nicht gekocht.</item>
-        <item quantity="other">%d Rezepte aus der letzten Woche wurden nicht gekocht.</item>
-    </plurals>
-    <string name="week_rollover_action">In diese Woche übernehmen</string>
-    <string name="week_suggest">Woche vorschlagen</string>
-    <string name="week_suggest_none">Keine weiteren Rezepte für Vorschläge.</string>
-    <string name="week_slot_suggest_other">Anderer Vorschlag</string>
-    <string name="week_summary_plant_points">Pflanzenpunkte</string>
-    <string name="week_summary_ingredients">Zutaten</string>
-    <string name="week_summary_protein">Ø Protein / Portion</string>
-    <string name="week_summary_protein_value">%.0f g</string>
-
-    <!-- Shopping list -->
-    <string name="shopping_title">Einkaufsliste</string>
-    <string name="shopping_empty">Für diese Woche gibt es nichts einzukaufen.</string>
-    <string name="shopping_grams">%d g</string>
-    <plurals name="shopping_packs">
-        <item quantity="one">%d Packung</item>
-        <item quantity="other">%d Packungen</item>
-    </plurals>
-    <string name="shopping_needed">%.0f g benötigt</string>
-    <string name="shopping_needed_of_packs">%1$.0f von %2$.0f g</string>
-    <string name="shopping_staples">Vorrat prüfen (%d)</string>
-
     <!-- Navigation -->
-    <string name="nav_week">Woche</string>
+    <string name="nav_cooking">Kochen</string>
     <string name="nav_recipes">Rezepte</string>
     <string name="nav_ingredients">Zutaten</string>
 
@@ -301,7 +264,7 @@
     <string name="scan_model_opus_description">Am genauesten, etwas teurer</string>
     <string name="scan_model_sonnet">Claude Sonnet 5.5</string>
     <string name="scan_model_sonnet_description">Schneller und günstiger</string>
-    <string name="settings_week_plan">Wochenplan</string>
+    <string name="settings_suggestions">Rezeptvorschläge</string>
     <string name="settings_cooldown">Pause bis zur Wiederholung</string>
     <string name="settings_cooldown_hint">So lange werden gekochte Rezepte seltener vorgeschlagen</string>
     <string name="settings_cooldown_label">Tage</string>
@@ -335,7 +298,7 @@
     <string name="backup_import">Importieren</string>
     <string name="backup_import_hint">Alle Daten aus einer Sicherung wiederherstellen</string>
     <string name="backup_import_confirm_title">Alle Daten ersetzen?</string>
-    <string name="backup_import_confirm_message">Rezepte, Zutaten, Kochprotokoll, Wochenpläne und Einstellungen werden durch die Sicherung ersetzt (%1$d Rezepte, %2$d Zutaten). Das lässt sich nicht rückgängig machen. Der API-Schlüssel bleibt erhalten.</string>
+    <string name="backup_import_confirm_message">Rezepte, Zutaten, Kochprotokoll und Einstellungen werden durch die Sicherung ersetzt (%1$d Rezepte, %2$d Zutaten). Das lässt sich nicht rückgängig machen. Der API-Schlüssel bleibt erhalten.</string>
     <string name="backup_import_confirm">Ersetzen</string>
     <string name="backup_exported">Daten exportiert.</string>
     <string name="backup_imported">Sicherung wiederhergestellt.</string>

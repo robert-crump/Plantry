@@ -53,4 +53,12 @@ class BuyAsLinksTest {
 
         assertNull(BuyAsLinks.validate(3, 1, broken))
     }
+
+    @Test
+    fun buyAsRoot_stopsOnCycle() {
+        val a = ingredient(10, "A").copy(buyAsIngredientId = 11)
+        val b = ingredient(11, "B").copy(buyAsIngredientId = 10)
+
+        assertEquals(b, buyAsRoot(a, mapOf(a.id to a, b.id to b)))
+    }
 }

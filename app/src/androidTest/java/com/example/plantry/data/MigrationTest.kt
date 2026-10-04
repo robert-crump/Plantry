@@ -91,6 +91,35 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate8To9_dropsWeekPlanAndShoppingTicksAndKeepsTheRest() {
+        helper.createDatabase(DB_NAME, 8).use { db ->
+            db.execSQL(
+                "INSERT INTO recipes (id, title, source, page, bookServings, ourServings, cookingTimeMinutes, modified) " +
+                    "VALUES (1, 'Dal', '', NULL, 2, 2, 30, 0)",
+            )
+            db.execSQL(
+                "INSERT INTO ingredients (id, name, fdcId, usdaDescription, kcal, protein, carbs, sugar, fat, fibre, " +
+                    "unitWeights, buyUnit, packSizeGrams, storeSection, staple, plantPoints, buyAsIngredientId, " +
+                    "buyAsYieldFactor, reviewed) " +
+                    "VALUES (1, 'Linsen', NULL, NULL, 0, 0, 0, 0, 0, 0, '[]', 'GRAMS', NULL, 'DRY_GOODS', 0, 'ONE', NULL, NULL, 1)",
+            )
+            db.execSQL("INSERT INTO cook_log (id, recipeId, cookedOn) VALUES (1, 1, 20729)")
+            db.execSQL("INSERT INTO week_plan_slots (weekStart, position, recipeId, done) VALUES (20727, 0, 1, 1)")
+            db.execSQL("INSERT INTO shopping_ticks (weekStart, ingredientId) VALUES (20727, 1)")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 9, true).use { db ->
+            db.query("SELECT COUNT(*) FROM sqlite_master WHERE name IN ('week_plan_slots', 'shopping_ticks')").use {
+                assertEquals(0, it.apply { moveToFirst() }.getInt(0))
+            }
+            db.query("SELECT COUNT(*) FROM cook_log").use { assertEquals(1, it.apply { moveToFirst() }.getInt(0)) }
+            db.query("SELECT storeSection FROM ingredients").use {
+                assertEquals("DRY_GOODS", it.apply { moveToFirst() }.getString(0))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }

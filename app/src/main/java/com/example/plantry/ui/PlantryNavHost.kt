@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Kitchen
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -50,8 +50,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.example.plantry.PlantryApplication
 import com.example.plantry.R
-import com.example.plantry.ui.cooklog.CookHistoryScreen
-import com.example.plantry.ui.cooklog.CookHistoryViewModel
+import com.example.plantry.ui.cooklog.CookingScreen
+import com.example.plantry.ui.cooklog.CookingViewModel
 import com.example.plantry.ui.ingredient.IngredientDetailScreen
 import com.example.plantry.ui.ingredient.IngredientDetailViewModel
 import com.example.plantry.ui.ingredient.IngredientListScreen
@@ -70,19 +70,12 @@ import com.example.plantry.ui.settings.ApiKeyDialog
 import com.example.plantry.ui.settings.BackupViewModel
 import com.example.plantry.ui.settings.SettingsScreen
 import com.example.plantry.ui.settings.SettingsViewModel
-import com.example.plantry.ui.shopping.ShoppingListScreen
-import com.example.plantry.ui.shopping.ShoppingListViewModel
-import com.example.plantry.ui.week.WeekPlanScreen
-import com.example.plantry.ui.week.WeekPlanViewModel
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 @Serializable
-object WeekPlanRoute
-
-@Serializable
-object ShoppingListRoute
+object CookingRoute
 
 /** With [ingredientId], the list opens filtered by that ingredient. */
 @Serializable
@@ -94,9 +87,6 @@ data class RecipeDetailRoute(val recipeId: Long)
 /** A null [recipeId] creates a new recipe; with [scan], it is read from a photo first. */
 @Serializable
 data class RecipeEditRoute(val recipeId: Long? = null, val scan: Boolean = false)
-
-@Serializable
-object CookHistoryRoute
 
 @Serializable
 object IngredientListRoute
@@ -118,7 +108,7 @@ private enum class TopLevelDestination(
     @StringRes val label: Int,
     val icon: ImageVector,
 ) {
-    WEEK(WeekPlanRoute, R.string.nav_week, Icons.Filled.CalendarMonth),
+    COOKING(CookingRoute, R.string.nav_cooking, Icons.Filled.Restaurant),
     RECIPES(RecipeListRoute(), R.string.nav_recipes, Icons.AutoMirrored.Filled.MenuBook),
     INGREDIENTS(IngredientListRoute, R.string.nav_ingredients, Icons.Filled.Kitchen),
     SETTINGS(SettingsRoute, R.string.nav_settings, Icons.Filled.Settings),
@@ -132,7 +122,6 @@ fun PlantryNavHost() {
     val ingredientRepository = app.ingredientRepository
     val settingsRepository = app.settingsRepository
     val cookLogRepository = app.cookLogRepository
-    val weekPlanRepository = app.weekPlanRepository
 
     val currentEntry = navController.currentBackStackEntryAsState().value
     val currentDestination = currentEntry?.destination
@@ -204,21 +193,14 @@ fun PlantryNavHost() {
             }
             NavHost(
                 navController,
-                startDestination = WeekPlanRoute,
+                startDestination = CookingRoute,
                 // The banner already took the status bar.
                 modifier = if (showBackupReminder) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier,
             ) {
-                composable<WeekPlanRoute> {
-                    WeekPlanScreen(
-                        viewModel = viewModel { WeekPlanViewModel(weekPlanRepository, app.weekPlanner, recipeRepository, ingredientRepository) },
+                composable<CookingRoute> {
+                    CookingScreen(
+                        viewModel = viewModel { CookingViewModel(cookLogRepository) },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
-                        onOpenShopping = { navController.navigate(ShoppingListRoute) },
-                    )
-                }
-                composable<ShoppingListRoute> {
-                    ShoppingListScreen(
-                        viewModel = viewModel { ShoppingListViewModel(app.shoppingListRepository) },
-                        onBack = { navController.popBackStack() },
                     )
                 }
                 composable<RecipeListRoute> { entry ->
@@ -230,7 +212,6 @@ fun PlantryNavHost() {
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                         onAddRecipe = { navController.navigate(RecipeEditRoute()) },
                         onScanRecipe = { navController.navigate(RecipeEditRoute(scan = true)) },
-                        onOpenHistory = { navController.navigate(CookHistoryRoute) },
                         onBack = if (ingredientId != null) ({ navController.popBackStack() }) else null,
                     )
                 }
@@ -238,7 +219,7 @@ fun PlantryNavHost() {
                     val recipeId = entry.toRoute<RecipeDetailRoute>().recipeId
                     RecipeDetailScreen(
                         viewModel = viewModel {
-                            RecipeDetailViewModel(recipeId, recipeRepository, ingredientRepository, cookLogRepository, weekPlanRepository, app.recipePhotoRepository)
+                            RecipeDetailViewModel(recipeId, recipeRepository, ingredientRepository, cookLogRepository, app.recipePhotoRepository)
                         },
                         onBack = { navController.popBackStack() },
                         onEdit = { navController.navigate(RecipeEditRoute(recipeId)) },
@@ -263,13 +244,6 @@ fun PlantryNavHost() {
                             )
                         },
                         onBack = { navController.popBackStack() },
-                    )
-                }
-                composable<CookHistoryRoute> {
-                    CookHistoryScreen(
-                        viewModel = viewModel { CookHistoryViewModel(cookLogRepository) },
-                        onBack = { navController.popBackStack() },
-                        onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                     )
                 }
                 composable<IngredientListRoute> {

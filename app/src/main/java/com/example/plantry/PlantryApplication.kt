@@ -9,15 +9,13 @@ import com.example.plantry.data.PhotoCompressor
 import com.example.plantry.data.PlantryDatabase
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
-import com.example.plantry.data.ShoppingListRepository
-import com.example.plantry.data.WeekPlanRepository
 import com.example.plantry.data.backup.BackupRepository
 import com.example.plantry.data.backup.FilePhotoStore
 import com.example.plantry.data.claude.AnthropicConnectionTester
 import com.example.plantry.data.claude.AnthropicIngredientProposer
 import com.example.plantry.data.claude.AnthropicRecipeScanner
 import com.example.plantry.data.claude.RecipeScanner
-import com.example.plantry.data.planner.WeekPlanner
+import com.example.plantry.data.planner.RecipeSuggester
 import com.example.plantry.data.claude.ConnectionTester
 import com.example.plantry.data.settings.KeystoreCipher
 import com.example.plantry.data.settings.SettingsRepository
@@ -36,18 +34,11 @@ class PlantryApplication : Application() {
 
     val cookLogRepository: CookLogRepository by lazy { CookLogRepository(database.cookLogDao()) }
 
-    val weekPlanRepository: WeekPlanRepository by lazy { WeekPlanRepository(database.weekPlanDao()) }
-
-    val shoppingListRepository: ShoppingListRepository by lazy {
-        ShoppingListRepository(database.shoppingTickDao(), weekPlanRepository, recipeRepository, ingredientRepository)
-    }
-
-    val weekPlanner: WeekPlanner by lazy {
-        WeekPlanner(
+    val recipeSuggester: RecipeSuggester by lazy {
+        RecipeSuggester(
             database.recipeDao(),
             database.ingredientDao(),
             database.cookLogDao(),
-            weekPlanRepository,
             cooldownDays = { settingsRepository.settings.value.cooldownDays },
         )
     }

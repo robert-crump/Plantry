@@ -8,10 +8,8 @@ import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
-import com.example.plantry.data.ShoppingTick
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.UnitWeight
-import com.example.plantry.data.WeekPlanSlot
 import com.example.plantry.data.settings.ScanModel
 import com.example.plantry.data.settings.SecretCipher
 import com.example.plantry.data.settings.SettingsRepository
@@ -47,7 +45,6 @@ class BackupRepositoryTest {
             store.data = BackupSnapshot(
                 ingredients = listOf(ingredient(id = 99, name = "Alt")),
                 recipes = emptyList(), lines = emptyList(), cookLog = emptyList(),
-                weekPlan = emptyList(), shoppingTicks = emptyList(),
             )
             photos.photos = mapOf(99L to byteArrayOf(9))
         }
@@ -69,7 +66,7 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 3"))
+        assertTrue(json.contains("\"formatVersion\": 4"))
     }
 
     @Test
@@ -103,7 +100,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 3", "\"formatVersion\": 4")
+        val newer = source.export().replace("\"formatVersion\": 4", "\"formatVersion\": 5")
 
         val error = readError(newer)
 
@@ -119,6 +116,21 @@ class BackupRepositoryTest {
         target.repository.import(target.repository.read(v1))
 
         assertEquals(source.store.data.copy(aliases = emptyList()), target.store.data)
+    }
+
+    @Test
+    fun version3File_importsAndSkipsWeekPlanAndShoppingTicks() = runTest {
+        val v4 = Json.parseToJsonElement(source.export()).jsonObject
+        val weekPlan = Json.parseToJsonElement("""[{"weekStart": "2026-09-26", "position": 0, "recipeId": 2, "done": true}]""")
+        val ticks = Json.parseToJsonElement("""[{"weekStart": "2026-09-26", "ingredientId": 5}]""")
+        val v3 = JsonObject(
+            v4 + ("formatVersion" to JsonPrimitive(3)) + ("weekPlan" to weekPlan) + ("shoppingTicks" to ticks),
+        ).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(v3))
+
+        assertEquals(source.store.data, target.store.data)
     }
 
     @Test
@@ -199,7 +211,6 @@ class BackupRepositoryTest {
     }
 
     private fun sampleData(): BackupSnapshot {
-        val saturday = LocalDate.of(2026, 9, 26)
         return BackupSnapshot(
             ingredients = listOf(
                 // Linked to an ingredient with a higher id, which must survive the import order.
@@ -229,8 +240,6 @@ class BackupRepositoryTest {
                 RecipeIngredient(4, 7, 0, "Reis", 75.0, 5),
             ),
             cookLog = listOf(CookLog(1, 2, LocalDate.of(2026, 9, 30)), CookLog(2, 7, LocalDate.of(2025, 12, 31))),
-            weekPlan = listOf(WeekPlanSlot(saturday, 0, 2, done = true), WeekPlanSlot(saturday, 3, 7)),
-            shoppingTicks = listOf(ShoppingTick(saturday, 5)),
             aliases = listOf(IngredientAlias("reis basmati", 5), IngredientAlias("süßkartoffeln geschält", 3)),
         )
     }
@@ -259,7 +268,7 @@ class BackupRepositoryTest {
 }
 
 private class FakeBackupStore : BackupStore {
-    var data = BackupSnapshot(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+    var data = BackupSnapshot(emptyList(), emptyList(), emptyList(), emptyList())
 
     override suspend fun snapshot() = data
 

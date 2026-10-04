@@ -169,7 +169,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
             )
             SectionHint(R.string.settings_api_key_hint)
 
-            SectionHeader(R.string.settings_week_plan)
+            SectionHeader(R.string.settings_suggestions)
             SettingsGroup(
                 {
                     SettingsRow(
