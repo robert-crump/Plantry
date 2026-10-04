@@ -1,21 +1,27 @@
 package com.example.plantry.ui.ingredient
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -28,12 +34,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
@@ -94,23 +105,52 @@ fun UsdaSearchScreen(
     onCreated: (Long) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var picked by rememberSaveable { mutableStateOf<Long?>(null) }
     var withoutUsda by rememberSaveable { mutableStateOf(false) }
+
+    // Leaving the search goes back to the choice, with a fresh search next time.
+    val leaveSearch = {
+        searching = false
+        query = ""
+        viewModel.onQueryChange("")
+    }
+    BackHandler(enabled = searching, onBack = leaveSearch)
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.usda_search_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = if (searching) leaveSearch else onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
                     }
                 },
             )
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
+        if (!searching) {
+            Column(
+                Modifier.fillMaxSize().padding(padding).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                ChoiceCard(
+                    icon = Icons.Filled.Search,
+                    title = R.string.new_ingredient_choose_search,
+                    description = R.string.new_ingredient_choose_search_description,
+                    onClick = { searching = true },
+                )
+                ChoiceCard(
+                    icon = Icons.Filled.Edit,
+                    title = R.string.new_ingredient_choose_manual,
+                    description = R.string.new_ingredient_choose_manual_description,
+                    onClick = { withoutUsda = true },
+                )
+            }
+        } else Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
+            val focus = remember { FocusRequester() }
+            LaunchedEffect(Unit) { focus.requestFocus() }
             OutlinedTextField(
                 value = query,
                 onValueChange = {
@@ -120,7 +160,7 @@ fun UsdaSearchScreen(
                 placeholder = { Text(stringResource(R.string.usda_search_hint)) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).focusRequester(focus),
             )
             // Always offered: a generic USDA hit may not match a branded product's label.
             TextButton(onClick = { withoutUsda = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
@@ -159,6 +199,21 @@ fun UsdaSearchScreen(
                 onDismiss = { withoutUsda = false },
                 initial = LabelNutritionForm(name = query.trim()),
                 askName = true,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChoiceCard(icon: ImageVector, @StringRes title: Int, @StringRes description: Int, onClick: () -> Unit) {
+    ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp)) {
+        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(icon, contentDescription = null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+            Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
+            Text(
+                stringResource(description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

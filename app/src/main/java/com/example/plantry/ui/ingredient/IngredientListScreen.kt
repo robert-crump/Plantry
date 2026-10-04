@@ -14,7 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -100,7 +100,7 @@ fun IngredientListScreen(
                 title = { Text(stringResource(R.string.ingredients_title)) },
                 actions = {
                     IconButton(onClick = onOpenSort) {
-                        Icon(Icons.Filled.Category, contentDescription = stringResource(R.string.sort_title))
+                        Icon(Icons.Filled.FactCheck, contentDescription = stringResource(R.string.sort_title))
                     }
                 },
             )
