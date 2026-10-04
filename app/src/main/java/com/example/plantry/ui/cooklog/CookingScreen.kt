@@ -7,12 +7,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
@@ -20,6 +24,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -37,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +51,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -107,8 +114,8 @@ class CookingViewModel(
         viewModelScope.launch { plannedRepository.undoCook(cooked) }
     }
 
-    fun unplan(item: PlannedItem) {
-        viewModelScope.launch { plannedRepository.remove(item.recipeId) }
+    fun unplan(recipeId: Long) {
+        viewModelScope.launch { plannedRepository.remove(recipeId) }
     }
 
     /** Puts a removed entry back with its original date. */
@@ -117,15 +124,22 @@ class CookingViewModel(
     }
 }
 
+/** A recipe just put on Geplant from the suggestions, to confirm with an undo snackbar. */
+data class JustPlanned(val recipeId: Long, val title: String)
+
 /**
  * The Kochen tab: Geplant on top (hidden when empty), then the cooking history, newest first,
- * under date headers. History rows show the recipe as it was when logged.
+ * under date headers. History rows show the recipe as it was when logged. [justPlanned] is shown
+ * once as a snackbar, then [onJustPlannedShown] clears it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CookingScreen(
     viewModel: CookingViewModel,
     onRecipeClick: (Long) -> Unit,
+    onSuggest: () -> Unit,
+    justPlanned: JustPlanned?,
+    onJustPlannedShown: () -> Unit,
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val planned by viewModel.planned.collectAsStateWithLifecycle()
@@ -135,6 +149,7 @@ fun CookingScreen(
     val loggedMessage = stringResource(R.string.cooked_logged)
     val removedMessage = stringResource(R.string.planned_removed)
     val undoLabel = stringResource(R.string.action_undo)
+    val plannedMessage = stringResource(R.string.suggest_planned, justPlanned?.title.orEmpty())
     val today = viewModel.today()
 
     /** Replaces any snackbar still showing; [onUndo] runs if its action is tapped. */
@@ -146,9 +161,22 @@ fun CookingScreen(
         }
     }
 
+    LaunchedEffect(justPlanned) {
+        val planned = justPlanned ?: return@LaunchedEffect
+        onJustPlannedShown()
+        showUndo(plannedMessage) { viewModel.unplan(planned.recipeId) }
+    }
+
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.cooking_title)) }) },
         snackbarHost = { SnackbarHost(snackbar) },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                text = { Text(stringResource(R.string.suggest_action)) },
+                icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
+                onClick = onSuggest,
+            )
+        },
     ) { padding ->
         val list = entries ?: return@Scaffold
         val plannedItems = planned ?: return@Scaffold
@@ -166,7 +194,15 @@ fun CookingScreen(
         } else {
             // The history is sorted by date, so grouping keeps the order.
             val byDate = list.groupBy { it.cookedOn }
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = padding) {
+            val layoutDirection = LocalLayoutDirection.current
+            // Room below the last row for the FAB.
+            val listPadding = PaddingValues(
+                start = padding.calculateStartPadding(layoutDirection),
+                top = padding.calculateTopPadding(),
+                end = padding.calculateEndPadding(layoutDirection),
+                bottom = padding.calculateBottomPadding() + 88.dp,
+            )
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding) {
                 if (plannedItems.isNotEmpty()) {
                     item(key = "planned-title") { SectionTitle(stringResource(R.string.planned_title)) }
                     items(plannedItems, key = { "planned-${it.recipeId}" }) { item ->
@@ -180,7 +216,7 @@ fun CookingScreen(
                                 }
                             },
                             onRemove = {
-                                viewModel.unplan(item)
+                                viewModel.unplan(item.recipeId)
                                 showUndo(removedMessage) { viewModel.replan(item) }
                             },
                         )

@@ -142,6 +142,16 @@
     <string name="date_today">Heute</string>
     <string name="date_yesterday">Gestern</string>
     <string name="action_undo">Rückgängig</string>
+    <string name="action_yes">Ja</string>
+    <string name="action_no">Nein</string>
+
+    <!-- Suggestions -->
+    <string name="suggest_action">Zufallsrezept</string>
+    <string name="suggest_title">Zufallsrezept</string>
+    <string name="suggest_reroll">Neue Vorschläge</string>
+    <string name="suggest_none">Keine weiteren Rezepte für Vorschläge.</string>
+    <string name="suggest_confirm_title">Dieses Rezept kochen?</string>
+    <string name="suggest_planned">%1$s geplant</string>
 
     <!-- Nutrition -->
     <string name="recipe_section_nutrition">Nährwerte je Portion</string>

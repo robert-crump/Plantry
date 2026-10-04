@@ -52,6 +52,7 @@ import com.example.plantry.PlantryApplication
 import com.example.plantry.R
 import com.example.plantry.ui.cooklog.CookingScreen
 import com.example.plantry.ui.cooklog.CookingViewModel
+import com.example.plantry.ui.cooklog.JustPlanned
 import com.example.plantry.ui.ingredient.IngredientDetailScreen
 import com.example.plantry.ui.ingredient.IngredientDetailViewModel
 import com.example.plantry.ui.ingredient.IngredientListScreen
@@ -70,12 +71,21 @@ import com.example.plantry.ui.settings.ApiKeyDialog
 import com.example.plantry.ui.settings.BackupViewModel
 import com.example.plantry.ui.settings.SettingsScreen
 import com.example.plantry.ui.settings.SettingsViewModel
+import com.example.plantry.ui.suggest.SuggestionsScreen
+import com.example.plantry.ui.suggest.SuggestionsViewModel
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 @Serializable
 object CookingRoute
+
+@Serializable
+object SuggestionsRoute
+
+/** Saved-state keys with which the suggestions hand a planned recipe back to Kochen. */
+private const val JUST_PLANNED_ID = "justPlannedId"
+private const val JUST_PLANNED_TITLE = "justPlannedTitle"
 
 /** With [ingredientId], the list opens filtered by that ingredient. */
 @Serializable
@@ -197,12 +207,38 @@ fun PlantryNavHost() {
                 // The banner already took the status bar.
                 modifier = if (showBackupReminder) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier,
             ) {
-                composable<CookingRoute> {
+                composable<CookingRoute> { entry ->
+                    val handle = entry.savedStateHandle
+                    val justPlannedId by handle.getStateFlow<Long?>(JUST_PLANNED_ID, null).collectAsStateWithLifecycle()
+                    val justPlannedTitle by handle.getStateFlow(JUST_PLANNED_TITLE, "").collectAsStateWithLifecycle()
                     CookingScreen(
                         viewModel = viewModel {
                             CookingViewModel(cookLogRepository, app.plannedRepository, recipeRepository, ingredientRepository)
                         },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
+                        onSuggest = { navController.navigate(SuggestionsRoute) },
+                        justPlanned = justPlannedId?.let { JustPlanned(it, justPlannedTitle) },
+                        onJustPlannedShown = {
+                            // Reset, not removed: removing would leave the collected flows on the old value.
+                            handle[JUST_PLANNED_ID] = null
+                            handle[JUST_PLANNED_TITLE] = ""
+                        },
+                    )
+                }
+                composable<SuggestionsRoute> {
+                    SuggestionsScreen(
+                        viewModel = viewModel {
+                            SuggestionsViewModel(app.recipeSuggester, app.plannedRepository, recipeRepository, ingredientRepository)
+                        },
+                        onBack = { navController.popBackStack() },
+                        onPlanned = { recipeId, title ->
+                            navController.previousBackStackEntry?.savedStateHandle?.let { handle ->
+                                // The title first: Kochen reacts to the id.
+                                handle[JUST_PLANNED_TITLE] = title
+                                handle[JUST_PLANNED_ID] = recipeId
+                            }
+                            navController.popBackStack()
+                        },
                     )
                 }
                 composable<RecipeListRoute> { entry ->
