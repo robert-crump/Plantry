@@ -32,24 +32,29 @@ class CookLogDaoTest {
     @After
     fun tearDown() = db.close()
 
+    private val titles = mutableMapOf<Long, String>()
+
     private suspend fun insertRecipe(title: String) = db.recipeDao().insert(
         Recipe(title = title, source = "", page = null, bookServings = 2, ourServings = 2, cookingTimeMinutes = 20),
-    )
+    ).also { titles[it] = title }
+
+    private fun log(recipeId: Long, cookedOn: LocalDate) =
+        CookLog(recipeId = recipeId, cookedOn = cookedOn, title = titles.getValue(recipeId), stats = RecipeStats(1.0, 20.0, 40.0))
 
     @Test
-    fun observeHistory_newestFirstWithRecipeTitles() = runTest {
+    fun observeHistory_newestFirstWithSnapshotTitles() = runTest {
         val dal = insertRecipe("Dal")
         val chili = insertRecipe("Chili")
-        dao.insert(CookLog(recipeId = dal, cookedOn = today.minusDays(10)))
-        dao.insert(CookLog(recipeId = chili, cookedOn = today))
-        dao.insert(CookLog(recipeId = dal, cookedOn = today.minusDays(1)))
-        dao.insert(CookLog(recipeId = dal, cookedOn = today))
+        dao.insert(log(dal, today.minusDays(10)))
+        dao.insert(log(chili, today))
+        dao.insert(log(dal, today.minusDays(1)))
+        dao.insert(log(dal, today))
 
         val history = dao.observeHistory().first()
 
         assertEquals(
             listOf("Dal" to today, "Chili" to today, "Dal" to today.minusDays(1), "Dal" to today.minusDays(10)),
-            history.map { it.recipeTitle to it.log.cookedOn },
+            history.map { it.title to it.cookedOn },
         )
     }
 
@@ -57,8 +62,8 @@ class CookLogDaoTest {
     fun observeDates_onlyThatRecipe() = runTest {
         val dal = insertRecipe("Dal")
         val chili = insertRecipe("Chili")
-        dao.insert(CookLog(recipeId = dal, cookedOn = today))
-        dao.insert(CookLog(recipeId = chili, cookedOn = today.minusDays(3)))
+        dao.insert(log(dal, today))
+        dao.insert(log(chili, today.minusDays(3)))
 
         assertEquals(listOf(today.minusDays(3)), dao.observeDates(chili).first())
     }
@@ -68,9 +73,9 @@ class CookLogDaoTest {
         val dal = insertRecipe("Dal")
         val chili = insertRecipe("Chili")
         insertRecipe("Nie gekocht")
-        dao.insert(CookLog(recipeId = dal, cookedOn = today))
-        dao.insert(CookLog(recipeId = dal, cookedOn = today.minusDays(30)))
-        dao.insert(CookLog(recipeId = chili, cookedOn = today.minusDays(3)))
+        dao.insert(log(dal, today))
+        dao.insert(log(dal, today.minusDays(30)))
+        dao.insert(log(chili, today.minusDays(3)))
 
         assertEquals(
             setOf(LastCooked(dal, today), LastCooked(chili, today.minusDays(3))),
@@ -82,20 +87,24 @@ class CookLogDaoTest {
     @Test
     fun deleteById_removesEntry() = runTest {
         val dal = insertRecipe("Dal")
-        val id = dao.insert(CookLog(recipeId = dal, cookedOn = today))
+        val id = dao.insert(log(dal, today))
 
         dao.deleteById(id)
 
-        assertEquals(emptyList<CookLogEntry>(), dao.observeHistory().first())
+        assertEquals(emptyList<CookLog>(), dao.observeHistory().first())
     }
 
     @Test
-    fun deletingRecipe_cascadesToLog() = runTest {
+    fun deletingRecipe_keepsLogWithoutRecipe() = runTest {
         val dal = insertRecipe("Dal")
-        dao.insert(CookLog(recipeId = dal, cookedOn = today))
+        val chili = insertRecipe("Chili")
+        val id = dao.insert(log(dal, today))
+        dao.insert(log(chili, today.minusDays(2)))
 
         db.recipeDao().deleteById(dal)
 
-        assertEquals(emptyList<CookLogEntry>(), dao.observeHistory().first())
+        val history = dao.observeHistory().first()
+        assertEquals(log(dal, today).copy(id = id, recipeId = null), history.first())
+        assertEquals(listOf(LastCooked(chili, today.minusDays(2))), dao.getLastCooked())
     }
 }

@@ -8,6 +8,8 @@ import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
+import com.example.plantry.data.RecipeSnapshot
+import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.UnitWeight
 import kotlinx.serialization.Serializable
@@ -38,9 +40,10 @@ data class BackupFile(
     companion object {
         /**
          * 2: learned ingredient aliases. 3: a recipe's cooking time may be null. 4: no week plan
-         * and shopping ticks any more.
+         * and shopping ticks any more. 5: cooking log entries carry a recipe snapshot and may
+         * belong to a deleted recipe.
          */
-        const val FORMAT_VERSION = 4
+        const val FORMAT_VERSION = 5
 
         /** Unknown keys are skipped, so older files with `weekPlan` and `shoppingTicks` still import. */
         private val json = Json {
@@ -125,9 +128,21 @@ data class BackupRecipe(
 @Serializable
 data class BackupLine(val id: Long, val originalText: String, val grams: Double, val ingredientId: Long)
 
-/** Dates are ISO-8601, e.g. "2026-10-02". */
+/**
+ * Dates are ISO-8601, e.g. "2026-10-02". The snapshot (title and stats) is there since version 5;
+ * older entries get it computed from their recipe on import.
+ */
 @Serializable
-data class BackupCookLog(val id: Long, val recipeId: Long, val cookedOn: String)
+data class BackupCookLog(
+    val id: Long,
+    /** Null since version 5, once the recipe was deleted. */
+    val recipeId: Long?,
+    val cookedOn: String,
+    val title: String? = null,
+    val plantPoints: Double? = null,
+    val proteinPerPortion: Double? = null,
+    val carbsPerPortion: Double? = null,
+)
 
 @Serializable
 data class BackupAlias(val wording: String, val ingredientId: Long)
@@ -156,26 +171,61 @@ fun BackupSnapshot.toFile(photos: Photos, settings: BackupSettings): BackupFile 
                 lines = linesByRecipe[recipe.id].orEmpty().sortedBy { it.position },
             )
         },
-        cookLog = cookLog.map { BackupCookLog(it.id, it.recipeId, it.cookedOn.toString()) },
+        cookLog = cookLog.map { log ->
+            BackupCookLog(
+                id = log.id,
+                recipeId = log.recipeId,
+                cookedOn = log.cookedOn.toString(),
+                title = log.title,
+                plantPoints = log.stats.plantPoints,
+                proteinPerPortion = log.stats.proteinPerPortion,
+                carbsPerPortion = log.stats.carbsPerPortion,
+            )
+        },
         aliases = aliases.map { BackupAlias(it.wording, it.ingredientId) },
     )
 }
 
-/** Throws [InvalidBackupException] for malformed dates or photos. */
+/**
+ * Throws [InvalidBackupException] for malformed dates or photos, and for a cooking log entry
+ * without a snapshot whose recipe is missing.
+ */
 fun BackupFile.toSnapshot(): BackupSnapshot = try {
+    val ingredients = ingredients.map { it.toEntity() }
+    val recipes = recipes.map { it.toEntity() }
+    val lines = this.recipes.flatMap { recipe ->
+        recipe.lines.mapIndexed { position, line ->
+            RecipeIngredient(line.id, recipe.id, position, line.originalText, line.grams, line.ingredientId)
+        }
+    }
+    val recipesById = recipes.associateBy { it.id }
+    val ingredientsById = ingredients.associateBy { it.id }
     BackupSnapshot(
-        ingredients = ingredients.map { it.toEntity() },
-        recipes = recipes.map { it.toEntity() },
-        lines = recipes.flatMap { recipe ->
-            recipe.lines.mapIndexed { position, line ->
-                RecipeIngredient(line.id, recipe.id, position, line.originalText, line.grams, line.ingredientId)
-            }
+        ingredients = ingredients,
+        recipes = recipes,
+        lines = lines,
+        cookLog = cookLog.map { log ->
+            val snapshot = log.snapshot() ?: log.recipeId?.let(recipesById::get)?.let { recipe ->
+                RecipeSnapshot.of(recipe, lines, ingredientsById)
+            } ?: throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP)
+            CookLog(log.id, log.recipeId, LocalDate.parse(log.cookedOn), snapshot.title, snapshot.stats)
         },
-        cookLog = cookLog.map { CookLog(it.id, it.recipeId, LocalDate.parse(it.cookedOn)) },
         aliases = aliases.map { IngredientAlias(it.wording, it.ingredientId) },
     )
 } catch (e: DateTimeParseException) {
     throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP, e)
+}
+
+/** The stored snapshot; null in files before version 5. */
+private fun BackupCookLog.snapshot(): RecipeSnapshot? {
+    return RecipeSnapshot(
+        title = title ?: return null,
+        stats = RecipeStats(
+            plantPoints = plantPoints ?: return null,
+            proteinPerPortion = proteinPerPortion ?: return null,
+            carbsPerPortion = carbsPerPortion ?: return null,
+        ),
+    )
 }
 
 fun BackupFile.photos(): Photos = try {

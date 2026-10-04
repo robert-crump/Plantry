@@ -13,6 +13,7 @@ import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.PlantryDatabase
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
+import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.UnitWeight
 import kotlinx.coroutines.test.runTest
@@ -65,7 +66,11 @@ class BackupDaoTest {
         ingredients = listOf(ingredient(1, "Reis, gekocht", buyAs = 5), ingredient(5, "Reis, trocken")),
         recipes = listOf(Recipe(3, "Curry", "Buch", 12, 4, 2, 30, modified = true)),
         lines = listOf(RecipeIngredient(8, 3, 0, "1 Tasse Reis", 180.0, 1), RecipeIngredient(9, 3, 1, "Reis", 50.0, 5)),
-        cookLog = listOf(CookLog(4, 3, LocalDate.of(2026, 9, 30))),
+        cookLog = listOf(
+            CookLog(4, 3, LocalDate.of(2026, 9, 30), "Curry", RecipeStats(1.0, 20.0, 40.0)),
+            // Its recipe was deleted.
+            CookLog(6, null, LocalDate.of(2026, 9, 1), "Weg", RecipeStats(2.5, 30.0, 50.0)),
+        ),
         aliases = listOf(IngredientAlias("basmati", 5), IngredientAlias("reis gegart", 1)),
     )
 

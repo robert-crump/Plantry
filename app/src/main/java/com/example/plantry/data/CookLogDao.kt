@@ -16,22 +16,16 @@ interface CookLogDao {
     suspend fun deleteById(id: Long)
 
     /** Newest first; entries of the same day in the order they were logged, newest first. */
-    @Query(
-        """
-        SELECT cook_log.*, recipes.title AS recipeTitle
-        FROM cook_log INNER JOIN recipes ON recipes.id = cook_log.recipeId
-        ORDER BY cook_log.cookedOn DESC, cook_log.id DESC
-        """,
-    )
-    fun observeHistory(): Flow<List<CookLogEntry>>
+    @Query("SELECT * FROM cook_log ORDER BY cookedOn DESC, id DESC")
+    fun observeHistory(): Flow<List<CookLog>>
 
     @Query("SELECT cookedOn FROM cook_log WHERE recipeId = :recipeId")
     fun observeDates(recipeId: Long): Flow<List<LocalDate>>
 
-    /** The latest cook date of every recipe that was cooked at least once. */
-    @Query("SELECT recipeId, MAX(cookedOn) AS lastCookedOn FROM cook_log GROUP BY recipeId")
+    /** The latest cook date of every existing recipe that was cooked at least once. */
+    @Query("SELECT recipeId, MAX(cookedOn) AS lastCookedOn FROM cook_log WHERE recipeId IS NOT NULL GROUP BY recipeId")
     suspend fun getLastCooked(): List<LastCooked>
 
-    @Query("SELECT recipeId, MAX(cookedOn) AS lastCookedOn FROM cook_log GROUP BY recipeId")
+    @Query("SELECT recipeId, MAX(cookedOn) AS lastCookedOn FROM cook_log WHERE recipeId IS NOT NULL GROUP BY recipeId")
     fun observeLastCooked(): Flow<List<LastCooked>>
 }

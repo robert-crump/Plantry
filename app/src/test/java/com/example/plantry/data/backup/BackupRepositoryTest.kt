@@ -8,6 +8,7 @@ import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
+import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.UnitWeight
 import com.example.plantry.data.settings.ScanModel
@@ -16,8 +17,11 @@ import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.data.settings.SettingsStorage
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -66,7 +70,7 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 4"))
+        assertTrue(json.contains("\"formatVersion\": 5"))
     }
 
     @Test
@@ -100,7 +104,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 4", "\"formatVersion\": 5")
+        val newer = source.export().replace("\"formatVersion\": 5", "\"formatVersion\": 6")
 
         val error = readError(newer)
 
@@ -131,6 +135,43 @@ class BackupRepositoryTest {
         target.repository.import(target.repository.read(v3))
 
         assertEquals(source.store.data, target.store.data)
+    }
+
+    @Test
+    fun version4File_computesSnapshotsFromTheRecipes() = runTest {
+        val v5 = Json.parseToJsonElement(source.export()).jsonObject
+        val v4CookLog = JsonArray(
+            v5.getValue("cookLog").jsonArray
+                .map { it.jsonObject }
+                .filter { it["recipeId"] != JsonNull }
+                .map { JsonObject(it - listOf("title", "plantPoints", "proteinPerPortion", "carbsPerPortion")) },
+        )
+        val v4 = JsonObject(v5 + ("formatVersion" to JsonPrimitive(4)) + ("cookLog" to v4CookLog)).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(v4))
+
+        val cookLog = target.store.data.cookLog
+        assertEquals(listOf("Curry", "Chili"), cookLog.map { it.title })
+        // Curry for 2: 480.5 g at 2.7 g protein and 28.2 g carbs per 100 g; Süßkartoffel 1 point,
+        // Reis, gekocht is bought as Reis, trocken with 0.
+        assertStats(RecipeStats(1.0, 480.5 * 0.027 / 2, 480.5 * 0.282 / 2), cookLog[0].stats)
+        assertStats(RecipeStats(0.0, 75 * 0.027 / 2, 75 * 0.282 / 2), cookLog[1].stats)
+    }
+
+    private fun assertStats(expected: RecipeStats, actual: RecipeStats) {
+        assertEquals(expected.plantPoints, actual.plantPoints, 1e-9)
+        assertEquals(expected.proteinPerPortion, actual.proteinPerPortion, 1e-9)
+        assertEquals(expected.carbsPerPortion, actual.carbsPerPortion, 1e-9)
+    }
+
+    @Test
+    fun read_rejectsVersion4EntryWithoutRecipe() = runTest {
+        val v5 = Json.parseToJsonElement(source.export()).jsonObject
+        val orphan = Json.parseToJsonElement("""[{"id": 1, "recipeId": 99, "cookedOn": "2026-09-30"}]""")
+        val v4 = JsonObject(v5 + ("formatVersion" to JsonPrimitive(4)) + ("cookLog" to orphan)).toString()
+
+        assertEquals(InvalidBackupException.Reason.NOT_A_BACKUP, readError(v4).reason)
     }
 
     @Test
@@ -239,7 +280,12 @@ class BackupRepositoryTest {
                 RecipeIngredient(11, 2, 1, "1 Tasse Reis", 180.5, 1),
                 RecipeIngredient(4, 7, 0, "Reis", 75.0, 5),
             ),
-            cookLog = listOf(CookLog(1, 2, LocalDate.of(2026, 9, 30)), CookLog(2, 7, LocalDate.of(2025, 12, 31))),
+            // Snapshots differ from the recipes' current values, as after an edit; they must survive as they are.
+            cookLog = listOf(
+                CookLog(1, 2, LocalDate.of(2026, 9, 30), "Curry", RecipeStats(1.0, 6.5, 67.75)),
+                CookLog(2, 7, LocalDate.of(2025, 12, 31), "Chili alt", RecipeStats(0.25, 20.0, 40.0)),
+                CookLog(3, recipeId = null, LocalDate.of(2025, 11, 1), "Gelöscht", RecipeStats(3.0, 31.0, 55.0)),
+            ),
             aliases = listOf(IngredientAlias("reis basmati", 5), IngredientAlias("süßkartoffeln geschält", 3)),
         )
     }

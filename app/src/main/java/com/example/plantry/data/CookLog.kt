@@ -8,7 +8,10 @@ import androidx.room.PrimaryKey
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
-/** One time a recipe was cooked; the only input for the planner's cooldown. */
+/**
+ * One time a recipe was cooked, with a snapshot of the recipe at that time; the only input for
+ * the planner's cooldown. Deleting the recipe keeps the entry and sets [recipeId] to null.
+ */
 @Entity(
     tableName = "cook_log",
     foreignKeys = [
@@ -16,22 +19,26 @@ import java.time.temporal.ChronoUnit
             entity = Recipe::class,
             parentColumns = ["id"],
             childColumns = ["recipeId"],
-            onDelete = ForeignKey.CASCADE,
+            onDelete = ForeignKey.SET_NULL,
         ),
     ],
     indices = [Index("recipeId")],
 )
 data class CookLog(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val recipeId: Long,
+    /** Null once the recipe was deleted. */
+    val recipeId: Long?,
     val cookedOn: LocalDate,
-)
-
-/** A [CookLog] entry with the title of its recipe, for the global history. */
-data class CookLogEntry(
-    @Embedded val log: CookLog,
-    val recipeTitle: String,
-)
+    /** The recipe's title when it was logged. */
+    val title: String,
+    /** The recipe's stats when it was logged. */
+    @Embedded val stats: RecipeStats,
+) {
+    companion object {
+        fun of(recipeId: Long, cookedOn: LocalDate, snapshot: RecipeSnapshot) =
+            CookLog(recipeId = recipeId, cookedOn = cookedOn, title = snapshot.title, stats = snapshot.stats)
+    }
+}
 
 data class LastCooked(val recipeId: Long, val lastCookedOn: LocalDate)
 

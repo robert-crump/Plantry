@@ -117,17 +117,14 @@ object RecipeQuery {
         lastCooked: Map<Long, LocalDate>,
         wantedRoots: List<Long>,
     ): RecipeListItem {
-        val used = recipeLines.mapNotNull { ingredients[it.ingredientId] }
-        val roots = used.mapTo(mutableSetOf()) { buyAsRoot(it, ingredients) }
-        val matchableRoots = used.filterNot { it.staple }.mapTo(mutableSetOf()) { buyAsRoot(it, ingredients).id }
-        val nutrition = RecipeNutrition.calculate(
-            nutritionLines(recipeLines.sortedBy { it.position }.map { it.toDraft() }, ingredients),
-            recipe.ourServings,
-        )
+        val matchableRoots = recipeLines.mapNotNull { ingredients[it.ingredientId] }
+            .filterNot { it.staple }
+            .mapTo(mutableSetOf()) { buyAsRoot(it, ingredients).id }
+        val stats = RecipeStats.of(recipe, recipeLines, ingredients)
         return RecipeListItem(
             recipe = recipe,
-            proteinPerPortion = nutrition.perPortion.protein,
-            plantPoints = roots.sumOf { it.plantPoints.value },
+            proteinPerPortion = stats.proteinPerPortion,
+            plantPoints = stats.plantPoints,
             lastCookedOn = lastCooked[recipe.id],
             matchedIngredients = wantedRoots.count { it in matchableRoots },
         )

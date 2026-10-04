@@ -39,7 +39,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.CookLog
-import com.example.plantry.data.CookLogEntry
 import com.example.plantry.data.CookLogRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -49,7 +48,7 @@ import java.time.LocalDate
 
 class CookingViewModel(private val repository: CookLogRepository) : ViewModel() {
     /** Null until the first emission, so the empty state doesn't flash. */
-    val entries: StateFlow<List<CookLogEntry>?> = repository.observeHistory()
+    val entries: StateFlow<List<CookLog>?> = repository.observeHistory()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun delete(log: CookLog) {
@@ -62,7 +61,10 @@ class CookingViewModel(private val repository: CookLogRepository) : ViewModel() 
     }
 }
 
-/** The Kochen tab: the cooking history, newest first, under date headers. */
+/**
+ * The Kochen tab: the cooking history, newest first, under date headers. Each row shows the
+ * recipe as it was when logged.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CookingScreen(
@@ -94,7 +96,7 @@ fun CookingScreen(
             }
         } else {
             // The history is sorted by date, so grouping keeps the order.
-            val byDate = list.groupBy { it.log.cookedOn }
+            val byDate = list.groupBy { it.cookedOn }
             LazyColumn(Modifier.fillMaxSize(), contentPadding = padding) {
                 byDate.forEach { (date, dayEntries) ->
                     item(key = "date-$date") {
@@ -105,12 +107,13 @@ fun CookingScreen(
                             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
                         )
                     }
-                    items(dayEntries, key = { it.log.id }) { entry ->
+                    items(dayEntries, key = { it.id }) { entry ->
                         HistoryRow(
                             entry,
-                            onClick = { onRecipeClick(entry.log.recipeId) },
+                            // A deleted recipe has nothing to open.
+                            onClick = entry.recipeId?.let { id -> { onRecipeClick(id) } },
                             onDelete = {
-                                viewModel.delete(entry.log)
+                                viewModel.delete(entry)
                                 scope.launch {
                                     snackbar.currentSnackbarData?.dismiss()
                                     val result = snackbar.showSnackbar(
@@ -118,7 +121,7 @@ fun CookingScreen(
                                         actionLabel = undoLabel,
                                         duration = SnackbarDuration.Short,
                                     )
-                                    if (result == SnackbarResult.ActionPerformed) viewModel.restore(entry.log)
+                                    if (result == SnackbarResult.ActionPerformed) viewModel.restore(entry)
                                 }
                             },
                         )
@@ -132,7 +135,7 @@ fun CookingScreen(
 
 /** Swiping the row away in either direction deletes the entry. */
 @Composable
-private fun HistoryRow(entry: CookLogEntry, onClick: () -> Unit, onDelete: () -> Unit) {
+private fun HistoryRow(entry: CookLog, onClick: (() -> Unit)?, onDelete: () -> Unit) {
     // Not saveable on purpose: the list keeps saved state per key, so an entry brought back by
     // undo would return dismissed and be deleted again.
     val threshold = SwipeToDismissBoxDefaults.positionalThreshold
@@ -159,8 +162,9 @@ private fun HistoryRow(entry: CookLogEntry, onClick: () -> Unit, onDelete: () ->
         onDismiss = { onDelete() },
     ) {
         ListItem(
-            headlineContent = { Text(entry.recipeTitle, fontWeight = FontWeight.Bold) },
-            modifier = Modifier.clickable(onClick = onClick),
+            headlineContent = { Text(entry.title, fontWeight = FontWeight.Bold) },
+            trailingContent = { RecipeStatsRow(entry.stats) },
+            modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
         )
     }
 }

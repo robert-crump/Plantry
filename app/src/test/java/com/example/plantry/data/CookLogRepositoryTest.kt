@@ -6,13 +6,17 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
 
 class CookLogRepositoryTest {
 
     private val dao = FakeCookLogDao()
-    private val repository = CookLogRepository(dao)
+
+    /** Recipes 1 to 3 exist; their snapshot can be changed between logs. */
+    private val snapshots = (1L..3L).associateWith { RecipeSnapshot("Rezept $it", RecipeStats(1.0, 20.0, 40.0)) }.toMutableMap()
+    private val repository = CookLogRepository(dao) { snapshots[it] }
     private var today = LocalDate.of(2026, 10, 2)
 
     @Test
@@ -38,7 +42,7 @@ class CookLogRepositoryTest {
     @Test
     fun delete_undoesLog() = runTest {
         repository.log(recipeId = 1, date = today.minusDays(7))
-        val id = repository.log(recipeId = 1, date = today)
+        val id = repository.log(recipeId = 1, date = today)!!
 
         repository.delete(id)
 
@@ -46,9 +50,30 @@ class CookLogRepositoryTest {
     }
 
     @Test
+    fun log_storesTheSnapshotOfThatMoment() = runTest {
+        repository.log(recipeId = 2, date = today)
+        snapshots[2] = RecipeSnapshot("Neuer Titel", RecipeStats(5.25, 27.4, 48.6))
+        repository.log(recipeId = 2, date = today)
+
+        assertEquals(
+            listOf(
+                CookLog(1, 2, today, "Rezept 2", RecipeStats(1.0, 20.0, 40.0)),
+                CookLog(2, 2, today, "Neuer Titel", RecipeStats(5.25, 27.4, 48.6)),
+            ),
+            dao.logs.value,
+        )
+    }
+
+    @Test
+    fun log_missingRecipe_logsNothing() = runTest {
+        assertNull(repository.log(recipeId = 99, date = today))
+        assertEquals(emptyList<CookLog>(), dao.logs.value)
+    }
+
+    @Test
     fun restore_putsEntryBackWithItsId() = runTest {
-        val id = repository.log(recipeId = 1, date = today)
-        val log = CookLog(id = id, recipeId = 1, cookedOn = today)
+        val id = repository.log(recipeId = 1, date = today)!!
+        val log = dao.logs.value.single()
         repository.delete(id)
 
         repository.restore(log)
@@ -72,8 +97,7 @@ private class FakeCookLogDao : CookLogDao {
         logs.value = logs.value.filter { it.id != id }
     }
 
-    override fun observeHistory(): Flow<List<CookLogEntry>> =
-        logs.map { all -> all.map { CookLogEntry(it, recipeTitle = "Rezept ${it.recipeId}") } }
+    override fun observeHistory(): Flow<List<CookLog>> = logs
 
     override fun observeDates(recipeId: Long): Flow<List<LocalDate>> =
         logs.map { all -> all.filter { it.recipeId == recipeId }.map { it.cookedOn } }
@@ -82,6 +106,7 @@ private class FakeCookLogDao : CookLogDao {
 
     override fun observeLastCooked(): Flow<List<LastCooked>> = logs.map(::lastCooked)
 
-    private fun lastCooked(all: List<CookLog>) =
-        all.groupBy { it.recipeId }.map { (id, entries) -> LastCooked(id, entries.maxOf { it.cookedOn }) }
+    private fun lastCooked(all: List<CookLog>) = all.filter { it.recipeId != null }
+        .groupBy { it.recipeId!! }
+        .map { (id, entries) -> LastCooked(id, entries.maxOf { it.cookedOn }) }
 }

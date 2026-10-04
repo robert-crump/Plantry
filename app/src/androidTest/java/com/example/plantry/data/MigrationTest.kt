@@ -4,6 +4,7 @@ import androidx.room.testing.MigrationTestHelper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -119,6 +120,61 @@ class MigrationTest {
             }
         }
     }
+
+    @Test
+    fun migrate9To10_backfillsSnapshotsFromTheRecipes() {
+        helper.createDatabase(DB_NAME, 9).use { db ->
+            db.execSQL(
+                "INSERT INTO recipes (id, title, source, page, bookServings, ourServings, cookingTimeMinutes, modified) " +
+                    "VALUES (1, 'Dal', '', NULL, 4, 2, 30, 0), (2, 'Leer', '', NULL, 2, 2, NULL, 0)",
+            )
+            // Reis, gekocht (3) is bought as Reis, trocken (4): one plant together.
+            db.execSQL(ingredientSql(1, "Linsen", "ONE", protein = 24.0, carbs = 50.0))
+            db.execSQL(ingredientSql(2, "Knoblauch", "QUARTER", protein = 6.0, carbs = 33.0))
+            db.execSQL(ingredientSql(4, "Reis, trocken", "ONE", protein = 7.0, carbs = 80.0))
+            db.execSQL(ingredientSql(3, "Reis, gekocht", "ZERO", protein = 2.7, carbs = 28.0, buyAs = 4))
+            db.execSQL(
+                "INSERT INTO recipe_ingredients (id, recipeId, position, originalText, grams, ingredientId) VALUES " +
+                    "(1, 1, 0, 'Linsen', 200, 1), (2, 1, 1, 'Knoblauch', 10, 2), " +
+                    "(3, 1, 2, 'Reis', 150, 3), (4, 1, 3, 'Reis', 50, 4), (5, 1, 4, 'Linsen', 100, 1)",
+            )
+            db.execSQL("INSERT INTO cook_log (id, recipeId, cookedOn) VALUES (1, 1, 20729), (2, 2, 20730), (3, 1, 20700)")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 10, true, PlantryDatabase.MIGRATION_9_10).use { db ->
+            db.query(
+                "SELECT id, recipeId, cookedOn, title, plantPoints, proteinPerPortion, carbsPerPortion FROM cook_log ORDER BY id",
+            ).use { c ->
+                assertEquals(3, c.count)
+                c.moveToFirst()
+                assertEquals(listOf(1L, 1L, 20729L), listOf(c.getLong(0), c.getLong(1), c.getLong(2)))
+                assertEquals("Dal", c.getString(3))
+                assertEquals(2.25, c.getDouble(4), 1e-9)
+                assertEquals((300 * 24.0 + 10 * 6.0 + 150 * 2.7 + 50 * 7.0) / 100 / 2, c.getDouble(5), 1e-9)
+                assertEquals((300 * 50.0 + 10 * 33.0 + 150 * 28.0 + 50 * 80.0) / 100 / 2, c.getDouble(6), 1e-9)
+                c.moveToNext()
+                assertEquals("Leer", c.getString(3))
+                assertEquals(listOf(0.0, 0.0, 0.0), listOf(c.getDouble(4), c.getDouble(5), c.getDouble(6)))
+                c.moveToNext()
+                assertEquals(listOf(3L, 20700L), listOf(c.getLong(0), c.getLong(2)))
+                assertEquals("Dal", c.getString(3))
+            }
+            db.execSQL("PRAGMA foreign_keys = ON")
+            db.execSQL("DELETE FROM recipes WHERE id = 2")
+            db.query("SELECT recipeId, title FROM cook_log WHERE id = 2").use { c ->
+                c.moveToFirst()
+                assertTrue(c.isNull(0))
+                assertEquals("Leer", c.getString(1))
+            }
+        }
+    }
+
+    private fun ingredientSql(id: Long, name: String, points: String, protein: Double, carbs: Double, buyAs: Long? = null) =
+        "INSERT INTO ingredients (id, name, fdcId, usdaDescription, kcal, protein, carbs, sugar, fat, fibre, " +
+            "unitWeights, buyUnit, packSizeGrams, storeSection, staple, plantPoints, buyAsIngredientId, " +
+            "buyAsYieldFactor, reviewed) " +
+            "VALUES ($id, '$name', NULL, NULL, 0, $protein, $carbs, 0, 0, 0, '[]', 'GRAMS', NULL, 'OTHER', 0, '$points', " +
+            "${buyAs ?: "NULL"}, NULL, 1)"
 
     private companion object {
         const val DB_NAME = "migration-test"
