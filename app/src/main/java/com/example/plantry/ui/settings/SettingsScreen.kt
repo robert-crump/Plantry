@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,17 +18,16 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -153,15 +153,6 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
                         title = stringResource(R.string.settings_api_key),
                         summary = settings.maskedApiKey ?: stringResource(R.string.settings_api_key_missing),
                         onClick = { editingKey = true },
-                        trailing = if (settings.hasApiKey) {
-                            {
-                                IconButton(onClick = { confirmingDelete = true }) {
-                                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.settings_api_key_delete))
-                                }
-                            }
-                        } else {
-                            null
-                        },
                     )
                 },
                 {
@@ -229,6 +220,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
             onSave = { key -> viewModel.saveApiKey(key).also { saved -> if (saved) editingKey = false } },
             onDismiss = { editingKey = false },
             dismissLabel = R.string.action_cancel,
+            onDelete = if (settings.hasApiKey) ({ confirmingDelete = true }) else null,
         )
     }
 
@@ -275,6 +267,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
                 TextButton(onClick = {
                     viewModel.deleteApiKey()
                     confirmingDelete = false
+                    editingKey = false
                 }) { Text(stringResource(R.string.action_delete)) }
             },
             dismissButton = {
@@ -435,6 +428,7 @@ private fun <T> ChoiceDialog(
 /**
  * Asks for the Anthropic API key. Used on first launch (dismiss = "Später") and in Settings.
  * [onSave] returns false when the key was rejected, which keeps the dialog open with an error.
+ * With [onDelete] (a key is stored) a red "Schlüssel löschen" button sits bottom left.
  */
 @Composable
 fun ApiKeyDialog(
@@ -442,6 +436,7 @@ fun ApiKeyDialog(
     onDismiss: () -> Unit,
     @StringRes dismissLabel: Int,
     @StringRes message: Int = R.string.settings_api_key_dialog_message,
+    onDelete: (() -> Unit)? = null,
 ) {
     var key by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf(false) }
@@ -468,11 +463,24 @@ fun ApiKeyDialog(
                 )
             }
         },
+        // With a delete button all three share one full-width slot, so it can sit opposite the others.
+        // On narrow screens it wraps onto its own line above Abbrechen/Speichern.
         confirmButton = {
-            TextButton(onClick = { error = !onSave(key) }) { Text(stringResource(R.string.action_save)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(dismissLabel)) }
+            FlowRow(if (onDelete != null) Modifier.fillMaxWidth() else Modifier) {
+                if (onDelete != null) {
+                    TextButton(
+                        onClick = onDelete,
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text(stringResource(R.string.settings_api_key_delete)) }
+                }
+                Row(
+                    if (onDelete != null) Modifier.weight(1f) else Modifier,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                ) {
+                    TextButton(onClick = onDismiss) { Text(stringResource(dismissLabel)) }
+                    TextButton(onClick = { error = !onSave(key) }) { Text(stringResource(R.string.action_save)) }
+                }
+            }
         },
     )
 }

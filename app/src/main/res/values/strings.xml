@@ -282,7 +282,7 @@
     <string name="nav_settings">Einstellungen</string>
     <string name="settings_claude">Claude</string>
     <string name="settings_api_key">Anthropic-API-Schlüssel</string>
-    <string name="settings_api_key_delete">API-Schlüssel löschen</string>
+    <string name="settings_api_key_delete">Schlüssel löschen</string>
     <string name="settings_api_key_missing">Kein Schlüssel gespeichert</string>
     <string name="settings_api_key_hint">Verschlüsselt nur auf diesem Gerät gespeichert</string>
     <string name="settings_api_key_delete_title">API-Schlüssel löschen?</string>
