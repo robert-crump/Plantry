@@ -21,8 +21,11 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.NetworkCheck
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -34,6 +37,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -68,6 +74,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 sealed interface ConnectionTestState {
     data object Idle : ConnectionTestState
@@ -101,6 +109,10 @@ class SettingsViewModel(
 
     fun setCooldownDays(days: Int): Boolean = repository.setCooldownDays(days)
 
+    fun setReminderEnabled(enabled: Boolean) = repository.setReminderEnabled(enabled)
+
+    fun setReminderTime(time: LocalTime) = repository.setReminderTime(time)
+
     fun testConnection() {
         val key = repository.apiKey() ?: return
         val model = settings.value.scanModel
@@ -125,6 +137,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
     var choosingModel by rememberSaveable { mutableStateOf(false) }
     var editingCooldown by rememberSaveable { mutableStateOf(false) }
+    var editingReminderTime by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
@@ -185,6 +198,26 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
                 },
             )
             SectionHint(R.string.settings_cooldown_hint)
+            SettingsGroup(
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.Notifications,
+                        title = stringResource(R.string.settings_reminder),
+                        onClick = { viewModel.setReminderEnabled(!settings.reminderEnabled) },
+                        trailing = { Switch(checked = settings.reminderEnabled, onCheckedChange = null) },
+                    )
+                },
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.Schedule,
+                        title = stringResource(R.string.settings_reminder_time),
+                        summary = settings.reminderTime.format(TimeFormat),
+                        enabled = settings.reminderEnabled,
+                        onClick = { editingReminderTime = true },
+                    )
+                },
+            )
+            SectionHint(R.string.settings_reminder_hint)
 
             SectionHeader(R.string.settings_backup)
             BackupSection(backupViewModel, snackbar)
@@ -219,6 +252,17 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
             initialDays = settings.cooldownDays,
             onSave = { days -> viewModel.setCooldownDays(days).also { saved -> if (saved) editingCooldown = false } },
             onDismiss = { editingCooldown = false },
+        )
+    }
+
+    if (editingReminderTime) {
+        ReminderTimeDialog(
+            initial = settings.reminderTime,
+            onSave = { time ->
+                viewModel.setReminderTime(time)
+                editingReminderTime = false
+            },
+            onDismiss = { editingReminderTime = false },
         )
     }
 
@@ -467,6 +511,27 @@ private fun CooldownDialog(initialDays: Int, onSave: (Int) -> Boolean, onDismiss
         },
         confirmButton = {
             TextButton(onClick = { error = !(text.trim().toIntOrNull()?.let(onSave) ?: false) }) {
+                Text(stringResource(R.string.action_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
+}
+
+private val TimeFormat = DateTimeFormatter.ofPattern("HH:mm")
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReminderTimeDialog(initial: LocalTime, onSave: (LocalTime) -> Unit, onDismiss: () -> Unit) {
+    val state = rememberTimePickerState(initialHour = initial.hour, initialMinute = initial.minute, is24Hour = true)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_reminder_time)) },
+        text = { TimePicker(state) },
+        confirmButton = {
+            TextButton(onClick = { onSave(LocalTime.of(state.hour, state.minute)) }) {
                 Text(stringResource(R.string.action_save))
             }
         },

@@ -139,6 +139,10 @@
     <string name="planned_history_title">Verlauf</string>
     <string name="planned_remove">Entfernen</string>
     <string name="planned_removed">Von „Geplant“ entfernt</string>
+    <string name="reminder_channel">Kochen-Erinnerung</string>
+    <string name="reminder_channel_description">Fragt abends, ob ein geplantes Rezept gekocht wurde</string>
+    <string name="reminder_single_title">Habt ihr heute %1$s gekocht?</string>
+    <string name="reminder_several_title">Habt ihr heute etwas von „Geplant“ gekocht?</string>
     <string name="date_today">Heute</string>
     <string name="date_yesterday">Gestern</string>
     <string name="action_undo">Rückgängig</string>
@@ -285,6 +289,9 @@
     <string name="settings_cooldown">Pause bis zur Wiederholung</string>
     <string name="settings_cooldown_hint">So lange werden gekochte Rezepte seltener vorgeschlagen</string>
     <string name="settings_cooldown_label">Tage</string>
+    <string name="settings_reminder">Erinnerung an Geplantes</string>
+    <string name="settings_reminder_time">Uhrzeit der Erinnerung</string>
+    <string name="settings_reminder_hint">Fragt einmal am Tag, ob ein geplantes Rezept gekocht wurde, solange etwas auf „Geplant“ steht</string>
     <string name="settings_cooldown_range">%1$d bis %2$d Tage</string>
     <plurals name="settings_cooldown_days">
         <item quantity="one">%d Tag</item>

@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalTime
 
 class SettingsRepositoryTest {
 
@@ -28,6 +29,33 @@ class SettingsRepositoryTest {
 
         assertEquals(14, repository.settings.value.cooldownDays)
         assertEquals(14, SettingsRepository(storage, ReversingCipher).settings.value.cooldownDays)
+    }
+
+    @Test
+    fun reminder_defaultsToOnAt1930_andIsStored() {
+        assertTrue(repository.settings.value.reminderEnabled)
+        assertEquals(LocalTime.of(19, 30), repository.settings.value.reminderTime)
+
+        repository.setReminderEnabled(false)
+        repository.setReminderTime(LocalTime.of(18, 5, 42))
+
+        val reloaded = SettingsRepository(storage, ReversingCipher).settings.value
+        assertFalse(reloaded.reminderEnabled)
+        assertEquals(LocalTime.of(18, 5), reloaded.reminderTime)
+    }
+
+    @Test
+    fun reminderTime_unreadable_fallsBackToDefault() {
+        storage.values[SettingsRepository.KEY_REMINDER_TIME] = "abends"
+
+        assertEquals(LocalTime.of(19, 30), SettingsRepository(storage, ReversingCipher).settings.value.reminderTime)
+    }
+
+    @Test
+    fun notificationPermission_isRequestedOnlyOnce() {
+        assertTrue(repository.takeNotificationPermissionRequest())
+        assertFalse(repository.takeNotificationPermissionRequest())
+        assertFalse(SettingsRepository(storage, ReversingCipher).takeNotificationPermissionRequest())
     }
 
     @Test

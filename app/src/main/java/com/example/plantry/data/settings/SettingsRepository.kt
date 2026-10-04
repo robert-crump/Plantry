@@ -3,6 +3,8 @@ package com.example.plantry.data.settings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.time.LocalTime
+import java.time.format.DateTimeParseException
 
 /** The Claude model used to read recipe photos. */
 enum class ScanModel(val modelId: String) {
@@ -22,6 +24,9 @@ data class Settings(
     val scanModel: ScanModel,
     /** Days after cooking before the planner suggests a recipe at full weight again. */
     val cooldownDays: Int,
+    /** The daily "Habt ihr heute … gekocht?" notification while Geplant isn't empty. */
+    val reminderEnabled: Boolean = true,
+    val reminderTime: LocalTime = SettingsRepository.DEFAULT_REMINDER_TIME,
 ) {
     val hasApiKey: Boolean get() = maskedApiKey != null
 }
@@ -77,20 +82,54 @@ class SettingsRepository(
         return true
     }
 
+    fun setReminderEnabled(enabled: Boolean) {
+        storage.putString(KEY_REMINDER_ENABLED, enabled.toString())
+        _settings.value = load()
+    }
+
+    /** Stored to the minute. */
+    fun setReminderTime(time: LocalTime) {
+        storage.putString(KEY_REMINDER_TIME, time.withSecond(0).withNano(0).toString())
+        _settings.value = load()
+    }
+
+    /**
+     * True only the first time it is called: the notification permission is asked once, when the
+     * first recipe goes on Geplant.
+     */
+    fun takeNotificationPermissionRequest(): Boolean {
+        if (storage.getString(KEY_NOTIFICATION_PERMISSION_ASKED) != null) return false
+        storage.putString(KEY_NOTIFICATION_PERMISSION_ASKED, true.toString())
+        return true
+    }
+
     private fun load() = Settings(
         maskedApiKey = apiKey()?.let(::maskApiKey),
         scanModel = ScanModel.fromModelId(storage.getString(KEY_SCAN_MODEL)),
         cooldownDays = storage.getString(KEY_COOLDOWN_DAYS)?.toIntOrNull()?.takeIf { it in COOLDOWN_RANGE }
             ?: DEFAULT_COOLDOWN_DAYS,
+        reminderEnabled = storage.getString(KEY_REMINDER_ENABLED)?.toBooleanStrictOrNull() ?: true,
+        reminderTime = storage.getString(KEY_REMINDER_TIME)?.let(::parseTime) ?: DEFAULT_REMINDER_TIME,
     )
+
+    private fun parseTime(text: String): LocalTime? =
+        try {
+            LocalTime.parse(text)
+        } catch (_: DateTimeParseException) {
+            null
+        }
 
     companion object {
         const val KEY_API_KEY = "api_key"
         const val KEY_SCAN_MODEL = "scan_model"
         const val KEY_COOLDOWN_DAYS = "cooldown_days"
+        const val KEY_REMINDER_ENABLED = "reminder_enabled"
+        const val KEY_REMINDER_TIME = "reminder_time"
+        const val KEY_NOTIFICATION_PERMISSION_ASKED = "notification_permission_asked"
 
         const val DEFAULT_COOLDOWN_DAYS = 21
         val COOLDOWN_RANGE = 1..365
+        val DEFAULT_REMINDER_TIME: LocalTime = LocalTime.of(19, 30)
     }
 }
 

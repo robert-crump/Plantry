@@ -181,6 +181,8 @@ fun RecipeDetailScreen(
     viewModel: RecipeDetailViewModel,
     onBack: () -> Unit,
     onEdit: () -> Unit,
+    /** After "Planen", e.g. to ask for the reminder's notification permission. */
+    onPlanned: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val cookDate by viewModel.cookDate.collectAsStateWithLifecycle()
@@ -257,7 +259,10 @@ fun RecipeDetailScreen(
                 today = viewModel.today(),
                 onPickDate = { pickCookDate = true },
                 onCooked = viewModel::markCooked,
-                onPlan = viewModel::plan,
+                onPlan = {
+                    viewModel.plan()
+                    onPlanned()
+                },
             )
             photo?.let { bytes ->
                 ZoomablePhoto(

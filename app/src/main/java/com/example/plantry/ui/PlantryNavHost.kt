@@ -132,6 +132,8 @@ fun PlantryNavHost() {
     val ingredientRepository = app.ingredientRepository
     val settingsRepository = app.settingsRepository
     val cookLogRepository = app.cookLogRepository
+    // Hoisted here: the suggestions screen is left right after planning.
+    val askForNotifications = rememberNotificationPermissionRequest(settingsRepository)
 
     val currentEntry = navController.currentBackStackEntryAsState().value
     val currentDestination = currentEntry?.destination
@@ -232,6 +234,7 @@ fun PlantryNavHost() {
                         },
                         onBack = { navController.popBackStack() },
                         onPlanned = { recipeId, title ->
+                            askForNotifications()
                             navController.previousBackStackEntry?.savedStateHandle?.let { handle ->
                                 // The title first: Kochen reacts to the id.
                                 handle[JUST_PLANNED_TITLE] = title
@@ -268,6 +271,7 @@ fun PlantryNavHost() {
                         },
                         onBack = { navController.popBackStack() },
                         onEdit = { navController.navigate(RecipeEditRoute(recipeId)) },
+                        onPlanned = askForNotifications,
                     )
                 }
                 composable<RecipeEditRoute> { entry ->

@@ -23,10 +23,21 @@ import com.example.plantry.data.settings.KeystoreCipher
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.data.settings.SharedPreferencesStorage
 import com.example.plantry.data.usda.UsdaCatalog
+import com.example.plantry.reminder.CookReminders
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withContext
 
 class PlantryApplication : Application() {
+
+    /** Work that outlives any screen, such as keeping the reminder alarm in step. */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    override fun onCreate() {
+        super.onCreate()
+        cookReminders.start(appScope)
+    }
 
     private val database by lazy { PlantryDatabase.create(this) }
 
@@ -40,6 +51,10 @@ class PlantryApplication : Application() {
 
     val plannedRepository: PlannedRepository by lazy {
         PlannedRepository(database.plannedRecipeDao(), cookLogRepository)
+    }
+
+    val cookReminders: CookReminders by lazy {
+        CookReminders(this, settingsRepository, plannedRepository, recipeRepository)
     }
 
     val recipeSuggester: RecipeSuggester by lazy {
