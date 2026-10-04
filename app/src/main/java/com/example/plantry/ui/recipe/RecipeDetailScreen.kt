@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -70,7 +72,6 @@ import com.example.plantry.data.toDraft
 import com.example.plantry.ui.cooklog.CookDatePickerDialog
 import com.example.plantry.ui.cooklog.cookDateLabel
 import com.example.plantry.ui.cooklog.lastCookedLabel
-import com.example.plantry.ui.ingredient.formatDecimal
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -80,12 +81,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-/** A recipe line with the name of its ingredient. */
-data class RecipeLineItem(val line: RecipeIngredient, val ingredientName: String)
-
 data class RecipeDetailUiState(
     val recipe: Recipe,
-    val lines: List<RecipeLineItem>,
+    val lines: List<RecipeIngredient>,
     val nutrition: RecipeNutrition,
     val cooking: CookingStats,
     /** On Geplant. */
@@ -117,7 +115,7 @@ class RecipeDetailViewModel(
         val byId = ingredients.associateBy { it.id }
         RecipeDetailUiState(
             recipe = recipe,
-            lines = lines.map { RecipeLineItem(it, byId[it.ingredientId]?.name.orEmpty()) },
+            lines = lines,
             nutrition = RecipeNutrition.calculate(
                 nutritionLines(lines.map { it.toDraft() }, byId),
                 recipe.ourServings,
@@ -289,20 +287,7 @@ fun RecipeDetailScreen(
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
-            detail.lines.forEach { item ->
-                ListItem(
-                    headlineContent = { Text(item.line.originalText) },
-                    supportingContent = {
-                        Text(
-                            stringResource(
-                                R.string.recipe_line_amount,
-                                formatDecimal(item.line.grams),
-                                item.ingredientName,
-                            ),
-                        )
-                    },
-                )
-            }
+            IngredientGrid(detail.lines)
 
             if (detail.lines.isNotEmpty()) {
                 SectionTitle(R.string.recipe_section_nutrition)
@@ -340,6 +325,29 @@ fun RecipeDetailScreen(
                     }
                 },
             )
+        }
+    }
+}
+
+/** The lines' original wording, two per row in recipe order; long text wraps in its cell. */
+@Composable
+private fun IngredientGrid(lines: List<RecipeIngredient>) {
+    Column(
+        Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        lines.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                row.forEach { line ->
+                    Text(
+                        line.originalText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                // Keeps a lone last line in the left column.
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
         }
     }
 }
