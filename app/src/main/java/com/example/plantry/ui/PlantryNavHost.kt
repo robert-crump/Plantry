@@ -94,9 +94,9 @@ data class RecipeListRoute(val ingredientId: Long? = null)
 @Serializable
 data class RecipeDetailRoute(val recipeId: Long)
 
-/** A null [recipeId] creates a new recipe; with [scan], it is read from a photo first. */
+/** A null [recipeId] creates a new recipe. */
 @Serializable
-data class RecipeEditRoute(val recipeId: Long? = null, val scan: Boolean = false)
+data class RecipeEditRoute(val recipeId: Long? = null)
 
 @Serializable
 object IngredientListRoute
@@ -252,7 +252,6 @@ fun PlantryNavHost() {
                         },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                         onAddRecipe = { navController.navigate(RecipeEditRoute()) },
-                        onScanRecipe = { navController.navigate(RecipeEditRoute(scan = true)) },
                         onBack = if (ingredientId != null) ({ navController.popBackStack() }) else null,
                     )
                 }
@@ -280,7 +279,6 @@ fun PlantryNavHost() {
                         viewModel = viewModel {
                             RecipeEditViewModel(
                                 route.recipeId,
-                                route.scan,
                                 recipeRepository,
                                 ingredientRepository,
                                 app.recipePhotoRepository,

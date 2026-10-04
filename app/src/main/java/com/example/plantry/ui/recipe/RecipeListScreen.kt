@@ -18,11 +18,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -38,7 +37,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -148,7 +146,6 @@ fun RecipeListScreen(
     viewModel: RecipeListViewModel,
     onRecipeClick: (Long) -> Unit,
     onAddRecipe: () -> Unit,
-    onScanRecipe: () -> Unit,
     /** Set when opened as a sub-screen (filtered from the ingredient list); shows a back arrow. */
     onBack: (() -> Unit)? = null,
 ) {
@@ -171,13 +168,8 @@ fun RecipeListScreen(
             )
         },
         floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                SmallFloatingActionButton(onClick = onAddRecipe) {
-                    Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.recipe_add))
-                }
-                FloatingActionButton(onClick = onScanRecipe) {
-                    Icon(Icons.Filled.PhotoCamera, contentDescription = stringResource(R.string.recipe_scan))
-                }
+            FloatingActionButton(onClick = onAddRecipe) {
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.recipe_add))
             }
         },
     ) { padding ->

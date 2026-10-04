@@ -37,6 +37,9 @@ data class RecipeForm(
      */
     val newIngredients: Map<Long, NewIngredient> = emptyMap(),
 ) {
+    /** Nothing entered yet, so a scan replaces nothing. */
+    val isEmpty: Boolean get() = this == RecipeForm()
+
     fun withBookServings(value: String) = copy(
         bookServings = value,
         ourServings = if (ourServingsEdited) ourServings else value,

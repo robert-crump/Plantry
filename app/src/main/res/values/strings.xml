@@ -7,11 +7,14 @@
     <string name="action_edit">Bearbeiten</string>
     <string name="action_delete">Löschen</string>
     <string name="action_cancel">Abbrechen</string>
+    <string name="action_replace">Ersetzen</string>
 
     <!-- Recipe list -->
     <string name="recipes_title">Rezepte</string>
     <string name="recipes_empty">Noch keine Rezepte. Fotografiere eine Rezeptseite oder lege eins von Hand an.</string>
-    <string name="recipe_add">Rezept von Hand anlegen</string>
+    <string name="recipe_add">Neues Rezept</string>
+    <string name="recipe_scan_start">Rezept aus Foto erkennen</string>
+    <string name="recipe_scan_replace">Bisherige Eingaben werden durch das Foto ersetzt.</string>
     <string name="recipe_scan">Rezept scannen</string>
 
     <!-- Recipe fields -->

@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Button
@@ -89,6 +90,7 @@ import com.example.plantry.data.usda.UsdaCatalog
 import com.example.plantry.data.usda.UsdaFood
 import androidx.compose.material.icons.filled.AutoAwesome
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapLatest
 import com.example.plantry.data.settings.SettingsRepository
@@ -128,6 +130,10 @@ data class RecipeEditUiState(
     val labelNutritionFor: Long? = null,
     /** A scan is reviewed in two steps: the recipe fields first, then (once true) the lines. */
     val linesStep: Boolean = false,
+    /** The new recipe is being read from a photo (see [scan]) or that scan is being reviewed. */
+    val scanning: Boolean = false,
+    /** Starting a scan waits for "Ersetzen", because the form already has input. */
+    val confirmReplace: Boolean = false,
 )
 
 sealed interface ProposalState {
@@ -160,12 +166,11 @@ data class LineEditorState(
 )
 
 /**
- * Edits the recipe with [recipeId], or creates a new one when it is null. With [scan], the new
- * recipe is read from a photo by Claude first, then reviewed here.
+ * Edits the recipe with [recipeId], or creates a new one when it is null. A new recipe can instead
+ * be read from a photo by Claude ([startScan]), then reviewed here.
  */
 class RecipeEditViewModel(
     private val recipeId: Long?,
-    scan: Boolean,
     private val repository: RecipeRepository,
     private val ingredientRepository: IngredientRepository,
     private val photos: RecipePhotoRepository,
@@ -177,14 +182,13 @@ class RecipeEditViewModel(
     private val compressPhoto: suspend (Uri) -> ByteArray?,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(
-        RecipeEditUiState(scan = if (scan && recipeId == null) ScanState.WaitingForPhoto else ScanState.Done),
-    )
+    private val _state = MutableStateFlow(RecipeEditUiState())
     val state: StateFlow<RecipeEditUiState> = _state.asStateFlow()
 
     val isNew: Boolean get() = recipeId == null
 
-    val isScan: Boolean = scan && recipeId == null
+    /** Reading the photo; cancelled when the scan is left, so a late answer can't fill the form. */
+    private var reading: Job? = null
 
     private val ingredients: StateFlow<List<Ingredient>> = ingredientRepository.observeIngredients()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -287,14 +291,14 @@ class RecipeEditViewModel(
             return
         }
         _state.update { it.copy(scan = ScanState.Reading) }
-        viewModelScope.launch {
+        reading = viewModelScope.launch {
             val result = scanner.scan(apiKey, settings.settings.value.scanModel, photo, ingredients.value)
             _state.update { state ->
                 when (result) {
                     is ScanResult.Success -> {
                         // Claude never reads the book, so the source always comes from the session.
                         val book = bookSession.defaults(BookPage(source = "", page = result.recipe.page))
-                        state.copy(form = state.form.withScan(result.recipe, book, aliases.value), scan = ScanState.Done)
+                        state.copy(form = RecipeForm().withScan(result.recipe, book, aliases.value), scan = ScanState.Done)
                     }
                     is ScanResult.Failure -> state.copy(scan = ScanState.Failed(result.reason))
                 }
@@ -405,9 +409,29 @@ class RecipeEditViewModel(
         _state.update { it.copy(labelNutritionFor = null) }
     }
 
-    /** Gives up on reading and shows the empty form; the photo is kept. */
+    /**
+     * Switches a new recipe to reading it from a photo; asks first ([RecipeEditUiState.confirmReplace])
+     * when there is input the scan would replace.
+     */
+    fun startScan(confirmed: Boolean = false) {
+        if (!isNew) return
+        _state.update { state ->
+            if (!confirmed && (!state.form.isEmpty || state.photo != null)) {
+                state.copy(confirmReplace = true)
+            } else {
+                state.copy(scanning = true, scan = ScanState.WaitingForPhoto, confirmReplace = false, linesStep = false, showErrors = false)
+            }
+        }
+    }
+
+    fun dismissReplace() {
+        _state.update { it.copy(confirmReplace = false) }
+    }
+
+    /** Gives up on reading and goes back to the manual form; input and photo so far are kept. */
     fun skipScan() {
-        _state.update { it.copy(scan = ScanState.Done) }
+        reading?.cancel()
+        _state.update { it.copy(scanning = false, scan = ScanState.Done) }
     }
 
     /** Leaves the recipe fields of a scan for its lines, once the fields are valid. */
@@ -484,7 +508,7 @@ class RecipeEditViewModel(
             ingredientRepository.learnAliases(state.form.aliasesToLearn(newIds))
             val id = recipeId?.also { repository.update(it, saved) } ?: repository.create(saved)
             if (state.photoChanged && state.photo != null) photos.save(id, state.photo)
-            if (isScan) bookSession.remember(saved.source, saved.page)
+            if (state.scanning) bookSession.remember(saved.source, saved.page)
             _state.update { it.copy(saved = true) }
         }
     }
@@ -506,12 +530,18 @@ fun RecipeEditScreen(
 
     val form = state.form
     val errors = if (state.showErrors) form.errors() else null
+    val isScan = state.scanning
     val showForm = state.scan == ScanState.Done
     // A scan is reviewed in two steps, recipe fields then lines; otherwise both show at once.
-    val showFields = showForm && !(viewModel.isScan && state.linesStep)
-    val showLines = showForm && (!viewModel.isScan || state.linesStep)
-    val back = if (viewModel.isScan && state.linesStep) viewModel::showFields else onBack
-    BackHandler(enabled = viewModel.isScan && state.linesStep, onBack = viewModel::showFields)
+    val showFields = showForm && !(isScan && state.linesStep)
+    val showLines = showForm && (!isScan || state.linesStep)
+    // Back steps out of the scan's photo and lines steps before it leaves the screen.
+    val back = when {
+        isScan && !showForm -> viewModel::skipScan
+        isScan && state.linesStep -> viewModel::showFields
+        else -> onBack
+    }
+    BackHandler(enabled = isScan && (!showForm || state.linesStep), onBack = back)
 
     Scaffold(
         topBar = {
@@ -521,7 +551,7 @@ fun RecipeEditScreen(
                         stringResource(
                             when {
                                 !viewModel.isNew -> R.string.recipe_edit
-                                viewModel.isScan -> R.string.recipe_scan
+                                isScan -> R.string.recipe_scan
                                 else -> R.string.recipe_new
                             },
                         ),
@@ -565,12 +595,24 @@ fun RecipeEditScreen(
                 .padding(padding)
                 .imePadding(),
         ) {
+            if (viewModel.isNew && !isScan) {
+                Button(
+                    onClick = { viewModel.startScan() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 8.dp)
+                        .heightIn(min = 56.dp),
+                ) {
+                    Icon(Icons.Filled.AutoAwesome, contentDescription = null)
+                    Text(stringResource(R.string.recipe_scan_start), Modifier.padding(start = 8.dp))
+                }
+            }
             // A scan shows the photo only until it is read; the review works from the fields alone.
-            if (!viewModel.isScan || !showForm) {
+            if (!isScan || !showForm) {
                 // Fixed above the form, so the page stays in view while correcting the lines.
                 PhotoSection(
                     state = state,
-                    isScan = viewModel.isScan,
+                    isScan = isScan,
                     photoSource = photoSource,
                     onRead = viewModel::readPhoto,
                     onSkipScan = viewModel::skipScan,
@@ -590,9 +632,9 @@ fun RecipeEditScreen(
                             errors = errors,
                             sourceSuggestions = sourceSuggestions,
                             onFormChange = viewModel::onFormChange,
-                            onDone = if (viewModel.isScan) viewModel::showLines else null,
+                            onDone = if (isScan) viewModel::showLines else null,
                         )
-                        if (viewModel.isScan) {
+                        if (isScan) {
                             Button(onClick = viewModel::showLines, Modifier.align(Alignment.End).padding(top = 8.dp)) {
                                 Text(stringResource(R.string.action_next))
                             }
@@ -643,6 +685,19 @@ fun RecipeEditScreen(
                     }
                 }
             }
+        }
+
+        if (state.confirmReplace) {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissReplace,
+                text = { Text(stringResource(R.string.recipe_scan_replace)) },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.startScan(confirmed = true) }) {
+                        Text(stringResource(R.string.action_replace))
+                    }
+                },
+                dismissButton = { TextButton(onClick = viewModel::dismissReplace) { Text(stringResource(R.string.action_cancel)) } },
+            )
         }
 
         state.lineEditor?.let { editor ->

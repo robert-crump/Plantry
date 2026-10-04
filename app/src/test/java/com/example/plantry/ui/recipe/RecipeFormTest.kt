@@ -408,4 +408,12 @@ class RecipeFormTest {
         assertEquals(4, valid.withOurServings("x").effectiveServings())
         assertNull(RecipeForm().effectiveServings())
     }
+
+    @Test
+    fun isEmpty_untilSomethingIsEntered() {
+        assertTrue(RecipeForm().isEmpty)
+        assertFalse(RecipeForm().copy(title = "C").isEmpty)
+        assertFalse(RecipeForm().withBookServings("4").isEmpty)
+        assertFalse(RecipeForm().withLine(null, RecipeIngredientDraft("Salz", 1.0, 1)).isEmpty)
+    }
 }
