@@ -14,19 +14,30 @@ import com.example.plantry.data.CookingStats
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import com.example.plantry.ui.currentLocale
+import java.time.chrono.IsoChronology
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeFormatterBuilder
+import java.time.format.FormatStyle
 import java.util.Locale
-
-private val weekdayFormat = DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN)
-private val fullDateFormat = DateTimeFormatter.ofPattern("EEEE, d. MMMM yyyy", Locale.GERMAN)
 
 /** "Heute", "Gestern" or e.g. "Mittwoch, 30. September". */
 @Composable
 fun cookDateLabel(date: LocalDate, today: LocalDate): String = when (date) {
     today -> stringResource(R.string.date_today)
     today.minusDays(1) -> stringResource(R.string.date_yesterday)
-    else -> date.format(if (date.year == today.year) weekdayFormat else fullDateFormat)
+    else -> formatCookDate(date, today, currentLocale())
 }
+
+/** The full date in [locale], without the year when it is the current one: "Mittwoch, 30. September". */
+internal fun formatCookDate(date: LocalDate, today: LocalDate, locale: Locale): String {
+    val full = DateTimeFormatterBuilder.getLocalizedDateTimePattern(FormatStyle.FULL, null, IsoChronology.INSTANCE, locale)
+    val pattern = if (date.year == today.year) full.replace(YearField, "").trim(' ', ',', '.') else full
+    return date.format(DateTimeFormatter.ofPattern(pattern, locale))
+}
+
+/** The year with a leading separator and a trailing suffix: ", y" in English, " y 'г'." in Russian, "y年" in Japanese. */
+private val YearField = Regex("""[\s,]*y+(?:\s*'[^']*'\.?|[年년])?""")
 
 /** E.g. "Zuletzt vor 3 Tagen gekocht" or "Noch nie gekocht". */
 @Composable

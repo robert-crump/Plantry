@@ -20,13 +20,14 @@ import com.example.plantry.R
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.ProteinRating
 import com.example.plantry.data.RecipeNutrition
+import com.example.plantry.ui.currentLocale
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
 
-/** Plant points come in quarters: "12", "12,25", "12,5". */
-internal fun formatPlantPoints(points: Double): String =
-    DecimalFormat("0.##", DecimalFormatSymbols(Locale.GERMAN)).format(points)
+/** Plant points come in quarters: "12", "12,25", "12,5" (German). */
+internal fun formatPlantPoints(points: Double, locale: Locale): String =
+    DecimalFormat("0.##", DecimalFormatSymbols(locale)).format(points)
 
 /** Traffic light dot, protein per portion and the rating in words. */
 @Composable
@@ -44,7 +45,7 @@ fun ProteinIndicator(proteinPerPortion: Double, modifier: Modifier = Modifier) {
         )
         Column {
             Text(
-                stringResource(R.string.nutrition_protein_per_portion, formatNutrient(proteinPerPortion, Nutrient.PROTEIN)),
+                stringResource(R.string.nutrition_protein_per_portion, formatNutrient(proteinPerPortion, Nutrient.PROTEIN, currentLocale())),
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
@@ -59,6 +60,7 @@ fun ProteinIndicator(proteinPerPortion: Double, modifier: Modifier = Modifier) {
 /** Every nutrient per portion with the ingredients contributing most to it. */
 @Composable
 fun NutrientList(nutrition: RecipeNutrition) {
+    val locale = currentLocale()
     Column {
         Nutrient.entries.forEach { nutrient ->
             val contributors = nutrition.topContributors[nutrient].orEmpty()
@@ -69,13 +71,13 @@ fun NutrientList(nutrition: RecipeNutrition) {
                 } else {
                     {
                         Text(
-                            contributors.joinToString(" · ") { "${it.name} ${formatNutrientWithUnit(it.amount, nutrient)}" },
+                            contributors.joinToString(" · ") { "${it.name} ${formatNutrientWithUnit(it.amount, nutrient, locale)}" },
                         )
                     }
                 },
                 trailingContent = {
                     Text(
-                        formatNutrientWithUnit(nutrition.perPortion[nutrient], nutrient),
+                        formatNutrientWithUnit(nutrition.perPortion[nutrient], nutrient, locale),
                         style = MaterialTheme.typography.titleSmall,
                     )
                 },
@@ -84,12 +86,12 @@ fun NutrientList(nutrition: RecipeNutrition) {
     }
 }
 
-/** kcal without decimals, grams with one, German formatting. */
-fun formatNutrient(value: Double, nutrient: Nutrient): String =
-    String.format(Locale.GERMANY, if (nutrient == Nutrient.KCAL) "%.0f" else "%.1f", value)
+/** kcal without decimals, grams with one, formatted for [locale]. */
+fun formatNutrient(value: Double, nutrient: Nutrient, locale: Locale): String =
+    String.format(locale, if (nutrient == Nutrient.KCAL) "%.0f" else "%.1f", value)
 
-private fun formatNutrientWithUnit(value: Double, nutrient: Nutrient): String =
-    formatNutrient(value, nutrient) + if (nutrient == Nutrient.KCAL) " kcal" else " g"
+private fun formatNutrientWithUnit(value: Double, nutrient: Nutrient, locale: Locale): String =
+    formatNutrient(value, nutrient, locale) + if (nutrient == Nutrient.KCAL) " kcal" else " g"
 
 private val ProteinRating.color: Color
     get() = when (this) {

@@ -13,6 +13,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Locale
 
 class IngredientFormTest {
 
@@ -130,7 +131,13 @@ class IngredientFormTest {
 
     @Test
     fun formatDecimal_stripsTrailingZeros() {
-        assertEquals("0,4", formatDecimal(0.40))
-        assertEquals("130", formatDecimal(130.0))
+        assertEquals("0,4", formatDecimal(0.40, Locale.GERMANY))
+        assertEquals("130", formatDecimal(130.0, Locale.GERMANY))
+    }
+
+    @Test
+    fun formatDecimal_usesTheLocaleSeparator() {
+        assertEquals("0.4", formatDecimal(0.40, Locale.US))
+        assertEquals("1234.5", formatDecimal(1234.5, Locale.US))
     }
 }

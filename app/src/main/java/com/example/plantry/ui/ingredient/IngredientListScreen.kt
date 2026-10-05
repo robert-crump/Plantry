@@ -38,6 +38,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
+import com.example.plantry.ui.currentLocale
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.Nutrition
@@ -222,8 +223,8 @@ private fun InfoChip(text: String, onClick: (() -> Unit)? = null) {
 @Composable
 internal fun nutritionSummary(nutrition: Nutrition): String = stringResource(
     R.string.ingredient_summary,
-    formatDecimal(Math.round(nutrition.kcal).toDouble()),
-    formatDecimal(Math.round(nutrition.protein * 10) / 10.0),
+    formatDecimal(Math.round(nutrition.kcal).toDouble(), currentLocale()),
+    formatDecimal(Math.round(nutrition.protein * 10) / 10.0, currentLocale()),
 )
 
 @Composable

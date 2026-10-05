@@ -35,6 +35,11 @@ android {
     buildFeatures {
         compose = true
     }
+    // Form helpers format with the default locale; pin it so JVM tests don't depend on the machine.
+    testOptions.unitTests.all {
+        it.systemProperty("user.language", "de")
+        it.systemProperty("user.country", "DE")
+    }
     // Exported Room schemas, read by MigrationTestHelper.
     sourceSets.getByName("androidTest").assets.directories.add("$projectDir/schemas")
 }

@@ -67,6 +67,7 @@ import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeSort
 import com.example.plantry.ui.cooklog.lastCookedLabel
+import com.example.plantry.ui.currentLocale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -398,7 +399,7 @@ private fun RecipeRow(item: RecipeListItem, sort: RecipeSort, ingredientCount: I
 private fun sortValueLabel(item: RecipeListItem, sort: RecipeSort, today: LocalDate): String? = when (sort) {
     RecipeSort.TITLE, RecipeSort.COOKING_TIME -> null
     RecipeSort.PROTEIN -> stringResource(R.string.recipe_list_protein, item.proteinPerPortion)
-    RecipeSort.PLANT_POINTS -> stringResource(R.string.recipe_list_plant_points, formatPlantPoints(item.plantPoints))
+    RecipeSort.PLANT_POINTS -> stringResource(R.string.recipe_list_plant_points, formatPlantPoints(item.plantPoints, currentLocale()))
     RecipeSort.LAST_COOKED -> lastCookedLabel(CookingStats.from(listOfNotNull(item.lastCookedOn), today))
 }
 

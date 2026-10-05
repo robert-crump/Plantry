@@ -99,6 +99,7 @@ import com.example.plantry.data.nutritionLines
 import com.example.plantry.ui.ingredient.LabelNutritionDialog
 import com.example.plantry.ui.ingredient.LabelNutritionForm
 import com.example.plantry.ui.ingredient.formatDecimal
+import com.example.plantry.ui.currentLocale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -982,7 +983,7 @@ private fun LineItem(
             Text(
                 stringResource(
                     R.string.recipe_line_amount,
-                    if (line.grams > 0.0) formatDecimal(line.grams) else "?",
+                    if (line.grams > 0.0) formatDecimal(line.grams, currentLocale()) else "?",
                     ingredientName ?: stringResource(R.string.recipe_line_no_ingredient),
                 ),
             )

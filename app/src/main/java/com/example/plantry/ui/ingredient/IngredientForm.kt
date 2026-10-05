@@ -10,6 +10,8 @@ import com.example.plantry.data.StoreSection
 import com.example.plantry.data.UnitWeight
 import com.example.plantry.data.pieceWeight
 import java.math.BigDecimal
+import java.text.DecimalFormatSymbols
+import java.util.Locale
 
 data class UnitWeightInput(val label: String = "", val grams: String = "")
 
@@ -102,9 +104,10 @@ data class IngredientFormErrors(
             pieceWeightMissing || buyAsYieldFactor
 }
 
-/** Formats with a German decimal comma and without trailing zeros, e.g. 0.40 -> "0,4". */
-fun formatDecimal(value: Double): String =
-    BigDecimal.valueOf(value).stripTrailingZeros().toPlainString().replace('.', ',')
+/** Formats with the decimal separator of [locale] and without trailing zeros, e.g. 0.40 -> "0,4" (German). */
+fun formatDecimal(value: Double, locale: Locale = Locale.getDefault()): String =
+    BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()
+        .replace('.', DecimalFormatSymbols.getInstance(locale).decimalSeparator)
 
 internal fun String.toDecimalOrNull(): Double? = trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() }
 
