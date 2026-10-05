@@ -41,6 +41,9 @@ internal fun formatCookDate(date: LocalDate, today: LocalDate, locale: Locale): 
 internal fun cookMonthLabel(date: LocalDate, locale: Locale): String =
     date.month.getDisplayName(TextStyle.SHORT_STANDALONE, locale).trimEnd('.')
 
+/** The abbreviated month and the year, e.g. "Okt 2025", for the history's scrollbar bubble. */
+internal fun cookMonthYearLabel(date: LocalDate, locale: Locale): String = "${cookMonthLabel(date, locale)} ${date.year}"
+
 /** The year with a leading separator and a trailing suffix: ", y" in English, " y 'г'." in Russian, "y年" in Japanese. */
 private val YearField = Regex("""[\s,]*y+(?:\s*'[^']*'\.?|[年년])?""")
 

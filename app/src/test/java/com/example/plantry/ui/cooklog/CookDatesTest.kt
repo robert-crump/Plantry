@@ -35,4 +35,10 @@ class CookDatesTest {
         assertEquals("Mär", cookMonthLabel(LocalDate.of(2026, 3, 1), Locale.GERMANY))
         assertEquals("Oct", cookMonthLabel(LocalDate.of(2026, 10, 23), Locale.US))
     }
+
+    @Test
+    fun monthYearLabel_isTheMonthAbbreviationAndTheYear() {
+        assertEquals("Okt 2025", cookMonthYearLabel(LocalDate.of(2025, 10, 23), Locale.GERMANY))
+        assertEquals("Dec 2024", cookMonthYearLabel(LocalDate.of(2024, 12, 24), Locale.US))
+    }
 }

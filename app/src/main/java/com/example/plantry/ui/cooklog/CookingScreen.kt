@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -73,6 +75,7 @@ import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlannedItem
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.RecipeRepository
+import com.example.plantry.ui.FastScrollbar
 import com.example.plantry.ui.currentLocale
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -208,50 +211,71 @@ fun CookingScreen(
                 end = padding.calculateEndPadding(layoutDirection),
                 bottom = padding.calculateBottomPadding() + 88.dp,
             )
-            LazyColumn(
-                Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),
-                contentPadding = listPadding,
-            ) {
-                if (plannedItems.isNotEmpty()) {
-                    item(key = "planned-title") { SectionTitle(stringResource(R.string.planned_title)) }
-                    items(plannedItems, key = { "planned-${it.recipeId}" }) { item ->
-                        PlannedCard(
-                            item,
-                            today = today,
-                            onClick = { onRecipeClick(item.recipeId) },
-                            onCooked = { date ->
-                                viewModel.cook(item, date) { cooked ->
-                                    showUndo(loggedMessage) { viewModel.undoCook(cooked) }
-                                }
-                            },
-                            onRemove = {
-                                viewModel.unplan(item.recipeId)
-                                showUndo(removedMessage) { viewModel.replan(item) }
+            val listState = rememberLazyListState()
+            val plannedLabel = stringResource(R.string.planned_title)
+            val locale = currentLocale()
+            // One label per list item, in list order: "Geplant" over the planned section, the
+            // month and year of each history entry (the sticky header takes the first entry's).
+            val scrollLabels = remember(plannedItems, list, plannedLabel, locale) {
+                buildList {
+                    if (plannedItems.isNotEmpty()) repeat(plannedItems.size + 1) { add(plannedLabel) }
+                    list.firstOrNull()?.let { add(cookMonthYearLabel(it.cookedOn, locale)) }
+                    list.forEach { add(cookMonthYearLabel(it.cookedOn, locale)) }
+                }
+            }
+            Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    state = listState,
+                    contentPadding = listPadding,
+                ) {
+                    if (plannedItems.isNotEmpty()) {
+                        item(key = "planned-title") { SectionTitle(stringResource(R.string.planned_title)) }
+                        items(plannedItems, key = { "planned-${it.recipeId}" }) { item ->
+                            PlannedCard(
+                                item,
+                                today = today,
+                                onClick = { onRecipeClick(item.recipeId) },
+                                onCooked = { date ->
+                                    viewModel.cook(item, date) { cooked ->
+                                        showUndo(loggedMessage) { viewModel.undoCook(cooked) }
+                                    }
+                                },
+                                onRemove = {
+                                    viewModel.unplan(item.recipeId)
+                                    showUndo(removedMessage) { viewModel.replan(item) }
+                                },
+                            )
+                        }
+                    }
+                    if (list.isNotEmpty()) {
+                        stickyHeader(key = "history-title") {
+                            // Opaque, so the rows scrolling under it don't show through.
+                            SectionTitle(
+                                stringResource(R.string.planned_history_title),
+                                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface),
+                            )
+                        }
+                    }
+                    items(list, key = { it.id }) { entry ->
+                        HistoryRow(
+                            entry,
+                            // A deleted recipe has nothing to open.
+                            onClick = entry.recipeId?.let { id -> { onRecipeClick(id) } },
+                            onDelete = {
+                                viewModel.delete(entry)
+                                showUndo(deletedMessage) { viewModel.restore(entry) }
                             },
                         )
+                        HorizontalDivider()
                     }
                 }
-                if (list.isNotEmpty()) {
-                    stickyHeader(key = "history-title") {
-                        // Opaque, so the rows scrolling under it don't show through.
-                        SectionTitle(
-                            stringResource(R.string.planned_history_title),
-                            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface),
-                        )
-                    }
-                }
-                items(list, key = { it.id }) { entry ->
-                    HistoryRow(
-                        entry,
-                        // A deleted recipe has nothing to open.
-                        onClick = entry.recipeId?.let { id -> { onRecipeClick(id) } },
-                        onDelete = {
-                            viewModel.delete(entry)
-                            showUndo(deletedMessage) { viewModel.restore(entry) }
-                        },
-                    )
-                    HorizontalDivider()
-                }
+                FastScrollbar(
+                    listState,
+                    label = { scrollLabels.getOrNull(it) },
+                    // Ends above the FAB.
+                    modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight().padding(bottom = listPadding.calculateBottomPadding()),
+                )
             }
         }
     }
