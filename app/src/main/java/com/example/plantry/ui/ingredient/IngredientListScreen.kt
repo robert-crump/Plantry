@@ -5,14 +5,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
@@ -30,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -40,6 +44,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
+import com.example.plantry.ui.FastScrollbar
 import com.example.plantry.ui.currentLocale
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
@@ -139,26 +144,47 @@ fun IngredientListScreen(
                     )
                 }
             } else {
-                LazyColumn(Modifier.fillMaxSize()) {
-                    items(current.ingredients, key = { it.id }) { ingredient ->
-                        val recipeCount = current.recipeCounts[ingredient.id] ?: 0
-                        IngredientRow(
-                            ingredient,
-                            recipeCount = recipeCount,
-                            onClick = { onIngredientClick(ingredient.id) },
-                            onRecipesClick = if (RecipeQuery.canFilterBy(ingredient, recipeCount)) {
-                                { onRecipesClick(ingredient.id) }
-                            } else {
-                                null
-                            },
-                        )
-                        HorizontalDivider()
+                val listState = rememberLazyListState()
+                val locale = currentLocale()
+                // One letter per row, in list order (the list is already sorted by name).
+                val scrollLabels = remember(current.ingredients, locale) {
+                    current.ingredients.map { IngredientSorting.indexLetter(it.name, locale) }
+                }
+                Box(Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                        state = listState,
+                        // Room below the last row for the FAB.
+                        contentPadding = PaddingValues(bottom = FabClearance),
+                    ) {
+                        items(current.ingredients, key = { it.id }) { ingredient ->
+                            val recipeCount = current.recipeCounts[ingredient.id] ?: 0
+                            IngredientRow(
+                                ingredient,
+                                recipeCount = recipeCount,
+                                onClick = { onIngredientClick(ingredient.id) },
+                                onRecipesClick = if (RecipeQuery.canFilterBy(ingredient, recipeCount)) {
+                                    { onRecipesClick(ingredient.id) }
+                                } else {
+                                    null
+                                },
+                            )
+                            HorizontalDivider()
+                        }
                     }
+                    FastScrollbar(
+                        listState,
+                        label = { scrollLabels.getOrNull(it) },
+                        // Ends above the FAB.
+                        modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight().padding(bottom = FabClearance),
+                    )
                 }
             }
         }
     }
 }
+
+private val FabClearance = 88.dp
 
 /** One line: name (ellipsized), unreviewed badge, and the recipes button aligned right. */
 @Composable

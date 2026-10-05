@@ -78,4 +78,12 @@ class IngredientSortingTest {
 
         assertEquals(listOf("Äpfel", "apfelessig", "Birne", "Öl", "Oliven", "Zwiebel"), sorted)
     }
+
+    @Test
+    fun indexLetter_isTheUppercaseBaseLetterLikeTheSort() {
+        val letters = listOf("Knoblauch", "äpfel", "Öl", "  zwiebel", "(Bio) Tofu", "7-Korn-Mix", "", "…")
+            .map { IngredientSorting.indexLetter(it, Locale.GERMANY) }
+
+        assertEquals(listOf("K", "A", "O", "Z", "B", "#", null, null), letters)
+    }
 }
