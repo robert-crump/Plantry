@@ -27,11 +27,12 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -135,8 +136,8 @@ class CookingViewModel(
 data class JustPlanned(val recipeId: Long, val title: String)
 
 /**
- * The Kochen tab: Geplant on top (hidden when empty), then the cooking history, newest first,
- * each row with its own date badge. History rows show the recipe as it was when logged. [justPlanned] is shown
+ * The Kochen tab: Geplant on top as cards (hidden when empty), then the cooking history under a
+ * sticky "Verlauf" header, newest first, each row with its own date badge. History rows show the recipe as it was when logged. [justPlanned] is shown
  * once as a snackbar, then [onJustPlannedShown] clears it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -200,18 +201,21 @@ fun CookingScreen(
             }
         } else {
             val layoutDirection = LocalLayoutDirection.current
-            // Room below the last row for the FAB.
+            // Room below the last row for the FAB. The top inset is a plain padding, not content
+            // padding, so the sticky header pins below the app bar instead of behind it.
             val listPadding = PaddingValues(
                 start = padding.calculateStartPadding(layoutDirection),
-                top = padding.calculateTopPadding(),
                 end = padding.calculateEndPadding(layoutDirection),
                 bottom = padding.calculateBottomPadding() + 88.dp,
             )
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding) {
+            LazyColumn(
+                Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),
+                contentPadding = listPadding,
+            ) {
                 if (plannedItems.isNotEmpty()) {
                     item(key = "planned-title") { SectionTitle(stringResource(R.string.planned_title)) }
                     items(plannedItems, key = { "planned-${it.recipeId}" }) { item ->
-                        PlannedRow(
+                        PlannedCard(
                             item,
                             today = today,
                             onClick = { onRecipeClick(item.recipeId) },
@@ -225,10 +229,15 @@ fun CookingScreen(
                                 showUndo(removedMessage) { viewModel.replan(item) }
                             },
                         )
-                        HorizontalDivider()
                     }
-                    if (list.isNotEmpty()) {
-                        item(key = "history-title") { SectionTitle(stringResource(R.string.planned_history_title)) }
+                }
+                if (list.isNotEmpty()) {
+                    stickyHeader(key = "history-title") {
+                        // Opaque, so the rows scrolling under it don't show through.
+                        SectionTitle(
+                            stringResource(R.string.planned_history_title),
+                            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface),
+                        )
                     }
                 }
                 items(list, key = { it.id }) { entry ->
@@ -249,21 +258,21 @@ fun CookingScreen(
 }
 
 @Composable
-private fun SectionTitle(text: String) {
+private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
         style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 4.dp),
+        modifier = modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
     )
 }
 
 /**
- * A planned recipe with its current stats, "Gekocht" with a date chip (today unless another day
- * was picked), and "Entfernen".
+ * A filled card with a planned recipe, its current stats, "Gekocht" with a date chip (today unless
+ * another day was picked), and "Entfernen".
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PlannedRow(
+private fun PlannedCard(
     item: PlannedItem,
     today: LocalDate,
     onClick: () -> Unit,
@@ -274,13 +283,21 @@ private fun PlannedRow(
     var pickedDay by rememberSaveable { mutableStateOf<Long?>(null) }
     var pickDate by rememberSaveable { mutableStateOf(false) }
     val cookDate = pickedDay?.let(LocalDate::ofEpochDay) ?: today
-    Column(Modifier.clickable(onClick = onClick).padding(bottom = 8.dp)) {
-        ListItem(
-            headlineContent = { Text(item.snapshot.title, fontWeight = FontWeight.Bold) },
-            supportingContent = { RecipeStatsRow(item.snapshot.stats, Modifier.padding(top = 4.dp)) },
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Text(
+            item.snapshot.title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
         )
+        RecipeStatsRow(item.snapshot.stats, Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp))
         FlowRow(
-            Modifier.padding(horizontal = 16.dp),
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             itemVerticalAlignment = Alignment.CenterVertically,
         ) {
