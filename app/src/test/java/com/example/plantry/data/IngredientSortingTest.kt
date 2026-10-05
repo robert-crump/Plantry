@@ -3,6 +3,7 @@ package com.example.plantry.data
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Locale
 
 class IngredientSortingTest {
 
@@ -66,5 +67,15 @@ class IngredientSortingTest {
         val moved = IngredientSorting.move(all, setOf(2, 3), SortGroup.Points(PlantPoints.ONE))
 
         assertEquals(listOf(oil.copy(plantPoints = PlantPoints.ONE)), moved)
+    }
+
+    @Test
+    fun sortedByName_groupsUmlautsWithTheirBaseLetterAndIgnoresCase() {
+        val names = listOf("Zwiebel", "Äpfel", "apfelessig", "Birne", "Öl", "Oliven")
+            .mapIndexed { i, name -> ingredient(i.toLong(), name) }
+
+        val sorted = IngredientSorting.sortedByName(names, Locale.GERMANY).map(Ingredient::name)
+
+        assertEquals(listOf("Äpfel", "apfelessig", "Birne", "Öl", "Oliven", "Zwiebel"), sorted)
     }
 }

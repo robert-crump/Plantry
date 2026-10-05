@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,7 +23,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -41,6 +43,7 @@ import com.example.plantry.R
 import com.example.plantry.ui.currentLocale
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.IngredientSorting
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
@@ -50,6 +53,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import java.util.Locale
 
 data class IngredientListUiState(
     val ingredients: List<Ingredient>,
@@ -74,7 +78,10 @@ class IngredientListViewModel(
             onlyUnreviewed,
         ) { all, lines, filter ->
             IngredientListUiState(
-                ingredients = if (filter) all.filterNot { it.reviewed } else all,
+                ingredients = IngredientSorting.sortedByName(
+                    if (filter) all.filterNot { it.reviewed } else all,
+                    Locale.getDefault(),
+                ),
                 recipeCounts = RecipeQuery.recipeCounts(lines, all.associateBy { it.id }),
                 unreviewedCount = all.count { !it.reviewed },
                 onlyUnreviewed = filter,
@@ -153,6 +160,7 @@ fun IngredientListScreen(
     }
 }
 
+/** One line: name (ellipsized), unreviewed badge, and the recipes button aligned right. */
 @Composable
 private fun IngredientRow(
     ingredient: Ingredient,
@@ -160,62 +168,52 @@ private fun IngredientRow(
     onClick: () -> Unit,
     onRecipesClick: (() -> Unit)?,
 ) {
-    ListItem(
-        headlineContent = { Text(ingredient.name) },
-        supportingContent = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 4.dp),
-            ) {
-                InfoChip(stringResource(ingredient.storeSection.label))
-                InfoChip(
-                    pluralStringResource(R.plurals.ingredient_recipe_count, recipeCount, recipeCount),
-                    onClick = onRecipesClick,
-                )
-            }
-        },
-        trailingContent = if (ingredient.reviewed) null else ({ UnreviewedBadge() }),
-        modifier = Modifier.clickable(onClick = onClick),
-    )
-}
-
-/**
- * An outlined chip for the row's store section and recipe count. With [onClick] it is tappable
- * and shows a chevron; without it is read-only.
- */
-@Composable
-private fun InfoChip(text: String, onClick: (() -> Unit)? = null) {
-    val content: @Composable () -> Unit = {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 8.dp, end = if (onClick == null) 8.dp else 4.dp, top = 4.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.weight(1f),
         ) {
-            Text(text, style = MaterialTheme.typography.labelLarge)
-            if (onClick != null) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(18.dp))
-            }
+            Text(
+                ingredient.name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (!ingredient.reviewed) UnreviewedBadge()
+        }
+        if (onRecipesClick != null) {
+            RecipesButton(pluralStringResource(R.plurals.ingredient_recipe_count, recipeCount, recipeCount), onRecipesClick)
         }
     }
-    val shape = MaterialTheme.shapes.small
-    val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    if (onClick == null) {
-        Surface(
-            shape = shape,
-            border = border,
-            color = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            content = content,
-        )
-    } else {
-        Surface(
-            onClick = onClick,
-            shape = shape,
-            border = border,
-            color = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.primary,
-            content = content,
-        )
+}
+
+/** An outlined, tappable "N Rezepte ›" chip that opens the recipe list filtered by the ingredient. */
+@Composable
+private fun RecipesButton(text: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.small,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.primary,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 8.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+        ) {
+            Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
     }
 }
 

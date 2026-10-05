@@ -1,5 +1,8 @@
 package com.example.plantry.data
 
+import java.text.Collator
+import java.util.Locale
+
 /** The attribute the Sortieren screen groups ingredients by. */
 enum class SortView { PLANT_POINTS, STORE_SECTION }
 
@@ -22,6 +25,15 @@ sealed interface SortGroup {
 data class SortGroupItems(val group: SortGroup, val ingredients: List<Ingredient>)
 
 object IngredientSorting {
+
+    /**
+     * Alphabetical by name with [locale]'s collator, ignoring case, so umlauts sort with their base
+     * letter ("Äpfel" next to "Apfel", not after "Z").
+     */
+    fun sortedByName(ingredients: List<Ingredient>, locale: Locale): List<Ingredient> {
+        val collator = Collator.getInstance(locale).apply { strength = Collator.SECONDARY }
+        return ingredients.sortedWith(compareBy(collator) { it.name })
+    }
 
     /** Plant points 1 / ¼ / 0, or the store sections in shopping order. */
     fun groupsOf(view: SortView): List<SortGroup> = when (view) {
