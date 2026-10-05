@@ -28,4 +28,11 @@ class CookDatesTest {
     fun earlierYear_inEnglish_hasTheYear() {
         assertEquals("Tuesday, September 30, 2025", formatCookDate(LocalDate.of(2025, 9, 30), today, Locale.US))
     }
+
+    @Test
+    fun monthLabel_isTheLocaleAbbreviationWithoutDot() {
+        assertEquals("Okt", cookMonthLabel(LocalDate.of(2026, 10, 23), Locale.GERMANY))
+        assertEquals("Mär", cookMonthLabel(LocalDate.of(2026, 3, 1), Locale.GERMANY))
+        assertEquals("Oct", cookMonthLabel(LocalDate.of(2026, 10, 23), Locale.US))
+    }
 }

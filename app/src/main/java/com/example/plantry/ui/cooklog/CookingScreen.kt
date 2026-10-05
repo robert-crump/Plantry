@@ -8,13 +8,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -54,7 +58,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -66,6 +72,7 @@ import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlannedItem
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.RecipeRepository
+import com.example.plantry.ui.currentLocale
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -129,7 +136,7 @@ data class JustPlanned(val recipeId: Long, val title: String)
 
 /**
  * The Kochen tab: Geplant on top (hidden when empty), then the cooking history, newest first,
- * under date headers. History rows show the recipe as it was when logged. [justPlanned] is shown
+ * each row with its own date badge. History rows show the recipe as it was when logged. [justPlanned] is shown
  * once as a snackbar, then [onJustPlannedShown] clears it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -192,8 +199,6 @@ fun CookingScreen(
                 )
             }
         } else {
-            // The history is sorted by date, so grouping keeps the order.
-            val byDate = list.groupBy { it.cookedOn }
             val layoutDirection = LocalLayoutDirection.current
             // Room below the last row for the FAB.
             val listPadding = PaddingValues(
@@ -226,27 +231,17 @@ fun CookingScreen(
                         item(key = "history-title") { SectionTitle(stringResource(R.string.planned_history_title)) }
                     }
                 }
-                byDate.forEach { (date, dayEntries) ->
-                    item(key = "date-$date") {
-                        Text(
-                            cookDateLabel(date, today),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
-                        )
-                    }
-                    items(dayEntries, key = { it.id }) { entry ->
-                        HistoryRow(
-                            entry,
-                            // A deleted recipe has nothing to open.
-                            onClick = entry.recipeId?.let { id -> { onRecipeClick(id) } },
-                            onDelete = {
-                                viewModel.delete(entry)
-                                showUndo(deletedMessage) { viewModel.restore(entry) }
-                            },
-                        )
-                        HorizontalDivider()
-                    }
+                items(list, key = { it.id }) { entry ->
+                    HistoryRow(
+                        entry,
+                        // A deleted recipe has nothing to open.
+                        onClick = entry.recipeId?.let { id -> { onRecipeClick(id) } },
+                        onDelete = {
+                            viewModel.delete(entry)
+                            showUndo(deletedMessage) { viewModel.restore(entry) }
+                        },
+                    )
+                    HorizontalDivider()
                 }
             }
         }
@@ -339,10 +334,52 @@ private fun HistoryRow(entry: CookLog, onClick: (() -> Unit)?, onDelete: () -> U
         },
         onDismiss = { onDelete() },
     ) {
-        ListItem(
-            headlineContent = { Text(entry.title, fontWeight = FontWeight.Bold) },
-            supportingContent = { RecipeStatsRow(entry.stats, Modifier.padding(top = 4.dp)) },
-            modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 64.dp)
+                .background(MaterialTheme.colorScheme.surface)
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DateBadge(entry.cookedOn)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    entry.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                RecipeStatsRow(entry.stats)
+            }
+        }
+    }
+}
+
+/** Day number over the abbreviated month in the device locale, e.g. "23" over "Okt". */
+@Composable
+private fun DateBadge(date: LocalDate) {
+    Column(
+        Modifier
+            .size(44.dp)
+            .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(12.dp)),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        val color = MaterialTheme.colorScheme.onSecondaryContainer
+        Text(
+            date.dayOfMonth.toString(),
+            style = MaterialTheme.typography.titleMedium.copy(lineHeight = 18.sp),
+            fontWeight = FontWeight.Bold,
+            color = color,
+        )
+        Text(
+            cookMonthLabel(date, currentLocale()),
+            style = MaterialTheme.typography.labelSmall.copy(lineHeight = 12.sp),
+            color = color,
         )
     }
 }

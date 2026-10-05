@@ -19,6 +19,7 @@ import java.time.chrono.IsoChronology
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeFormatterBuilder
 import java.time.format.FormatStyle
+import java.time.format.TextStyle
 import java.util.Locale
 
 /** "Heute", "Gestern" or e.g. "Mittwoch, 30. September". */
@@ -35,6 +36,10 @@ internal fun formatCookDate(date: LocalDate, today: LocalDate, locale: Locale): 
     val pattern = if (date.year == today.year) full.replace(YearField, "").trim(' ', ',', '.') else full
     return date.format(DateTimeFormatter.ofPattern(pattern, locale))
 }
+
+/** The abbreviated month in [locale] without a trailing dot, e.g. "Okt" or "Oct". */
+internal fun cookMonthLabel(date: LocalDate, locale: Locale): String =
+    date.month.getDisplayName(TextStyle.SHORT_STANDALONE, locale).trimEnd('.')
 
 /** The year with a leading separator and a trailing suffix: ", y" in English, " y 'г'." in Russian, "y年" in Japanese. */
 private val YearField = Regex("""[\s,]*y+(?:\s*'[^']*'\.?|[年년])?""")
