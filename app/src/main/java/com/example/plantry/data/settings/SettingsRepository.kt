@@ -18,6 +18,19 @@ enum class ScanModel(val modelId: String) {
     }
 }
 
+/** Light or dark colours; [SYSTEM] follows the device. Stored by [storageValue]. */
+enum class ThemeMode(val storageValue: String) {
+    SYSTEM("system"),
+    LIGHT("light"),
+    DARK("dark");
+
+    companion object {
+        val DEFAULT = SYSTEM
+
+        fun fromStorageValue(value: String?): ThemeMode = entries.firstOrNull { it.storageValue == value } ?: DEFAULT
+    }
+}
+
 /** What the UI may know about the settings: never the key itself, only its masked form. */
 data class Settings(
     val maskedApiKey: String?,
@@ -27,6 +40,7 @@ data class Settings(
     /** The daily "Habt ihr heute … gekocht?" notification while Geplant isn't empty. */
     val reminderEnabled: Boolean = true,
     val reminderTime: LocalTime = SettingsRepository.DEFAULT_REMINDER_TIME,
+    val themeMode: ThemeMode = ThemeMode.DEFAULT,
 ) {
     val hasApiKey: Boolean get() = maskedApiKey != null
 }
@@ -93,6 +107,11 @@ class SettingsRepository(
         _settings.value = load()
     }
 
+    fun setThemeMode(mode: ThemeMode) {
+        storage.putString(KEY_THEME_MODE, mode.storageValue)
+        _settings.value = load()
+    }
+
     /**
      * True only the first time it is called: the notification permission is asked once, when the
      * first recipe goes on Geplant.
@@ -110,6 +129,7 @@ class SettingsRepository(
             ?: DEFAULT_COOLDOWN_DAYS,
         reminderEnabled = storage.getString(KEY_REMINDER_ENABLED)?.toBooleanStrictOrNull() ?: true,
         reminderTime = storage.getString(KEY_REMINDER_TIME)?.let(::parseTime) ?: DEFAULT_REMINDER_TIME,
+        themeMode = ThemeMode.fromStorageValue(storage.getString(KEY_THEME_MODE)),
     )
 
     private fun parseTime(text: String): LocalTime? =
@@ -125,6 +145,7 @@ class SettingsRepository(
         const val KEY_COOLDOWN_DAYS = "cooldown_days"
         const val KEY_REMINDER_ENABLED = "reminder_enabled"
         const val KEY_REMINDER_TIME = "reminder_time"
+        const val KEY_THEME_MODE = "theme_mode"
         const val KEY_NOTIFICATION_PERMISSION_ASKED = "notification_permission_asked"
 
         const val DEFAULT_COOLDOWN_DAYS = 21

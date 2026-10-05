@@ -52,6 +52,23 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun themeMode_defaultsToSystem_andIsStored() {
+        assertEquals(ThemeMode.SYSTEM, repository.settings.value.themeMode)
+
+        repository.setThemeMode(ThemeMode.DARK)
+
+        assertEquals(ThemeMode.DARK, repository.settings.value.themeMode)
+        assertEquals(ThemeMode.DARK, SettingsRepository(storage, ReversingCipher).settings.value.themeMode)
+    }
+
+    @Test
+    fun themeMode_unknown_fallsBackToSystem() {
+        storage.values[SettingsRepository.KEY_THEME_MODE] = "sepia"
+
+        assertEquals(ThemeMode.SYSTEM, SettingsRepository(storage, ReversingCipher).settings.value.themeMode)
+    }
+
+    @Test
     fun notificationPermission_isRequestedOnlyOnce() {
         assertTrue(repository.takeNotificationPermissionRequest())
         assertFalse(repository.takeNotificationPermissionRequest())

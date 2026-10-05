@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -69,6 +70,7 @@ import com.example.plantry.data.claude.ConnectionTester
 import com.example.plantry.data.settings.ScanModel
 import com.example.plantry.data.settings.Settings
 import com.example.plantry.data.settings.SettingsRepository
+import com.example.plantry.data.settings.ThemeMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -113,6 +115,8 @@ class SettingsViewModel(
 
     fun setReminderTime(time: LocalTime) = repository.setReminderTime(time)
 
+    fun setThemeMode(mode: ThemeMode) = repository.setThemeMode(mode)
+
     fun testConnection() {
         val key = repository.apiKey() ?: return
         val model = settings.value.scanModel
@@ -136,6 +140,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
     var editingKey by rememberSaveable { mutableStateOf(false) }
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
     var choosingModel by rememberSaveable { mutableStateOf(false) }
+    var choosingTheme by rememberSaveable { mutableStateOf(false) }
     var editingCooldown by rememberSaveable { mutableStateOf(false) }
     var editingReminderTime by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
@@ -145,6 +150,18 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            SectionHeader(R.string.settings_appearance)
+            SettingsGroup(
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.Palette,
+                        title = stringResource(R.string.settings_theme),
+                        summary = stringResource(settings.themeMode.label),
+                        onClick = { choosingTheme = true },
+                    )
+                },
+            )
+
             SectionHeader(R.string.settings_claude)
             SettingsGroup(
                 {
@@ -236,6 +253,20 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
                 choosingModel = false
             },
             onDismiss = { choosingModel = false },
+        )
+    }
+
+    if (choosingTheme) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_theme),
+            options = ThemeMode.entries,
+            selected = settings.themeMode,
+            label = { stringResource(it.label) },
+            onSelect = {
+                viewModel.setThemeMode(it)
+                choosingTheme = false
+            },
+            onDismiss = { choosingTheme = false },
         )
     }
 
@@ -385,9 +416,9 @@ private fun <T> ChoiceDialog(
     options: List<T>,
     selected: T,
     label: @Composable (T) -> String,
-    description: @Composable (T) -> String,
     onSelect: (T) -> Unit,
     onDismiss: () -> Unit,
+    description: (@Composable (T) -> String)? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -408,11 +439,13 @@ private fun <T> ChoiceDialog(
                         RadioButton(selected = option == selected, onClick = null, modifier = Modifier.padding(12.dp))
                         Column {
                             Text(label(option), style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                description(option),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            if (description != null) {
+                                Text(
+                                    description(option),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
@@ -548,6 +581,13 @@ private fun ReminderTimeDialog(initial: LocalTime, onSave: (LocalTime) -> Unit, 
         },
     )
 }
+
+private val ThemeMode.label: Int
+    get() = when (this) {
+        ThemeMode.SYSTEM -> R.string.theme_system
+        ThemeMode.LIGHT -> R.string.theme_light
+        ThemeMode.DARK -> R.string.theme_dark
+    }
 
 private val ScanModel.label: Int
     get() = when (this) {
