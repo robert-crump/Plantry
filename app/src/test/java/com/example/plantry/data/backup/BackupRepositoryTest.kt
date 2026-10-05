@@ -71,7 +71,7 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 6"))
+        assertTrue(json.contains("\"formatVersion\": 7"))
     }
 
     @Test
@@ -105,7 +105,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 6", "\"formatVersion\": 7")
+        val newer = source.export().replace("\"formatVersion\": 7", "\"formatVersion\": 8")
 
         val error = readError(newer)
 
@@ -121,6 +121,21 @@ class BackupRepositoryTest {
         target.repository.import(target.repository.read(v1))
 
         assertEquals(source.store.data.copy(aliases = emptyList()), target.store.data)
+    }
+
+    @Test
+    fun version6File_importsCookLogWithoutKcalAndFibre() = runTest {
+        val v7 = Json.parseToJsonElement(source.export()).jsonObject
+        val v6CookLog = JsonArray(
+            v7.getValue("cookLog").jsonArray.map { JsonObject(it.jsonObject - listOf("kcalPerPortion", "fibrePerPortion")) },
+        )
+        val v6 = JsonObject(v7 + ("formatVersion" to JsonPrimitive(6)) + ("cookLog" to v6CookLog)).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(v6))
+
+        val expected = source.store.data.cookLog.map { it.copy(stats = it.stats.copy(kcalPerPortion = null, fibrePerPortion = null)) }
+        assertEquals(expected, target.store.data.cookLog)
     }
 
     @Test
@@ -292,9 +307,9 @@ class BackupRepositoryTest {
                 RecipeIngredient(11, 2, 1, "1 Tasse Reis", 180.5, 1),
                 RecipeIngredient(4, 7, 0, "Reis", 75.0, 5),
             ),
-            // Snapshots differ from the recipes' current values, as after an edit; they must survive as they are.
+            // Older entries have no kcal and fibre. Snapshots differ from the recipes' current values, as after an edit; they must survive as they are.
             cookLog = listOf(
-                CookLog(1, 2, LocalDate.of(2026, 9, 30), "Curry", RecipeStats(1.0, 6.5, 67.75)),
+                CookLog(1, 2, LocalDate.of(2026, 9, 30), "Curry", RecipeStats(1.0, 6.5, 67.75, 412.25, 3.5)),
                 CookLog(2, 7, LocalDate.of(2025, 12, 31), "Chili alt", RecipeStats(0.25, 20.0, 40.0)),
                 CookLog(3, recipeId = null, LocalDate.of(2025, 11, 1), "Gelöscht", RecipeStats(3.0, 31.0, 55.0)),
             ),

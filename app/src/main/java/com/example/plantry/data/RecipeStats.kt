@@ -8,12 +8,18 @@ data class RecipeStats(
     /** Sum of [PlantPoints] over the recipe's distinct plants, buy-as links followed. */
     val plantPoints: Double,
     val proteinPerPortion: Double,
+    /** Still stored and backed up, but no longer shown. */
     val carbsPerPortion: Double,
+    /** Null in cooking log entries logged before kcal were snapshotted. */
+    val kcalPerPortion: Double? = null,
+    /** Null in cooking log entries logged before fibre was snapshotted. */
+    val fibrePerPortion: Double? = null,
 ) {
     /** Rounded to whole numbers for compact display, e.g. on Kochen. */
     val roundedPlantPoints: Int get() = plantPoints.roundToInt()
     val roundedProtein: Int get() = proteinPerPortion.roundToInt()
-    val roundedCarbs: Int get() = carbsPerPortion.roundToInt()
+    val roundedKcal: Int? get() = kcalPerPortion?.roundToInt()
+    val roundedFibre: Int? get() = fibrePerPortion?.roundToInt()
 
     companion object {
         /** Lines whose ingredient is missing from [ingredients] are skipped. */
@@ -29,6 +35,8 @@ data class RecipeStats(
                 plantPoints = roots.sumOf { it.plantPoints.value },
                 proteinPerPortion = nutrition.protein,
                 carbsPerPortion = nutrition.carbs,
+                kcalPerPortion = nutrition.kcal,
+                fibrePerPortion = nutrition.fibre,
             )
         }
     }

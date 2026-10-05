@@ -282,7 +282,7 @@ private fun PlannedRow(
     Column(Modifier.clickable(onClick = onClick).padding(bottom = 8.dp)) {
         ListItem(
             headlineContent = { Text(item.snapshot.title, fontWeight = FontWeight.Bold) },
-            trailingContent = { RecipeStatsRow(item.snapshot.stats) },
+            supportingContent = { RecipeStatsRow(item.snapshot.stats, Modifier.padding(top = 4.dp)) },
         )
         FlowRow(
             Modifier.padding(horizontal = 16.dp),
@@ -341,7 +341,7 @@ private fun HistoryRow(entry: CookLog, onClick: (() -> Unit)?, onDelete: () -> U
     ) {
         ListItem(
             headlineContent = { Text(entry.title, fontWeight = FontWeight.Bold) },
-            trailingContent = { RecipeStatsRow(entry.stats) },
+            supportingContent = { RecipeStatsRow(entry.stats, Modifier.padding(top = 4.dp)) },
             modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
         )
     }

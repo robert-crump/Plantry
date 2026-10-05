@@ -211,10 +211,10 @@ private fun SuggestionCardView(card: SuggestionCard, onClick: () -> Unit) {
                         Icon(
                             Icons.Filled.Schedule,
                             contentDescription = stringResource(R.string.recipe_cooking_time),
-                            Modifier.size(16.dp),
+                            Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text(stringResource(R.string.recipe_minutes, minutes), style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.recipe_minutes, minutes), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

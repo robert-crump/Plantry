@@ -44,9 +44,9 @@ data class BackupFile(
         /**
          * 2: learned ingredient aliases. 3: a recipe's cooking time may be null. 4: no week plan
          * and shopping ticks any more. 5: cooking log entries carry a recipe snapshot and may
-         * belong to a deleted recipe. 6: Geplant.
+         * belong to a deleted recipe. 6: Geplant. 7: cooking log entries may carry kcal and fibre.
          */
-        const val FORMAT_VERSION = 6
+        const val FORMAT_VERSION = 7
 
         /** Unknown keys are skipped, so older files with `weekPlan` and `shoppingTicks` still import. */
         private val json = Json {
@@ -145,6 +145,9 @@ data class BackupCookLog(
     val plantPoints: Double? = null,
     val proteinPerPortion: Double? = null,
     val carbsPerPortion: Double? = null,
+    /** Since version 7; null for entries logged before kcal and fibre were snapshotted. */
+    val kcalPerPortion: Double? = null,
+    val fibrePerPortion: Double? = null,
 )
 
 @Serializable
@@ -188,6 +191,8 @@ fun BackupSnapshot.toFile(photos: Photos, settings: BackupSettings): BackupFile 
                 plantPoints = log.stats.plantPoints,
                 proteinPerPortion = log.stats.proteinPerPortion,
                 carbsPerPortion = log.stats.carbsPerPortion,
+                kcalPerPortion = log.stats.kcalPerPortion,
+                fibrePerPortion = log.stats.fibrePerPortion,
             )
         },
         aliases = aliases.map { BackupAlias(it.wording, it.ingredientId) },
@@ -234,6 +239,8 @@ private fun BackupCookLog.snapshot(): RecipeSnapshot? {
             plantPoints = plantPoints ?: return null,
             proteinPerPortion = proteinPerPortion ?: return null,
             carbsPerPortion = carbsPerPortion ?: return null,
+            kcalPerPortion = kcalPerPortion,
+            fibrePerPortion = fibrePerPortion,
         ),
     )
 }
