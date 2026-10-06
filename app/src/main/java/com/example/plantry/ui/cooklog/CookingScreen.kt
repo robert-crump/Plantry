@@ -470,7 +470,7 @@ private fun PlannedCard(
         Row(
             Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
             DateBadge(item.planned.plannedOn)
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -568,7 +568,7 @@ private fun HistoryRow(entry: CookLog, onClick: (() -> Unit)?, onDelete: () -> U
                 .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
             DateBadge(entry.cookedOn)
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
