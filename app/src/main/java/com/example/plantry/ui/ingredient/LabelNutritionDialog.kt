@@ -3,7 +3,6 @@ package com.example.plantry.ui.ingredient
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -65,26 +64,22 @@ fun LabelNutritionDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Nutrient.entries.chunked(2).forEach { pair ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        pair.forEach { nutrient ->
-                            val error = nutrient in invalid
-                            OutlinedTextField(
-                                value = form.values[nutrient].orEmpty(),
-                                onValueChange = { form = form.withValue(nutrient, it) },
-                                label = { Text(stringResource(nutrient.label)) },
-                                isError = error,
-                                supportingText = if (error) {
-                                    { Text(stringResource(R.string.error_non_negative_decimal)) }
-                                } else {
-                                    null
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
+                Nutrient.entries.forEach { nutrient ->
+                    val error = nutrient in invalid
+                    OutlinedTextField(
+                        value = form.values[nutrient].orEmpty(),
+                        onValueChange = { form = form.withValue(nutrient, it) },
+                        label = { Text(stringResource(nutrient.label)) },
+                        isError = error,
+                        supportingText = if (error) {
+                            { Text(stringResource(R.string.error_non_negative_decimal)) }
+                        } else {
+                            null
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
         },
