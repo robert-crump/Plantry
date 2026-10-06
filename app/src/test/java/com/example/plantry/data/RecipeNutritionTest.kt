@@ -1,6 +1,7 @@
 package com.example.plantry.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -158,6 +159,29 @@ class RecipeNutritionTest {
         )
 
         assertEquals(listOf(NutritionLine(1, "Tofu", 200.0, tofu)), lines)
+    }
+
+    @Test
+    fun drainedIngredient_countsOnlyTheDrainedShareOfTheContainerWeight() {
+        val chickpeas = Nutrition(kcal = 139.0, protein = 7.05, carbs = 22.5, sugar = 0.0, fat = 2.77, fibre = 7.6)
+        val can = ingredient(id = 1, name = "Kichererbsen (Dose)", nutrition = chickpeas)
+            .copy(drainedWeight = DrainedWeight(netWeightGrams = 400.0, drainedWeightGrams = 240.0))
+
+        val lines = nutritionLines(listOf(RecipeIngredientDraft("1 Dose Kichererbsen", 400.0, 1)), mapOf(1L to can))
+
+        assertEquals(240.0, lines.single().grams, 1e-9)
+        assertNutrition(chickpeas.scaled(2.4), RecipeNutrition.calculate(lines, servings = 1).perPortion)
+    }
+
+    @Test
+    fun drainedWeight_onlyValidWhenPositiveAndAtMostTheNetWeight() {
+        assertEquals(DrainedWeight(400.0, 240.0), DrainedWeight.of(400.0, 240.0))
+        assertEquals(DrainedWeight(400.0, 400.0), DrainedWeight.of(400.0, 400.0))
+        assertNull(DrainedWeight.of(null, null))
+        assertNull(DrainedWeight.of(400.0, null))
+        assertNull(DrainedWeight.of(0.0, 0.0))
+        assertNull(DrainedWeight.of(240.0, 400.0))
+        assertEquals(1.0, ingredient(1, "Tofu").drainedShare, 0.0)
     }
 }
 

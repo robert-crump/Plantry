@@ -1,5 +1,6 @@
 package com.example.plantry.data.claude
 
+import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
@@ -26,7 +27,7 @@ class ProposalParserTest {
     private fun proposal(key: String, vararg fields: Pair<String, String>): String {
         val all = linkedMapOf(
             "key" to "\"$key\"", "fdcId" to "0", "name" to "\"\"", "storeSection" to "\"OTHER\"",
-            "plantPoints" to "\"ZERO\"",
+            "plantPoints" to "\"ZERO\"", "netWeightGrams" to "0", "drainedWeightGrams" to "0",
         )
         all.putAll(fields)
         return all.entries.joinToString(",", "{", "}") { (name, value) -> "\"$name\":$value" }
@@ -108,6 +109,25 @@ class ProposalParserTest {
         assertEquals(smokedTofu, result.food)
         assertEquals("Räuchertofu", result.name)
         assertEquals(StoreSection.OTHER, result.storeSection)
+    }
+
+    @Test
+    fun drainedWeights_areKeptAndPassedToTheIngredient() {
+        val chickpeas = FoodCandidates(NewFood(-1, "Kichererbsen (Dose)", "1 Dose Kichererbsen", emptyList()), listOf(firmTofu))
+
+        val result = parse(answer(proposal("N1", "netWeightGrams" to "400", "drainedWeightGrams" to "240")), chickpeas)
+
+        assertEquals(DrainedWeight(400.0, 240.0), result.getValue(-1).drainedWeight)
+        assertEquals(DrainedWeight(400.0, 240.0), result.getValue(-1).copy(source = NutritionSource.Usda(firmTofu)).toIngredient().drainedWeight)
+    }
+
+    @Test
+    fun zeroOrInconsistentWeights_meanNotDrained() {
+        listOf("0" to "0", "240" to "400", "400" to "0", "0" to "240").forEach { (net, drained) ->
+            val result = parse(answer(proposal("N1", "netWeightGrams" to net, "drainedWeightGrams" to drained)), tofu)
+            assertNull("$net/$drained", result.getValue(-1).drainedWeight)
+        }
+        assertNull(parse("""{"ingredients":[{"key":"N1"}]}""", tofu).getValue(-1).drainedWeight)
     }
 
     @Test

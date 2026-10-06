@@ -95,6 +95,7 @@ class IngredientRepository(private val dao: IngredientDao) {
                 nutrition = draft.nutrition,
                 storeSection = draft.storeSection,
                 plantPoints = draft.plantPoints,
+                drainedWeight = draft.drainedWeight,
                 reviewed = true,
             ),
         )

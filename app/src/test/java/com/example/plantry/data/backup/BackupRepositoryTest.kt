@@ -1,6 +1,7 @@
 package com.example.plantry.data.backup
 
 import com.example.plantry.data.CookLog
+import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.Nutrition
@@ -69,7 +70,7 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 8"))
+        assertTrue(json.contains("\"formatVersion\": 9"))
         assertFalse(json.contains("\"staple\""))
         assertFalse(json.contains("\"buyAsIngredientId\""))
     }
@@ -105,7 +106,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 8", "\"formatVersion\": 9")
+        val newer = source.export().replace("\"formatVersion\": 9", "\"formatVersion\": 10")
 
         val error = readError(newer)
 
@@ -146,6 +147,21 @@ class BackupRepositoryTest {
         target.repository.import(target.repository.read(v7))
 
         assertEquals(source.store.data, target.store.data)
+    }
+
+    @Test
+    fun version8File_importsIngredientsAsNotDrained() = runTest {
+        val v9 = Json.parseToJsonElement(source.export()).jsonObject
+        val v8Ingredients = JsonArray(
+            v9.getValue("ingredients").jsonArray.map { JsonObject(it.jsonObject - "netWeightGrams" - "drainedWeightGrams") },
+        )
+        val v8 = JsonObject(v9 + ("formatVersion" to JsonPrimitive(8)) + ("ingredients" to v8Ingredients)).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(v8))
+
+        val expected = source.store.data.ingredients.map { it.copy(drainedWeight = null) }
+        assertEquals(expected, target.store.data.ingredients)
     }
 
     @Test
@@ -316,6 +332,7 @@ class BackupRepositoryTest {
                     storeSection = StoreSection.DRY_GOODS,
                     reviewed = false,
                 ),
+                ingredient(id = 6, name = "Kichererbsen (Dose)").copy(drainedWeight = DrainedWeight(400.0, 240.0)),
             ),
             recipes = listOf(
                 Recipe(2, "Curry", "Kochbuch", 42, 4, 2, 30, modified = true),

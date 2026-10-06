@@ -8,6 +8,7 @@ import com.anthropic.models.messages.JsonOutputFormat
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.anthropic.models.messages.StopReason
+import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
@@ -58,6 +59,8 @@ data class IngredientProposal(
     val searchTerms: List<String>,
     val storeSection: StoreSection,
     val plantPoints: PlantPoints,
+    /** Only for drained canned or jarred goods. */
+    val drainedWeight: DrainedWeight? = null,
 ) {
     /** The USDA entry, if the nutrition comes from one. */
     val food: UsdaFood? get() = (source as? NutritionSource.Usda)?.food
@@ -74,6 +77,7 @@ data class IngredientProposal(
             storeSection = storeSection,
             plantPoints = plantPoints,
             reviewed = false,
+            drainedWeight = drainedWeight,
         )
     }
 }
@@ -211,6 +215,8 @@ object ProposalPrompt {
               food just because it is similar.
             - name: see the name rule below.
             - storeSection, plantPoints: see the rules below.
+            - netWeightGrams, drainedWeightGrams: see the drained weight rule below; 0 for both if
+              it does not apply.
             """.trimIndent(),
         )
         appendLine()
@@ -218,7 +224,8 @@ object ProposalPrompt {
         appendLine()
         appendRule("Name", MatchingRules.NAME)
         appendRule("storeSection", MatchingRules.STORE_SECTION)
-        append("plantPoints: ${MatchingRules.PLANT_POINTS}")
+        appendRule("plantPoints", MatchingRules.PLANT_POINTS)
+        append("Drained weight: ${MatchingRules.DRAINED_WEIGHT}")
     }
 
     private fun StringBuilder.appendRule(title: String, rule: String) {
@@ -260,6 +267,8 @@ object ProposalPrompt {
                 "name" to mapOf("type" to "string"),
                 "storeSection" to enumSchema(StoreSection.entries),
                 "plantPoints" to enumSchema(PlantPoints.entries),
+                "netWeightGrams" to mapOf("type" to "number"),
+                "drainedWeightGrams" to mapOf("type" to "number"),
             ),
         ),
     )
@@ -301,6 +310,8 @@ object ProposalParser {
         val name: String = "",
         val storeSection: String = "",
         val plantPoints: String = "",
+        val netWeightGrams: Double = 0.0,
+        val drainedWeightGrams: Double = 0.0,
     )
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -315,7 +326,8 @@ object ProposalParser {
     /**
      * One proposal per food. Invalid or missing fields fall back to neutral values the user reviews
      * later: a USDA entry that was not a candidate counts as none and unknown enums become
-     * OTHER / ZERO. A food Claude left out gets only defaults.
+     * OTHER / ZERO, and weights other than 0 < drained ≤ net mean not drained. A food Claude left
+     * out gets only defaults.
      */
     fun proposals(text: String?, foods: List<FoodCandidates>): ClaudeResult<Map<Long, IngredientProposal>> {
         val parsed = decode<ProposalsJson>(text) ?: return ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE)
@@ -337,6 +349,7 @@ object ProposalParser {
             searchTerms = food.searchTerms,
             storeSection = enumOrNull<StoreSection>(answer.storeSection) ?: StoreSection.OTHER,
             plantPoints = enumOrNull<PlantPoints>(answer.plantPoints) ?: PlantPoints.ZERO,
+            drainedWeight = DrainedWeight.of(answer.netWeightGrams, answer.drainedWeightGrams),
         )
     }
 

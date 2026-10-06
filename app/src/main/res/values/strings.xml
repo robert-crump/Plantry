@@ -243,9 +243,17 @@
     <string name="ingredient_no_usda_source">Keine USDA-Quelle</string>
     <string name="ingredient_reviewed_hint">Speichern markiert die Zutat als geprüft.</string>
     <string name="ingredient_section_nutrition">Nährwerte je 100 g</string>
+    <string name="ingredient_section_nutrition_drained">Nährwerte je 100 g (abgetropft)</string>
     <string name="ingredient_section_properties">Eigenschaften</string>
     <string name="ingredient_section_store_section">Abteilung</string>
     <string name="ingredient_section_plant_points">Pflanzenpunkte</string>
+    <string name="ingredient_drained_weight">Abtropfgewicht</string>
+    <string name="ingredient_drained_weight_summary">%1$s g von %2$s g</string>
+    <string name="ingredient_not_drained">Nicht abgetropft</string>
+    <string name="ingredient_drained_weight_hint">Für Dosen und Gläser, die abgegossen werden: beide Werte vom Etikett. Rezepte rechnen mit der Füllmenge, die Nährwerte nur mit dem Abtropfgewicht. Leer lassen, wenn nicht abgetropft wird.</string>
+    <string name="ingredient_net_weight_field">Füllmenge (g)</string>
+    <string name="ingredient_drained_weight_field">Abtropfgewicht (g)</string>
+    <string name="error_drained_exceeds_net">Höchstens so viel wie die Füllmenge</string>
     <string name="plant_points_info_description">Info zu Pflanzenpunkten</string>
     <string name="plant_points_info_intro">Jede verschiedene Pflanze zählt – frisch, tiefgekühlt, aus der Dose oder getrocknet.</string>
     <string name="plant_points_info_one">Gemüse, Obst, Hülsenfrüchte (auch Tofu, Tempeh), Vollkorngetreide, Nüsse, Samen, Pilze.</string>

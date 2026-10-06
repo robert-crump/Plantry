@@ -1,6 +1,7 @@
 package com.example.plantry.data.backup
 
 import com.example.plantry.data.CookLog
+import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.Nutrition
@@ -44,8 +45,9 @@ data class BackupFile(
          * and shopping ticks any more. 5: cooking log entries carry a recipe snapshot and may
          * belong to a deleted recipe. 6: Geplant. 7: cooking log entries may carry kcal and fibre.
          * 8: ingredients without unit weights, buy unit, pack size, staple flag and buy-as link.
+         * 9: ingredients may carry net and drained weight.
          */
-        const val FORMAT_VERSION = 8
+        const val FORMAT_VERSION = 9
 
         /**
          * Unknown keys are skipped, so older files with `weekPlan` and `shoppingTicks`, or with the
@@ -102,6 +104,9 @@ data class BackupIngredient(
     val storeSection: StoreSection,
     val plantPoints: PlantPoints,
     val reviewed: Boolean,
+    /** Since version 9; both null for ingredients that are not drained. */
+    val netWeightGrams: Double? = null,
+    val drainedWeightGrams: Double? = null,
 )
 
 @Serializable
@@ -253,6 +258,8 @@ private fun Ingredient.toBackup() = BackupIngredient(
     storeSection = storeSection,
     plantPoints = plantPoints,
     reviewed = reviewed,
+    netWeightGrams = drainedWeight?.netWeightGrams,
+    drainedWeightGrams = drainedWeight?.drainedWeightGrams,
 )
 
 private fun BackupIngredient.toEntity() = Ingredient(
@@ -264,6 +271,7 @@ private fun BackupIngredient.toEntity() = Ingredient(
     storeSection = storeSection,
     plantPoints = plantPoints,
     reviewed = reviewed,
+    drainedWeight = DrainedWeight.of(netWeightGrams, drainedWeightGrams),
 )
 
 private fun Recipe.toBackup(photo: String?, lines: List<RecipeIngredient>) = BackupRecipe(

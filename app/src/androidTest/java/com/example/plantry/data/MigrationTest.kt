@@ -243,6 +243,27 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate13To14_keepsIngredientsAsNotDrained() {
+        helper.createDatabase(DB_NAME, 13).use { db ->
+            db.execSQL(
+                "INSERT INTO ingredients (id, name, fdcId, usdaDescription, kcal, protein, carbs, sugar, fat, fibre, " +
+                    "storeSection, plantPoints, reviewed) " +
+                    "VALUES (1, 'Kichererbsen (Dose)', NULL, NULL, 139, 7.05, 22.5, 0, 2.77, 7.6, 'DRY_GOODS', 'ONE', 1)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 14, true).use { db ->
+            db.query("SELECT name, protein, netWeightGrams, drainedWeightGrams FROM ingredients").use { c ->
+                c.moveToFirst()
+                assertEquals("Kichererbsen (Dose)", c.getString(0))
+                assertEquals(7.05, c.getDouble(1), 0.0)
+                assertTrue(c.isNull(2))
+                assertTrue(c.isNull(3))
+            }
+        }
+    }
+
     private fun ingredientSql(id: Long, name: String, points: String, protein: Double, carbs: Double, buyAs: Long? = null) =
         "INSERT INTO ingredients (id, name, fdcId, usdaDescription, kcal, protein, carbs, sugar, fat, fibre, " +
             "unitWeights, buyUnit, packSizeGrams, storeSection, staple, plantPoints, buyAsIngredientId, " +

@@ -56,6 +56,15 @@ class ProposalPromptTest {
     }
 
     @Test
+    fun `propose prompt and schema ask for drained weights of canned goods`() {
+        assertTrue(ProposalPrompt.PROPOSE_SYSTEM.endsWith("Drained weight: " + MatchingRules.DRAINED_WEIGHT))
+        assertTrue(MatchingRules.DRAINED_WEIGHT.contains("about 60 %"))
+        val schema = ProposalPrompt.proposeSchema().toString()
+        assertTrue(schema.contains("netWeightGrams"))
+        assertTrue(schema.contains("drainedWeightGrams"))
+    }
+
+    @Test
     fun `search prompts ask for the bought form`() {
         assertTrue(ProposalPrompt.SEARCH_TERMS_SYSTEM.endsWith(MatchingRules.SEARCH_FORMS))
         assertTrue(ProposalPrompt.SEARCH_TERMS_RULE.contains("beans and chickpeas canned unless the recipe says dried"))

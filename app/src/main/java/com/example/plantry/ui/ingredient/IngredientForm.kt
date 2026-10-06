@@ -1,5 +1,6 @@
 package com.example.plantry.ui.ingredient
 
+import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientDraft
 import com.example.plantry.data.Nutrient
@@ -16,6 +17,8 @@ data class IngredientForm(
     val nutrition: Map<Nutrient, String> = Nutrient.entries.associateWith { "" },
     val storeSection: StoreSection = StoreSection.OTHER,
     val plantPoints: PlantPoints = PlantPoints.ZERO,
+    /** Already validated by [DrainedWeightForm] in its dialog. */
+    val drainedWeight: DrainedWeight? = null,
 ) {
     fun withNutrient(nutrient: Nutrient, value: String) = copy(nutrition = nutrition + (nutrient to value))
 
@@ -34,6 +37,7 @@ data class IngredientForm(
             nutrition = Nutrition.of(nutrition.mapValues { it.value.toDecimalOrNull()!! }),
             storeSection = storeSection,
             plantPoints = plantPoints,
+            drainedWeight = drainedWeight,
         )
     }
 
@@ -43,9 +47,40 @@ data class IngredientForm(
             nutrition = Nutrient.entries.associateWith { formatDecimal(ingredient.nutrition[it]) },
             storeSection = ingredient.storeSection,
             plantPoints = ingredient.plantPoints,
+            drainedWeight = ingredient.drainedWeight,
         )
     }
 }
+
+/** Raw input of the Abtropfgewicht dialog, in grams: both empty, or 0 < drained ≤ net. */
+data class DrainedWeightForm(val net: String = "", val drained: String = "") {
+    private val isEmpty: Boolean get() = net.isBlank() && drained.isBlank()
+
+    val netInvalid: Boolean get() = !isEmpty && net.toPositiveDecimalOrNull() == null
+
+    val drainedError: DrainedWeightError?
+        get() {
+            if (isEmpty) return null
+            val drained = drained.toPositiveDecimalOrNull() ?: return DrainedWeightError.INVALID
+            val net = net.toPositiveDecimalOrNull()
+            return if (net != null && drained > net) DrainedWeightError.EXCEEDS_NET else null
+        }
+
+    val isValid: Boolean get() = !netInvalid && drainedError == null
+
+    /** The weights, or null when both fields are empty (not a drained product) or invalid. */
+    fun toDrainedWeight(): DrainedWeight? =
+        if (isValid) DrainedWeight.of(net.toPositiveDecimalOrNull(), drained.toPositiveDecimalOrNull()) else null
+
+    companion object {
+        fun from(weight: DrainedWeight?) = DrainedWeightForm(
+            net = weight?.let { formatDecimal(it.netWeightGrams) }.orEmpty(),
+            drained = weight?.let { formatDecimal(it.drainedWeightGrams) }.orEmpty(),
+        )
+    }
+}
+
+enum class DrainedWeightError { INVALID, EXCEEDS_NET }
 
 data class IngredientFormErrors(
     val name: Boolean,

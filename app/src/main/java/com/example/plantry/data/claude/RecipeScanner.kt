@@ -18,6 +18,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import java.math.BigDecimal
 import java.util.Base64
 
 /** One ingredient line as Claude read it from the photo. */
@@ -132,8 +133,10 @@ object ScanPrompt {
               - originalText: the line exactly as printed, with amount and unit,
                 e.g. "1 Bund glatte Petersilie".
               - grams: your best estimate of the weight in grams of the amount as printed, for
-                the whole recipe (not per serving). Use typical weights for pieces, bunches,
-                cans and spoons.
+                the whole recipe (not per serving). Use typical weights for pieces, bunches
+                and spoons. For canned and jarred goods use the net weight printed on the
+                container (the full can, e.g. 400 g for "1 Dose Kichererbsen"), also for
+                products that are drained; if the matched ingredient lists a net weight, use it.
               - ingredientId: the id of the matching entry in the user's ingredient table below,
                 or 0 if none fits. Match the same food in an equivalent form (fresh vs. fresh,
                 cooked vs. cooked); do not match a different food just because it is similar.
@@ -146,11 +149,20 @@ object ScanPrompt {
 
             If the photo shows no recipe, return an empty title and no lines.
 
-            The user's ingredient table (id, tab, German name):
+            The user's ingredient table (id, tab, German name, and for drained canned or jarred
+            goods a tab and the net weight of one container):
             """.trimIndent(),
         )
-        ingredients.sortedBy { it.name.lowercase() }.forEach { appendLine("${it.id}\t${it.name}") }
+        ingredients.sortedBy { it.name.lowercase() }.forEach { ingredient ->
+            val net = ingredient.drainedWeight?.let { "\t${containerWord(ingredient.name)} ${formatGrams(it.netWeightGrams)} g" }
+            appendLine("${ingredient.id}\t${ingredient.name}${net.orEmpty()}")
+        }
     }
+
+    /** "Glas" for jarred goods, "Dose" otherwise, as the ingredient names say. */
+    private fun containerWord(name: String) = if (name.contains("Glas", ignoreCase = true)) "Glas" else "Dose"
+
+    private fun formatGrams(grams: Double) = BigDecimal.valueOf(grams).stripTrailingZeros().toPlainString()
 
     fun schema(): JsonOutputFormat.Schema {
         val line = mapOf(

@@ -17,7 +17,27 @@ data class Ingredient(
     val storeSection: StoreSection,
     val plantPoints: PlantPoints,
     val reviewed: Boolean,
+    /** Set for canned or jarred goods that are drained; [nutrition] is then per 100 g drained. */
+    @Embedded val drainedWeight: DrainedWeight? = null,
 )
+
+/**
+ * The weights printed on a can or jar of a drained product, e.g. 400 g net, 240 g drained. Recipe
+ * lines hold the net weight; only the drained solids count for nutrition, the liquid is negligible.
+ */
+data class DrainedWeight(val netWeightGrams: Double, val drainedWeightGrams: Double) {
+    /** The share of a line's grams that counts for nutrition. */
+    val share: Double get() = drainedWeightGrams / netWeightGrams
+
+    companion object {
+        /** Null unless 0 < [drained] ≤ [net]. */
+        fun of(net: Double?, drained: Double?): DrainedWeight? =
+            if (net != null && drained != null && drained > 0 && drained <= net) DrainedWeight(net, drained) else null
+    }
+}
+
+/** The share of a recipe line's grams that counts for nutrition: 1 unless the ingredient is drained. */
+val Ingredient.drainedShare: Double get() = drainedWeight?.share ?: 1.0
 
 enum class StoreSection { PRODUCE, DAIRY_CHILLED, DRY_GOODS, FROZEN, OTHER }
 
@@ -29,4 +49,5 @@ data class IngredientDraft(
     val nutrition: Nutrition,
     val storeSection: StoreSection,
     val plantPoints: PlantPoints,
+    val drainedWeight: DrainedWeight? = null,
 )

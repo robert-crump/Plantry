@@ -1,5 +1,6 @@
 package com.example.plantry.ui.ingredient
 
+import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientDraft
 import com.example.plantry.data.Nutrient
@@ -77,5 +78,42 @@ class IngredientFormTest {
     fun formatDecimal_usesTheLocaleSeparator() {
         assertEquals("0.4", formatDecimal(0.40, Locale.US))
         assertEquals("1234.5", formatDecimal(1234.5, Locale.US))
+    }
+
+    @Test
+    fun drainedWeight_isKeptInTheDraft() {
+        val can = ingredient.copy(drainedWeight = DrainedWeight(400.0, 240.0))
+
+        assertEquals(DrainedWeight(400.0, 240.0), IngredientForm.from(can).toDraft()!!.drainedWeight)
+        assertNull(valid.toDraft()!!.drainedWeight)
+    }
+
+    @Test
+    fun drainedWeightForm_bothEmptyMeansNotDrained() {
+        val form = DrainedWeightForm(" ", "")
+
+        assertTrue(form.isValid)
+        assertNull(form.toDrainedWeight())
+    }
+
+    @Test
+    fun drainedWeightForm_acceptsCommaDecimalsUpToTheNetWeight() {
+        assertEquals(DrainedWeight(400.0, 240.5), DrainedWeightForm("400", "240,5").toDrainedWeight())
+        assertEquals(DrainedWeight(400.0, 400.0), DrainedWeightForm("400", "400").toDrainedWeight())
+    }
+
+    @Test
+    fun drainedWeightForm_rejectsOneEmptyFieldZeroAndMoreThanNet() {
+        assertTrue(DrainedWeightForm("400", "").let { !it.isValid && it.drainedError == DrainedWeightError.INVALID })
+        assertTrue(DrainedWeightForm("", "240").let { !it.isValid && it.netInvalid })
+        assertTrue(DrainedWeightForm("0", "0").let { it.netInvalid && it.drainedError == DrainedWeightError.INVALID })
+        assertEquals(DrainedWeightError.EXCEEDS_NET, DrainedWeightForm("240", "400").drainedError)
+        assertNull(DrainedWeightForm("240", "400").toDrainedWeight())
+    }
+
+    @Test
+    fun drainedWeightForm_fromWeight_formatsWithoutTrailingZeros() {
+        assertEquals(DrainedWeightForm("400", "240"), DrainedWeightForm.from(DrainedWeight(400.0, 240.0)))
+        assertEquals(DrainedWeightForm(), DrainedWeightForm.from(null))
     }
 }

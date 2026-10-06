@@ -44,11 +44,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
+import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
+import com.example.plantry.ui.currentLocale
 import com.example.plantry.ui.settings.ChoiceDialog
 import com.example.plantry.ui.settings.SettingsGroup
 import com.example.plantry.ui.settings.SettingsRow
@@ -208,9 +210,12 @@ fun IngredientDetailScreen(
                 form = form,
                 onStoreSection = { onChange { copy(storeSection = it) } },
                 onPlantPoints = { onChange { copy(plantPoints = it) } },
+                onDrainedWeight = { onChange { copy(drainedWeight = it) } },
             )
 
-            SectionTitle(R.string.ingredient_section_nutrition)
+            SectionTitle(
+                if (form.drainedWeight != null) R.string.ingredient_section_nutrition_drained else R.string.ingredient_section_nutrition,
+            )
             Nutrient.entries.chunked(2).forEach { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     pair.forEach { nutrient ->
@@ -261,7 +266,7 @@ private fun DeleteDialog(name: String, usedIn: List<String>, onConfirm: () -> Un
     }
 }
 
-private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_INFO }
+private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_INFO, DRAINED_WEIGHT }
 
 /** One line per property with its current value; tapping opens a radio dialog that applies on tap. */
 @Composable
@@ -269,6 +274,7 @@ private fun PropertiesGroup(
     form: IngredientForm,
     onStoreSection: (StoreSection) -> Unit,
     onPlantPoints: (PlantPoints) -> Unit,
+    onDrainedWeight: (DrainedWeight?) -> Unit,
 ) {
     var dialog by rememberSaveable { mutableStateOf<PropertyDialog?>(null) }
     SettingsGroup(
@@ -293,6 +299,21 @@ private fun PropertiesGroup(
                 },
             )
         },
+        {
+            SettingsRow(
+                icon = null,
+                title = stringResource(R.string.ingredient_drained_weight),
+                summary = form.drainedWeight?.let {
+                    val locale = currentLocale()
+                    stringResource(
+                        R.string.ingredient_drained_weight_summary,
+                        formatDecimal(it.drainedWeightGrams, locale),
+                        formatDecimal(it.netWeightGrams, locale),
+                    )
+                } ?: stringResource(R.string.ingredient_not_drained),
+                onClick = { dialog = PropertyDialog.DRAINED_WEIGHT },
+            )
+        },
         horizontalPadding = 0.dp,
     )
 
@@ -315,8 +336,56 @@ private fun PropertiesGroup(
             onDismiss = dismiss,
         )
         PropertyDialog.PLANT_POINTS_INFO -> PlantPointsInfoDialog(onDismiss = dismiss)
+        PropertyDialog.DRAINED_WEIGHT -> DrainedWeightDialog(
+            initial = form.drainedWeight,
+            onConfirm = { onDrainedWeight(it); dismiss() },
+            onDismiss = dismiss,
+        )
         null -> Unit
     }
+}
+
+/** Net and drained weight from the can; OK stays disabled until both are empty or 0 < drained ≤ net. */
+@Composable
+private fun DrainedWeightDialog(initial: DrainedWeight?, onConfirm: (DrainedWeight?) -> Unit, onDismiss: () -> Unit) {
+    var net by rememberSaveable { mutableStateOf(DrainedWeightForm.from(initial).net) }
+    var drained by rememberSaveable { mutableStateOf(DrainedWeightForm.from(initial).drained) }
+    val form = DrainedWeightForm(net, drained)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ingredient_drained_weight)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    stringResource(R.string.ingredient_drained_weight_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FormField(
+                    value = net,
+                    onValueChange = { net = it },
+                    label = R.string.ingredient_net_weight_field,
+                    error = if (form.netInvalid) R.string.error_positive_decimal else null,
+                )
+                FormField(
+                    value = drained,
+                    onValueChange = { drained = it },
+                    label = R.string.ingredient_drained_weight_field,
+                    error = when (form.drainedError) {
+                        DrainedWeightError.INVALID -> R.string.error_positive_decimal
+                        DrainedWeightError.EXCEEDS_NET -> R.string.error_drained_exceeds_net
+                        null -> null
+                    },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(form.toDrainedWeight()) }, enabled = form.isValid) {
+                Text(stringResource(R.string.action_ok))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
 }
 
 @Composable

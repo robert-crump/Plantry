@@ -1,6 +1,6 @@
 package com.example.plantry.data
 
-/** An ingredient line reduced to what the nutrition calculation needs. */
+/** An ingredient line reduced to what the nutrition calculation needs; [grams] are those that count, see [nutritionLines]. */
 data class NutritionLine(val ingredientId: Long, val name: String, val grams: Double, val per100g: Nutrition)
 
 /** How much one ingredient contributes to a nutrient, per portion. */
@@ -70,10 +70,11 @@ enum class ProteinRating {
 fun Nutrition.scaled(factor: Double) = Nutrition.of(Nutrient.entries.associateWith { this[it] * factor })
 
 /**
- * Builds the nutrition lines for [lines], looking up each ingredient in [ingredients] by id.
- * Lines whose ingredient is missing are skipped.
+ * Builds the nutrition lines for [lines], looking up each ingredient in [ingredients] by id. Of a
+ * drained ingredient only the drained share of the line's grams counts. Lines whose ingredient is
+ * missing are skipped.
  */
 fun nutritionLines(lines: List<RecipeIngredientDraft>, ingredients: Map<Long, Ingredient>): List<NutritionLine> =
     lines.mapNotNull { line ->
-        ingredients[line.ingredientId]?.let { NutritionLine(it.id, it.name, line.grams, it.nutrition) }
+        ingredients[line.ingredientId]?.let { NutritionLine(it.id, it.name, line.grams * it.drainedShare, it.nutrition) }
     }

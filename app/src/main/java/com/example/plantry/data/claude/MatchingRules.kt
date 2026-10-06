@@ -57,4 +57,14 @@ object MatchingRules {
         Avocadocreme, Rote-Linsen- and Kichererbsen-Nudeln ONE; Harissa, Za'atar QUARTER;
         Tomatenmark, Sojasauce ZERO.
     """.trimIndent()
+
+    /** Recipe lines hold the full container; the nutrition counts only the drained solids. */
+    val DRAINED_WEIGHT = """
+        Only for canned or jarred goods that are drained before use ("(Dose)" or "(Glas)": beans,
+        chickpeas, corn, artichokes, olives and the like): netWeightGrams is the net weight printed
+        on a typical German container, drainedWeightGrams its drained weight, e.g. 400 and 240.
+        Typical drained shares: beans and chickpeas about 60 %, corn about 50 %. The nutrition
+        stays per 100 g drained ("canned, drained solids"). 0 for both for everything else,
+        including canned goods used with their liquid (Kokosmilch, stückige Tomaten).
+    """.trimIndent()
 }

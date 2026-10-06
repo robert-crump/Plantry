@@ -26,6 +26,12 @@ together. Refined during the calibration round.
    80 % margarine, parmesan as a block.
 10. **Juice** is its own ingredient: Zitronensaft, not Zitrone.
 11. **Stock** is the ready-to-serve broth, in ml of prepared broth; the powder is not tracked.
+12. **Drained canned and jarred goods** ("(Dose)", "(Glas)": beans, chickpeas, corn, artichokes …)
+    carry the *Füllmenge* (net weight) and *Abtropfgewicht* (drained weight) of a typical German
+    container, e.g. 400 g / 240 g; drained shares are about 60 % for beans and chickpeas, 50 % for
+    corn. Nutrition stays per 100 g drained (*canned, drained solids*). Recipe lines hold the net
+    weight of the container ("1 Dose Kidneybohnen" = 400 g); the app counts only the drained
+    share for nutrition. Goods used with their liquid (Kokosmilch, stückige Tomaten) get neither.
 
 ## Plant points
 
