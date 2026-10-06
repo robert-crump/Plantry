@@ -290,7 +290,8 @@
     <string name="settings_api_key">Anthropic-API-Schlüssel</string>
     <string name="settings_api_key_delete">Schlüssel löschen</string>
     <string name="settings_api_key_missing">Kein Schlüssel gespeichert</string>
-    <string name="settings_api_key_hint">Verschlüsselt nur auf diesem Gerät gespeichert</string>
+    <string name="settings_api_key_info">Verschlüsselt und nur auf diesem Gerät gespeichert.</string>
+    <string name="settings_api_key_info_description">Info zur Speicherung</string>
     <string name="settings_api_key_delete_title">API-Schlüssel löschen?</string>
     <string name="settings_api_key_delete_message">Ohne Schlüssel können keine Rezepte gescannt werden.</string>
     <string name="settings_api_key_dialog_title">API-Schlüssel</string>
@@ -304,10 +305,9 @@
     <string name="scan_model_sonnet">Claude Sonnet 5.5</string>
     <string name="scan_model_sonnet_description">Schneller und günstiger</string>
     <string name="settings_suggestions">Rezeptvorschläge</string>
-    <string name="settings_cooldown">Pause bis zur Wiederholung</string>
-    <string name="settings_cooldown_hint">So lange werden gekochte Rezepte seltener vorgeschlagen</string>
+    <string name="settings_cooldown">Cooldown-Zeit</string>
     <string name="settings_cooldown_label">Tage</string>
-    <string name="settings_reminder">Erinnerung an Geplantes</string>
+    <string name="settings_reminder">Erinnerung an geplante Rezepte</string>
     <string name="settings_reminder_time">Uhrzeit der Erinnerung</string>
     <string name="settings_reminder_hint">Fragt am Abend eines Tages, für den etwas geplant ist, ob es gekocht wurde</string>
     <string name="settings_cooldown_range">%1$d bis %2$d Tage</string>
@@ -336,9 +336,9 @@
 
     <string name="settings_backup">Datensicherung</string>
     <string name="backup_export">Exportieren</string>
-    <string name="backup_export_hint">Alle Daten als JSON-Datei sichern, ohne API-Schlüssel</string>
+    <string name="backup_export_hint">Daten sichern (ohne API-Schlüssel)</string>
     <string name="backup_import">Importieren</string>
-    <string name="backup_import_hint">Alle Daten aus einer Sicherung wiederherstellen</string>
+    <string name="backup_import_hint">Aus Sicherung wiederherstellen</string>
     <string name="backup_import_confirm_title">Alle Daten ersetzen?</string>
     <string name="backup_import_confirm_message">Rezepte, Zutaten, Kochprotokoll und Einstellungen werden durch die Sicherung ersetzt (%1$d Rezepte, %2$d Zutaten). Das lässt sich nicht rückgängig machen. Der API-Schlüssel bleibt erhalten.</string>
     <string name="backup_import_confirm">Ersetzen</string>

@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.EventRepeat
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Notifications
@@ -29,6 +30,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -143,6 +145,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
     var choosingTheme by rememberSaveable { mutableStateOf(false) }
     var editingCooldown by rememberSaveable { mutableStateOf(false) }
     var editingReminderTime by rememberSaveable { mutableStateOf(false) }
+    var showingKeyInfo by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
@@ -170,6 +173,14 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
                         title = stringResource(R.string.settings_api_key),
                         summary = settings.maskedApiKey ?: stringResource(R.string.settings_api_key_missing),
                         onClick = { editingKey = true },
+                        trailing = {
+                            IconButton(onClick = { showingKeyInfo = true }) {
+                                Icon(
+                                    Icons.Filled.Info,
+                                    contentDescription = stringResource(R.string.settings_api_key_info_description),
+                                )
+                            }
+                        },
                     )
                 },
                 {
@@ -188,7 +199,6 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
                     )
                 },
             )
-            SectionHint(R.string.settings_api_key_hint)
 
             SectionHeader(R.string.settings_suggestions)
             SettingsGroup(
@@ -204,9 +214,6 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
                         onClick = { editingCooldown = true },
                     )
                 },
-            )
-            SectionHint(R.string.settings_cooldown_hint)
-            SettingsGroup(
                 {
                     SettingsRow(
                         icon = Icons.Filled.Notifications,
@@ -286,6 +293,16 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
                 editingReminderTime = false
             },
             onDismiss = { editingReminderTime = false },
+        )
+    }
+
+    if (showingKeyInfo) {
+        AlertDialog(
+            onDismissRequest = { showingKeyInfo = false },
+            text = { Text(stringResource(R.string.settings_api_key_info)) },
+            confirmButton = {
+                TextButton(onClick = { showingKeyInfo = false }) { Text(stringResource(R.string.action_ok)) }
+            },
         )
     }
 
