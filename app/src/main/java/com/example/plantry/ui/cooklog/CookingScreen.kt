@@ -510,7 +510,7 @@ private fun PlannedCard(
 }
 
 /** How far a row has to be dragged (of its width) to delete it. */
-private const val DeleteFraction = 0.5f
+private const val DeleteFraction = 0.4f
 
 /**
  * Dragging the row right to left past [DeleteFraction] of its width deletes the entry; a quick
