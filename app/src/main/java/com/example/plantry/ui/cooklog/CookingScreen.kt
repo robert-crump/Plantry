@@ -28,8 +28,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,7 +39,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -61,6 +66,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -79,6 +89,8 @@ import com.example.plantry.data.Cooked
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlannedItem
 import com.example.plantry.data.PlannedRepository
+import com.example.plantry.data.Recipe
+import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.ui.FastScrollbar
 import com.example.plantry.ui.currentLocale
@@ -96,6 +108,10 @@ class CookingViewModel(
     recipeRepository: RecipeRepository,
     ingredientRepository: IngredientRepository,
 ) : ViewModel() {
+    /** All recipes, for "Rezept loggen". */
+    val recipes: StateFlow<List<Recipe>> = recipeRepository.observeRecipes()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** Null until the first emission, so the empty state doesn't flash. */
     val entries: StateFlow<List<CookLog>?> = repository.observeHistory()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -132,6 +148,11 @@ class CookingViewModel(
         viewModelScope.launch { plannedRepository.done(item.planned)?.let(onDone) }
     }
 
+    /** "Rezept loggen": logs the recipe on [date] and takes it off Geplant; [onDone] gets what to undo. */
+    fun log(recipeId: Long, date: LocalDate, onDone: (Cooked) -> Unit) {
+        viewModelScope.launch { plannedRepository.cook(recipeId, date)?.let(onDone) }
+    }
+
     fun undoCook(cooked: Cooked) {
         viewModelScope.launch { plannedRepository.undoCook(cooked) }
     }
@@ -147,8 +168,9 @@ data class JustPlanned(val recipeId: Long, val title: String)
 /**
  * The Kochen tab: Geplant on top as cards (hidden when empty), then the cooking history under
  * "Verlauf", newest first, in Monday–Sunday weeks with sticky headers, each row with its own date
- * badge. History rows show the recipe as it was when logged. [justPlanned] is shown
- * once as a snackbar, then [onJustPlannedShown] clears it.
+ * badge. History rows show the recipe as it was when logged. Two FABs, shrinking to their icons
+ * while scrolling down: "Rezept vorschlagen" and "Rezept loggen" (pick a recipe, then a day up to
+ * today). [justPlanned] is shown once as a snackbar, then [onJustPlannedShown] clears it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -192,16 +214,41 @@ fun CookingScreen(
         with(density) { (snackbarHeight.toDp() - 12.dp).coerceAtLeast(0.dp) },
         label = "fab lift",
     )
+    val listState = rememberLazyListState()
+    var fabsExpanded by rememberSaveable { mutableStateOf(true) }
+    // Only actual scrolling counts, so dragging a list too short to scroll leaves the FABs alone.
+    val collapseFabs = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (consumed.y < 0) fabsExpanded = false else if (consumed.y > 0) fabsExpanded = true
+                return Offset.Zero
+            }
+        }
+    }
+    var picking by rememberSaveable { mutableStateOf(false) }
+    var loggingRecipeId by rememberSaveable { mutableStateOf<Long?>(null) }
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             topBar = { TopAppBar(title = { Text(stringResource(R.string.cooking_title)) }) },
             floatingActionButton = {
-                ExtendedFloatingActionButton(
-                    text = { Text(stringResource(R.string.suggest_action)) },
-                    icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
-                    onClick = onSuggest,
-                    modifier = Modifier.padding(bottom = fabLift),
-                )
+                Column(
+                    Modifier.padding(bottom = fabLift),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    ExtendedFloatingActionButton(
+                        text = { Text(stringResource(R.string.suggest_action)) },
+                        icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = stringResource(R.string.suggest_action)) },
+                        onClick = onSuggest,
+                        expanded = fabsExpanded,
+                    )
+                    ExtendedFloatingActionButton(
+                        text = { Text(stringResource(R.string.cook_log_action)) },
+                        icon = { Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.cook_log_action)) },
+                        onClick = { picking = true },
+                        expanded = fabsExpanded,
+                    )
+                }
             },
         ) { padding ->
             val list = entries ?: return@Scaffold
@@ -219,14 +266,13 @@ fun CookingScreen(
                 }
             } else {
                 val layoutDirection = LocalLayoutDirection.current
-                // Room below the last row for the FAB. The top inset is a plain padding, not content
+                // Room below the last row for both FABs. The top inset is a plain padding, not content
                 // padding, so the sticky header pins below the app bar instead of behind it.
                 val listPadding = PaddingValues(
                     start = padding.calculateStartPadding(layoutDirection),
                     end = padding.calculateEndPadding(layoutDirection),
-                    bottom = padding.calculateBottomPadding() + 88.dp,
+                    bottom = padding.calculateBottomPadding() + 160.dp,
                 )
-                val listState = rememberLazyListState()
                 // Runs each time Kochen is shown: a new plan brings Geplant into view, otherwise the
                 // scroll position is kept.
                 LaunchedEffect(Unit) {
@@ -252,7 +298,7 @@ fun CookingScreen(
                         }
                     }
                 }
-                Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+                Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).nestedScroll(collapseFabs)) {
                     LazyColumn(
                         Modifier.fillMaxSize(),
                         state = listState,
@@ -296,7 +342,7 @@ fun CookingScreen(
                     FastScrollbar(
                         listState,
                         label = { scrollLabels.getOrNull(it) },
-                        // Ends above the FAB.
+                        // Ends above the FABs.
                         modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight().padding(bottom = listPadding.calculateBottomPadding()),
                     )
                 }
@@ -310,6 +356,74 @@ fun CookingScreen(
                 .onSizeChanged { snackbarHeight = it.height },
         )
     }
+    if (picking) {
+        val recipes by viewModel.recipes.collectAsStateWithLifecycle()
+        LogRecipeDialog(
+            recipes,
+            onPick = { recipe ->
+                picking = false
+                loggingRecipeId = recipe.id
+            },
+            onDismiss = { picking = false },
+        )
+    }
+    loggingRecipeId?.let { recipeId ->
+        val today = LocalDate.now()
+        CookDatePickerDialog(
+            date = today,
+            today = today,
+            onPick = { date ->
+                viewModel.log(recipeId, date) { cooked ->
+                    showUndo(loggedMessage) { viewModel.undoCook(cooked) }
+                }
+            },
+            onDismiss = { loggingRecipeId = null },
+        )
+    }
+}
+
+/** "Rezept loggen": a search field over all recipes, A–Z, narrowed as you type. */
+@Composable
+private fun LogRecipeDialog(recipes: List<Recipe>, onPick: (Recipe) -> Unit, onDismiss: () -> Unit) {
+    var query by rememberSaveable { mutableStateOf("") }
+    val shown = remember(recipes, query) { RecipeQuery.byTitle(recipes, query) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.cook_log_action)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(R.string.cook_log_search)) },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    singleLine = true,
+                )
+                if (shown.isEmpty()) {
+                    Text(
+                        stringResource(R.string.cook_log_none),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 16.dp),
+                    )
+                } else {
+                    LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                        items(shown, key = { it.id }) { recipe ->
+                            ListItem(
+                                headlineContent = { Text(recipe.title) },
+                                modifier = Modifier.clickable { onPick(recipe) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
 }
 
 @Composable

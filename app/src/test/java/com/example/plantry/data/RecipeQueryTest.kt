@@ -232,4 +232,18 @@ class RecipeQueryTest {
 
         assertEquals(listOf("Jerusalem", "Plenty"), result)
     }
+
+    @Test
+    fun byTitle_blankQuery_listsAllAToZ() {
+        val result = RecipeQuery.byTitle(listOf(recipe(1, "Zucchini-Pasta"), recipe(2, "Äpfel im Ofen"), recipe(3, "bohnen-Chili")), " ")
+
+        assertEquals(listOf("Äpfel im Ofen", "bohnen-Chili", "Zucchini-Pasta"), result.map { it.title })
+    }
+
+    @Test
+    fun byTitle_matchesAnywhereIgnoringCase() {
+        val result = RecipeQuery.byTitle(listOf(recipe(1, "Linsen-Dal"), recipe(2, "Rote Linsensuppe"), recipe(3, "Curry")), " LINSEN")
+
+        assertEquals(listOf("Linsen-Dal", "Rote Linsensuppe"), result.map { it.title })
+    }
 }

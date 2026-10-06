@@ -81,6 +81,12 @@ object RecipeQuery {
             )
     }
 
+    /** The recipes whose title contains [query] (ignoring case and surrounding blanks), A–Z; for "Rezept loggen". */
+    fun byTitle(recipes: List<Recipe>, query: String): List<Recipe> {
+        val wanted = query.trim()
+        return recipes.filter { it.title.contains(wanted, ignoreCase = true) }.sortedWith(compareBy(titleCollator) { it.title })
+    }
+
     /** The distinct non-blank sources of [recipes], A–Z; for the book filter. */
     fun sources(recipes: List<Recipe>): List<String> =
         recipes.map { it.source.trim() }

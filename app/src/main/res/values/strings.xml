@@ -133,8 +133,11 @@
     <string name="cooked_last_days_ago">Zuletzt vor %1$d Tagen gekocht</string>
     <string name="cooked_times">%1$d× gekocht</string>
     <string name="cooking_title">Kochen</string>
-    <string name="cook_history_empty">Noch nichts gekocht. Plane ein Rezept über „Planen“ oder ein Zufallsrezept.</string>
+    <string name="cook_history_empty">Noch nichts gekocht. Plane ein Rezept über „Planen“, lass dir eins vorschlagen oder trage ein gekochtes über „Rezept loggen“ ein.</string>
     <string name="cook_history_deleted">Eintrag gelöscht</string>
+    <string name="cook_log_action">Rezept loggen</string>
+    <string name="cook_log_search">Rezept suchen</string>
+    <string name="cook_log_none">Keine Rezepte gefunden</string>
     <string name="recipe_stats_grams">%1$dg</string>
     <string name="recipe_stats_missing">–</string>
     <string name="plan_action">Planen</string>
@@ -157,7 +160,7 @@
     <string name="action_no">Nein</string>
 
     <!-- Suggestions -->
-    <string name="suggest_action">Zufallsrezept</string>
+    <string name="suggest_action">Rezept vorschlagen</string>
     <string name="suggest_title">Zufallsrezept</string>
     <string name="suggest_reroll">Neue Vorschläge</string>
     <string name="suggest_none">Keine weiteren Rezepte für Vorschläge.</string>
