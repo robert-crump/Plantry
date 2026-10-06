@@ -39,7 +39,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientSorting
-import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.SortGroup
 import com.example.plantry.data.SortGroupItems
 import com.example.plantry.data.SortView
@@ -211,7 +210,7 @@ private fun GroupCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        stringResource(items.group.label),
+                        items.group.label(),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.weight(1f),
                     )
@@ -250,12 +249,8 @@ internal val SortView.label: Int
         SortView.STORE_SECTION -> R.string.sort_view_store_section
     }
 
-private val SortGroup.label: Int
-    get() = when (this) {
-        is SortGroup.Section -> section.label
-        is SortGroup.Points -> when (points) {
-            PlantPoints.ONE -> R.string.sort_group_points_one
-            PlantPoints.QUARTER -> R.string.sort_group_points_quarter
-            PlantPoints.ZERO -> R.string.sort_group_points_zero
-        }
-    }
+@Composable
+private fun SortGroup.label(): String = when (this) {
+    is SortGroup.Section -> stringResource(section.label)
+    is SortGroup.Points -> plantPointsLabel(points)
+}

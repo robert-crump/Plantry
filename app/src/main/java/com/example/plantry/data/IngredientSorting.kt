@@ -47,7 +47,7 @@ object IngredientSorting {
         return base.toString().uppercase(locale)
     }
 
-    /** Plant points 1 / ¼ / 0, or the store sections in shopping order. */
+    /** Plant points 1 / 0.25 / 0, or the store sections in shopping order. */
     fun groupsOf(view: SortView): List<SortGroup> = when (view) {
         SortView.PLANT_POINTS -> PlantPoints.entries.map { SortGroup.Points(it) }
         SortView.STORE_SECTION -> StoreSection.entries.map { SortGroup.Section(it) }

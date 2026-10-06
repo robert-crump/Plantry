@@ -220,9 +220,6 @@
     </plurals>
     <string name="sort_clear_selection">Auswahl aufheben</string>
     <string name="sort_move_here">Hierher verschieben</string>
-    <string name="sort_group_points_one">1 Punkt</string>
-    <string name="sort_group_points_quarter">¼ Punkt</string>
-    <string name="sort_group_points_zero">0 Punkte</string>
 
     <!-- USDA search -->
     <string name="usda_search_title">Neue Zutat</string>
@@ -246,8 +243,14 @@
     <string name="ingredient_no_usda_source">Keine USDA-Quelle</string>
     <string name="ingredient_reviewed_hint">Speichern markiert die Zutat als geprüft.</string>
     <string name="ingredient_section_nutrition">Nährwerte je 100 g</string>
+    <string name="ingredient_section_properties">Eigenschaften</string>
     <string name="ingredient_section_store_section">Abteilung</string>
     <string name="ingredient_section_plant_points">Pflanzenpunkte</string>
+    <string name="plant_points_info_description">Info zu Pflanzenpunkten</string>
+    <string name="plant_points_info_intro">Jede verschiedene Pflanze zählt – frisch, tiefgekühlt, aus der Dose oder getrocknet.</string>
+    <string name="plant_points_info_one">Gemüse, Obst, Hülsenfrüchte (auch Tofu, Tempeh), Vollkorngetreide, Nüsse, Samen, Pilze.</string>
+    <string name="plant_points_info_quarter">Kräuter (frisch oder getrocknet), Gewürze, Knoblauch, Ingwer, Chili.</string>
+    <string name="plant_points_info_zero">Alles andere.</string>
     <string name="ingredient_delete_title">Zutat löschen?</string>
     <string name="ingredient_delete_message">„%1$s“ wird endgültig gelöscht.</string>
     <string name="ingredient_delete_blocked_title">Zutat wird noch verwendet</string>
@@ -266,9 +269,9 @@
     <string name="store_section_frozen">Tiefkühl</string>
     <string name="store_section_other">Sonstiges</string>
 
-    <string name="plant_points_one">1</string>
-    <string name="plant_points_quarter">¼</string>
-    <string name="plant_points_zero">0</string>
+    <!-- %1$s is the locale-formatted number: "1", "0,25", "0" -->
+    <string name="plant_points_one">%1$s Punkt</string>
+    <string name="plant_points_other">%1$s Punkte</string>
 
     <string name="error_name_required">Bitte einen Namen eingeben</string>
     <string name="error_non_negative_decimal">Bitte eine Zahl ≥ 0 eingeben</string>

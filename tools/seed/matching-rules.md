@@ -32,12 +32,12 @@ together. Refined during the calibration round.
 | Points | What counts |
 |---|---|
 | 1 | Vegetables, fruit, legumes (incl. tofu, tempeh), whole grains, nuts, seeds, mushrooms — fresh, frozen, canned or dried |
-| ¼ | Herbs (fresh or dried), spices, garlic, ginger, chili |
+| 0.25 | Herbs (fresh or dried), spices, garlic, ginger, chili |
 | 0 | Oils (incl. olive oil and coconut oil), refined grains (white rice, white pasta, white flour, couscous, degermed polenta, gnocchi), sugar, animal products, salt, plain stock, condiments used by the spoon (Tomatenmark, Sojasauce) |
 
 Edge cases from calibration: Kokosmilch and Kokosraspeln 1 · passierte and stückige Tomaten 1 ·
 Tahini, Erdnussbutter, Miso 1 · Avocadocreme 1 · Rote-Linsen- and Kichererbsen-Nudeln 1 ·
-Harissa and Za'atar ¼ · Tomatenmark 0 · Sojasauce 0.
+Harissa and Za'atar 0.25 · Tomatenmark 0 · Sojasauce 0.
 
 ## Store section
 

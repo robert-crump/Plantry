@@ -1,6 +1,7 @@
 package com.example.plantry.ui.recipe
 
 import com.example.plantry.data.Nutrient
+import com.example.plantry.data.PlantPoints
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.util.Locale
@@ -12,6 +13,12 @@ class NutritionFormatTest {
         assertEquals("12", formatPlantPoints(12.0, Locale.GERMANY))
         assertEquals("12,25", formatPlantPoints(12.25, Locale.GERMANY))
         assertEquals("12.5", formatPlantPoints(12.5, Locale.US))
+    }
+
+    @Test
+    fun ingredientPlantPoints_areDecimalsNotFractions() {
+        assertEquals(listOf("1", "0,25", "0"), PlantPoints.entries.map { formatPlantPoints(it.value, Locale.GERMANY) })
+        assertEquals(listOf("1", "0.25", "0"), PlantPoints.entries.map { formatPlantPoints(it.value, Locale.US) })
     }
 
     @Test

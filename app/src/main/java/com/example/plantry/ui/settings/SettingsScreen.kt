@@ -61,6 +61,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -350,9 +351,9 @@ private val GroupInnerCorner = 4.dp
 
 /** Rounded rows separated by a small gap; only the outer corners of the first and last row are large. */
 @Composable
-internal fun SettingsGroup(vararg rows: @Composable () -> Unit) {
+internal fun SettingsGroup(vararg rows: @Composable () -> Unit, horizontalPadding: Dp = 16.dp) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalPadding),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         rows.forEachIndexed { index, row ->
@@ -371,7 +372,7 @@ internal fun SettingsGroup(vararg rows: @Composable () -> Unit) {
 
 @Composable
 internal fun SettingsRow(
-    icon: ImageVector,
+    icon: ImageVector?,
     title: String,
     onClick: () -> Unit,
     summary: String? = null,
@@ -383,7 +384,7 @@ internal fun SettingsRow(
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = summary?.let { { Text(it, color = if (enabled) summaryColor else disabled) } },
-        leadingContent = { Icon(icon, contentDescription = null) },
+        leadingContent = icon?.let { { Icon(it, contentDescription = null) } },
         trailingContent = trailing,
         colors = if (enabled) {
             ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -428,7 +429,7 @@ private fun ConnectionRow(state: ConnectionTestState, enabled: Boolean, onClick:
 }
 
 @Composable
-private fun <T> ChoiceDialog(
+internal fun <T> ChoiceDialog(
     title: String,
     options: List<T>,
     selected: T,

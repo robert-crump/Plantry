@@ -3,7 +3,6 @@ package com.example.plantry.ui.ingredient
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,25 +14,29 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -46,6 +49,9 @@ import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
+import com.example.plantry.ui.settings.ChoiceDialog
+import com.example.plantry.ui.settings.SettingsGroup
+import com.example.plantry.ui.settings.SettingsRow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -197,6 +203,13 @@ fun IngredientDetailScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            SectionTitle(R.string.ingredient_section_properties)
+            PropertiesGroup(
+                form = form,
+                onStoreSection = { onChange { copy(storeSection = it) } },
+                onPlantPoints = { onChange { copy(plantPoints = it) } },
+            )
+
             SectionTitle(R.string.ingredient_section_nutrition)
             Nutrient.entries.chunked(2).forEach { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -216,24 +229,6 @@ fun IngredientDetailScreen(
                 }
             }
 
-            SectionTitle(R.string.ingredient_section_store_section)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StoreSection.entries.forEach { section ->
-                    FilterChip(
-                        selected = form.storeSection == section,
-                        onClick = { onChange { copy(storeSection = section) } },
-                        label = { Text(stringResource(section.label)) },
-                    )
-                }
-            }
-
-            SectionTitle(R.string.ingredient_section_plant_points)
-            ChoiceRow(
-                options = PlantPoints.entries,
-                selected = form.plantPoints,
-                label = { it.label },
-                onSelect = { onChange { copy(plantPoints = it) } },
-            )
         }
     }
 }
@@ -266,17 +261,90 @@ private fun DeleteDialog(name: String, usedIn: List<String>, onConfirm: () -> Un
     }
 }
 
+private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_INFO }
+
+/** One line per property with its current value; tapping opens a radio dialog that applies on tap. */
 @Composable
-private fun <T> ChoiceRow(options: List<T>, selected: T, label: (T) -> Int, onSelect: (T) -> Unit) {
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        options.forEachIndexed { index, option ->
-            SegmentedButton(
-                selected = option == selected,
-                onClick = { onSelect(option) },
-                shape = SegmentedButtonDefaults.itemShape(index, options.size),
-            ) { Text(stringResource(label(option))) }
-        }
+private fun PropertiesGroup(
+    form: IngredientForm,
+    onStoreSection: (StoreSection) -> Unit,
+    onPlantPoints: (PlantPoints) -> Unit,
+) {
+    var dialog by rememberSaveable { mutableStateOf<PropertyDialog?>(null) }
+    SettingsGroup(
+        {
+            SettingsRow(
+                icon = null,
+                title = stringResource(R.string.ingredient_section_store_section),
+                summary = stringResource(form.storeSection.label),
+                onClick = { dialog = PropertyDialog.STORE_SECTION },
+            )
+        },
+        {
+            SettingsRow(
+                icon = null,
+                title = stringResource(R.string.ingredient_section_plant_points),
+                summary = plantPointsLabel(form.plantPoints),
+                onClick = { dialog = PropertyDialog.PLANT_POINTS },
+                trailing = {
+                    IconButton(onClick = { dialog = PropertyDialog.PLANT_POINTS_INFO }) {
+                        Icon(Icons.Filled.Info, stringResource(R.string.plant_points_info_description))
+                    }
+                },
+            )
+        },
+        horizontalPadding = 0.dp,
+    )
+
+    val dismiss = { dialog = null }
+    when (dialog) {
+        PropertyDialog.STORE_SECTION -> ChoiceDialog(
+            title = stringResource(R.string.ingredient_section_store_section),
+            options = StoreSection.entries,
+            selected = form.storeSection,
+            label = { stringResource(it.label) },
+            onSelect = { onStoreSection(it); dismiss() },
+            onDismiss = dismiss,
+        )
+        PropertyDialog.PLANT_POINTS -> ChoiceDialog(
+            title = stringResource(R.string.ingredient_section_plant_points),
+            options = PlantPoints.entries,
+            selected = form.plantPoints,
+            label = { plantPointsLabel(it) },
+            onSelect = { onPlantPoints(it); dismiss() },
+            onDismiss = dismiss,
+        )
+        PropertyDialog.PLANT_POINTS_INFO -> PlantPointsInfoDialog(onDismiss = dismiss)
+        null -> Unit
     }
+}
+
+@Composable
+private fun PlantPointsInfoDialog(onDismiss: () -> Unit) {
+    val lines = listOf(
+        PlantPoints.ONE to R.string.plant_points_info_one,
+        PlantPoints.QUARTER to R.string.plant_points_info_quarter,
+        PlantPoints.ZERO to R.string.plant_points_info_zero,
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ingredient_section_plant_points)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.plant_points_info_intro))
+                lines.forEach { (points, text) ->
+                    Text(
+                        buildAnnotatedString {
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(plantPointsLabel(points) + ":") }
+                            append(" ")
+                            append(stringResource(text))
+                        },
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_ok)) } },
+    )
 }
 
 @Composable
@@ -330,11 +398,4 @@ internal val StoreSection.label: Int
         StoreSection.DRY_GOODS -> R.string.store_section_dry_goods
         StoreSection.FROZEN -> R.string.store_section_frozen
         StoreSection.OTHER -> R.string.store_section_other
-    }
-
-private val PlantPoints.label: Int
-    get() = when (this) {
-        PlantPoints.ONE -> R.string.plant_points_one
-        PlantPoints.QUARTER -> R.string.plant_points_quarter
-        PlantPoints.ZERO -> R.string.plant_points_zero
     }
