@@ -139,6 +139,7 @@
     <string name="cook_log_search">Rezept suchen</string>
     <string name="cook_log_none">Keine Rezepte gefunden</string>
     <string name="recipe_stats_grams">%1$dg</string>
+    <string name="recipe_stats_kcal">%1$dkcal</string>
     <string name="recipe_stats_missing">–</string>
     <string name="plan_action">Planen</string>
     <string name="planned_state">Geplant: %1$s</string>
