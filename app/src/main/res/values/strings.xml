@@ -134,7 +134,7 @@
     <string name="cooked_times">%1$d× gekocht</string>
     <string name="cooking_title">Kochen</string>
     <string name="cook_history_empty">Noch nichts gekocht. Plane ein Rezept über „Planen“ oder tippe auf „+“ für einen Vorschlag oder einen Kocheintrag.</string>
-    <string name="cook_history_deleted">Eintrag gelöscht</string>
+    <string name="cook_history_delete_confirm">Eintrag „%1$s“ vom %2$s löschen?</string>
     <string name="cook_log_action">Kocheintrag</string>
     <string name="cook_actions_open">Aktionen</string>
     <string name="cook_actions_close">Schließen</string>
@@ -154,8 +154,11 @@
     <string name="cook_week_this">Diese Woche</string>
     <string name="cook_week_last">Letzte Woche</string>
     <string name="planned_remove">Entfernen</string>
-    <string name="planned_done">Erledigt</string>
-    <string name="planned_remove_confirm">Von „Geplant“ entfernen?</string>
+    <string name="planned_remove_confirm">„%1$s“ von „Geplant“ entfernen?</string>
+    <string name="planned_done">Eintragen</string>
+    <string name="planned_done_title">Als gekocht eintragen?</string>
+    <string name="planned_done_confirm">„%1$s“ wird für %2$s eingetragen.</string>
+    <string name="planned_swipe_hint">Nach links wischen zum Entfernen, nach rechts, wenn gekocht.</string>
     <string name="reminder_channel">Kochen-Erinnerung</string>
     <string name="reminder_channel_description">Fragt am Abend des geplanten Tages, ob das Rezept gekocht wurde</string>
     <string name="reminder_single_title">Habt ihr heute %1$s gekocht?</string>

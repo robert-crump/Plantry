@@ -41,6 +41,8 @@ data class Settings(
     val reminderEnabled: Boolean = true,
     val reminderTime: LocalTime = SettingsRepository.DEFAULT_REMINDER_TIME,
     val themeMode: ThemeMode = ThemeMode.DEFAULT,
+    /** Whether a Geplant card was swiped once, which retires the swipe hint for good. */
+    val swipeHintSeen: Boolean = false,
 ) {
     val hasApiKey: Boolean get() = maskedApiKey != null
 }
@@ -112,6 +114,12 @@ class SettingsRepository(
         _settings.value = load()
     }
 
+    fun setSwipeHintSeen() {
+        if (_settings.value.swipeHintSeen) return
+        storage.putString(KEY_SWIPE_HINT_SEEN, true.toString())
+        _settings.value = load()
+    }
+
     /**
      * True only the first time it is called: the notification permission is asked once, when the
      * first recipe goes on Geplant.
@@ -130,6 +138,7 @@ class SettingsRepository(
         reminderEnabled = storage.getString(KEY_REMINDER_ENABLED)?.toBooleanStrictOrNull() ?: true,
         reminderTime = storage.getString(KEY_REMINDER_TIME)?.let(::parseTime) ?: DEFAULT_REMINDER_TIME,
         themeMode = ThemeMode.fromStorageValue(storage.getString(KEY_THEME_MODE)),
+        swipeHintSeen = storage.getString(KEY_SWIPE_HINT_SEEN)?.toBooleanStrictOrNull() ?: false,
     )
 
     private fun parseTime(text: String): LocalTime? =
@@ -147,6 +156,7 @@ class SettingsRepository(
         const val KEY_REMINDER_TIME = "reminder_time"
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_NOTIFICATION_PERMISSION_ASKED = "notification_permission_asked"
+        const val KEY_SWIPE_HINT_SEEN = "swipe_hint_seen"
 
         const val DEFAULT_COOLDOWN_DAYS = 21
         val COOLDOWN_RANGE = 1..365

@@ -225,7 +225,7 @@ fun PlantryNavHost() {
                     val justPlannedTitle by handle.getStateFlow(JUST_PLANNED_TITLE, "").collectAsStateWithLifecycle()
                     CookingScreen(
                         viewModel = viewModel {
-                            CookingViewModel(cookLogRepository, app.plannedRepository, recipeRepository, ingredientRepository)
+                            CookingViewModel(cookLogRepository, app.plannedRepository, recipeRepository, ingredientRepository, settingsRepository)
                         },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                         onSuggest = { navController.navigate(SuggestionsRoute) },

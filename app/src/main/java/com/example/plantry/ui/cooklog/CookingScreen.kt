@@ -5,6 +5,8 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,8 +30,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -57,17 +61,23 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -89,11 +99,14 @@ import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
+import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.ui.FastScrollbar
 import com.example.plantry.ui.currentLocale
+import com.example.plantry.ui.theme.highlightGreen
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -104,6 +117,7 @@ class CookingViewModel(
     private val plannedRepository: PlannedRepository,
     recipeRepository: RecipeRepository,
     ingredientRepository: IngredientRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
     /** All recipes, for "Kocheintrag". */
     val recipes: StateFlow<List<Recipe>> = recipeRepository.observeRecipes()
@@ -123,6 +137,12 @@ class CookingViewModel(
         PlannedItem.of(planned, recipes, lines, ingredients.associateBy { it.id })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** Whether to explain swiping Geplant cards, until the first swipe. */
+    val showSwipeHint: StateFlow<Boolean> = settingsRepository.settings.map { !it.swipeHintSeen }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun swipeHintSeen() = settingsRepository.setSwipeHintSeen()
+
     private var seenPlans = plannedRepository.plans.value
 
     /** Whether something was planned (on another screen) since the last call. */
@@ -133,11 +153,6 @@ class CookingViewModel(
 
     fun delete(log: CookLog) {
         viewModelScope.launch { repository.delete(log.id) }
-    }
-
-    /** Puts a deleted entry back with its original id, so it keeps its place in the history. */
-    fun restore(log: CookLog) {
-        viewModelScope.launch { repository.restore(log) }
     }
 
     /** Logs a planned recipe on its planned day (today if still ahead) and takes it off Geplant; [onDone] gets what to undo. */
@@ -166,7 +181,8 @@ data class JustPlanned(val recipeId: Long, val title: String)
  * The Kochen tab: Geplant on top as cards (hidden when empty), then the cooking history under
  * "Verlauf", newest first, in Monday–Sunday weeks with sticky headers, each row with its own date
  * badge. History rows show the recipe as it was when logged. A "+" FAB, hidden while scrolling
- * down, opens "Vorschlag" and "Kocheintrag" (pick a recipe, then a day up to today). [justPlanned] is shown once as a snackbar, then [onJustPlannedShown] clears it.
+ * down, opens "Vorschlag" and "Kocheintrag" (pick a recipe, then a day up to today).
+ * [justPlanned] is shown once as a snackbar, then [onJustPlannedShown] clears it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -179,9 +195,9 @@ fun CookingScreen(
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val planned by viewModel.planned.collectAsStateWithLifecycle()
+    val showSwipeHint by viewModel.showSwipeHint.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val deletedMessage = stringResource(R.string.cook_history_deleted)
     val loggedMessage = stringResource(R.string.cooked_logged)
     val undoLabel = stringResource(R.string.action_undo)
     val plannedMessage = stringResource(R.string.suggest_planned, justPlanned?.title.orEmpty())
@@ -274,12 +290,15 @@ fun CookingScreen(
                 // Refreshed with the list, so the week headers catch up when a new day starts.
                 val today = remember(list) { LocalDate.now() }
                 val weeks = remember(list) { groupByWeek(list) { it.cookedOn } }
-                // One label per list item, in list order: "Geplant" over the planned section, the
-                // month and year of each history entry (the "Verlauf" title and each week header
-                // take their first entry's).
-                val scrollLabels = remember(plannedItems, weeks, plannedLabel, locale) {
+                val swipeHint = showSwipeHint && plannedItems.isNotEmpty()
+                // One label per list item, in list order: "Geplant" over the planned section (title,
+                // hint and cards), the month and year of each history entry (the "Verlauf" title and
+                // each week header take their first entry's).
+                val scrollLabels = remember(plannedItems, swipeHint, weeks, plannedLabel, locale) {
                     buildList {
-                        if (plannedItems.isNotEmpty()) repeat(plannedItems.size + 1) { add(plannedLabel) }
+                        if (plannedItems.isNotEmpty()) {
+                            repeat(plannedItems.size + if (swipeHint) 2 else 1) { add(plannedLabel) }
+                        }
                         list.firstOrNull()?.let { add(cookMonthYearLabel(it.cookedOn, locale)) }
                         weeks.values.forEach { week ->
                             add(cookMonthYearLabel(week.first().cookedOn, locale))
@@ -295,10 +314,13 @@ fun CookingScreen(
                     ) {
                         if (plannedItems.isNotEmpty()) {
                             item(key = "planned-title") { SectionTitle(stringResource(R.string.planned_title)) }
+                            if (swipeHint) item(key = "planned-hint") { SwipeHint() }
                             items(plannedItems, key = { "planned-${it.recipeId}" }) { item ->
                                 PlannedCard(
                                     item,
+                                    today = today,
                                     onClick = { onRecipeClick(item.recipeId) },
+                                    onSwiped = viewModel::swipeHintSeen,
                                     onDone = {
                                         viewModel.done(item) { cooked ->
                                             showUndo(loggedMessage) { viewModel.undoCook(cooked) }
@@ -318,12 +340,10 @@ fun CookingScreen(
                             items(week, key = { it.id }) { entry ->
                                 HistoryRow(
                                     entry,
+                                    today = today,
                                     // A deleted recipe has nothing to open.
                                     onClick = entry.recipeId?.let { id -> { onRecipeClick(id) } },
-                                    onDelete = {
-                                        viewModel.delete(entry)
-                                        showUndo(deletedMessage) { viewModel.restore(entry) }
-                                    },
+                                    onDelete = { viewModel.delete(entry) },
                                 )
                             }
                         }
@@ -438,117 +458,177 @@ private fun WeekHeader(text: String) {
     }
 }
 
+/** "Nach links wischen zum Entfernen, …" under the Geplant title, until the first swipe. */
+@Composable
+private fun SwipeHint() {
+    Row(
+        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val color = MaterialTheme.colorScheme.onSurfaceVariant
+        Icon(Icons.Filled.Swipe, contentDescription = null, Modifier.size(16.dp), tint = color)
+        Text(stringResource(R.string.planned_swipe_hint), style = MaterialTheme.typography.bodySmall, color = color)
+    }
+}
+
 /**
- * A gray card with a planned recipe: its planned day as a date badge, the name (wrapping), its
- * current stats, "Erledigt" and "Entfernen" (after asking).
+ * A gray card with a planned recipe: its planned day as a date badge, the name (wrapping) and its
+ * current stats. Swiped right it asks to log the recipe as cooked (on its planned day, today if
+ * that is still ahead), swiped left to take it off Geplant; [onSwiped] runs on either swipe.
  */
 @Composable
 private fun PlannedCard(
     item: PlannedItem,
+    today: LocalDate,
     onClick: () -> Unit,
+    onSwiped: () -> Unit,
     onDone: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    var confirmRemove by rememberSaveable { mutableStateOf(false) }
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    var confirm by rememberSaveable { mutableStateOf<SwipeAction?>(null) }
+    val shape = RoundedCornerShape(16.dp)
+    SwipeActionBox(
+        onSwipe = {
+            onSwiped()
+            confirm = it
+        },
+        doneEnabled = true,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = shape,
     ) {
-        Row(
-            Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.Top,
+        Card(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            shape = shape,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         ) {
-            DateBadge(item.planned.plannedOn)
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    item.snapshot.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                RecipeStatsRow(item.snapshot.stats)
+            Row(
+                Modifier.padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                DateBadge(item.planned.plannedOn)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        item.snapshot.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    RecipeStatsRow(item.snapshot.stats)
+                }
             }
         }
-        Row(
-            Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            TextButton(onClick = { confirmRemove = true }) { Text(stringResource(R.string.planned_remove)) }
-            TextButton(onClick = onDone) { Text(stringResource(R.string.planned_done)) }
-        }
     }
-    if (confirmRemove) {
-        AlertDialog(
-            onDismissRequest = { confirmRemove = false },
-            text = { Text(stringResource(R.string.planned_remove_confirm)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmRemove = false
-                        onRemove()
-                    },
-                ) { Text(stringResource(R.string.planned_remove)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.action_cancel)) }
-            },
+    when (confirm) {
+        SwipeAction.DELETE -> ConfirmDialog(
+            title = null,
+            text = stringResource(R.string.planned_remove_confirm, item.snapshot.title),
+            confirmLabel = stringResource(R.string.planned_remove),
+            onConfirm = onRemove,
+            onDismiss = { confirm = null },
         )
+        SwipeAction.DONE -> ConfirmDialog(
+            title = stringResource(R.string.planned_done_title),
+            text = stringResource(
+                R.string.planned_done_confirm,
+                item.snapshot.title,
+                formatPlannedDate(minOf(item.planned.plannedOn, today), today, currentLocale()),
+            ),
+            confirmLabel = stringResource(R.string.planned_done),
+            onConfirm = onDone,
+            onDismiss = { confirm = null },
+        )
+        null -> Unit
     }
 }
 
-/** How far a row has to be dragged (of its width) to delete it. */
-private const val DeleteFraction = 0.4f
+/** Swiping a row right to left asks to delete it, left to right (Geplant only) to log it as cooked. */
+private enum class SwipeAction { DELETE, DONE }
+
+/** How far a row has to be dragged (of its width) to act. */
+private const val SwipeFraction = 0.4f
 
 /**
- * Dragging the row right to left past [DeleteFraction] of its width deletes the entry; a quick
- * flick alone doesn't. The background turns red and its icon grows once letting go will delete.
+ * Letting go of [content] dragged right to left past [SwipeFraction] of its width calls [onSwipe]
+ * with [SwipeAction.DELETE], left to right (if [doneEnabled]) with [SwipeAction.DONE]; a quick
+ * flick alone doesn't. It springs back either way, as the caller asks before acting. The
+ * background turns red (delete) or green (done) and its icon grows once letting go will act.
  */
 @Suppress("DEPRECATION") // confirmValueChange is the only way to veto a dismissing flick.
 @Composable
-private fun HistoryRow(entry: CookLog, onClick: (() -> Unit)?, onDelete: () -> Unit) {
+private fun SwipeActionBox(
+    onSwipe: (SwipeAction) -> Unit,
+    doneEnabled: Boolean,
+    modifier: Modifier = Modifier,
+    shape: Shape = RectangleShape,
+    content: @Composable () -> Unit,
+) {
     var width by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
-    // Not saveable on purpose: the list keeps saved state per key, so an entry brought back by
-    // undo would return dismissed and be deleted again.
+    val currentOnSwipe by rememberUpdatedState(onSwipe)
+    // Not saveable on purpose: it never rests swiped, so there is nothing to restore.
     val state = remember {
-        lateinit var state: SwipeToDismissBoxState
         SwipeToDismissBoxState(
             SwipeToDismissBoxValue.Settled,
             density,
-            // A flick targets the next anchor from any distance; only allow it past the threshold.
-            confirmValueChange = {
-                it == SwipeToDismissBoxValue.Settled || abs(state.requireOffset()) >= width * DeleteFraction
-            },
-            positionalThreshold = { it * DeleteFraction },
-        ).also { state = it }
+            // Never settles swiped, so the row springs back while the caller asks; this also keeps
+            // a flick, which targets the next anchor from any distance, from acting.
+            confirmValueChange = { it == SwipeToDismissBoxValue.Settled },
+            positionalThreshold = { it * SwipeFraction },
+        )
     }
-    val armed = state.targetValue == SwipeToDismissBoxValue.EndToStart
+    val armed = state.targetValue != SwipeToDismissBoxValue.Settled
+    val done = state.dismissDirection == SwipeToDismissBoxValue.StartToEnd
     SwipeToDismissBox(
         state = state,
-        modifier = Modifier.onSizeChanged { width = it.width },
-        enableDismissFromStartToEnd = false,
+        modifier = modifier
+            .onSizeChanged { width = it.width }
+            // Watches the gesture without consuming it and acts on release, not when the
+            // threshold is crossed (confirmValueChange is also asked mid-drag).
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    while (awaitPointerEvent(PointerEventPass.Initial).changes.any { it.pressed }) Unit
+                    val offset = state.requireOffset()
+                    if (abs(offset) >= width * SwipeFraction) {
+                        currentOnSwipe(if (offset < 0) SwipeAction.DELETE else SwipeAction.DONE)
+                    }
+                }
+            },
+        enableDismissFromStartToEnd = doneEnabled,
         backgroundContent = {
+            val armedColor = if (done) highlightGreen else MaterialTheme.colorScheme.error
             val color by animateColorAsState(
-                if (armed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.surfaceContainerHighest,
-                label = "delete background",
+                if (armed) armedColor else MaterialTheme.colorScheme.surfaceContainerHighest,
+                label = "swipe background",
             )
-            val scale by animateFloatAsState(if (armed) 1.4f else 1f, label = "delete icon")
+            val scale by animateFloatAsState(if (armed) 1.4f else 1f, label = "swipe icon")
             Box(
-                Modifier.fillMaxSize().background(color).padding(horizontal = 24.dp),
-                contentAlignment = Alignment.CenterEnd,
+                Modifier.fillMaxSize().clip(shape).background(color).padding(horizontal = 24.dp),
+                contentAlignment = if (done) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
                 Icon(
-                    Icons.Filled.Delete,
+                    if (done) Icons.Filled.Check else Icons.Filled.Delete,
                     contentDescription = null,
-                    tint = if (armed) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = when {
+                        !armed -> MaterialTheme.colorScheme.onSurfaceVariant
+                        // The surface colour contrasts with both the light and the dark green.
+                        done -> MaterialTheme.colorScheme.surface
+                        else -> MaterialTheme.colorScheme.onError
+                    },
                     modifier = Modifier.scale(scale),
                 )
             }
         },
-        onDismiss = { onDelete() },
-    ) {
+    ) { content() }
+}
+
+/** Dragging the row right to left past [SwipeFraction] of its width asks to delete the entry. */
+@Composable
+private fun HistoryRow(entry: CookLog, today: LocalDate, onClick: (() -> Unit)?, onDelete: () -> Unit) {
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    SwipeActionBox(onSwipe = { confirmDelete = true }, doneEnabled = false) {
         Row(
             Modifier
                 .fillMaxWidth()
@@ -572,6 +652,36 @@ private fun HistoryRow(entry: CookLog, onClick: (() -> Unit)?, onDelete: () -> U
             }
         }
     }
+    if (confirmDelete) {
+        ConfirmDialog(
+            title = null,
+            text = stringResource(R.string.cook_history_delete_confirm, entry.title, formatPlannedDate(entry.cookedOn, today, currentLocale())),
+            confirmLabel = stringResource(R.string.action_delete),
+            onConfirm = onDelete,
+            onDismiss = { confirmDelete = false },
+        )
+    }
+}
+
+/** Asks before a swipe acts; [onConfirm] runs after the dialog closes. */
+@Composable
+private fun ConfirmDialog(title: String?, text: String, confirmLabel: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = title?.let { { Text(it) } },
+        text = { Text(text) },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onDismiss()
+                    onConfirm()
+                },
+            ) { Text(confirmLabel) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
 }
 
 /** Day number over the abbreviated month in the device locale, e.g. "23" over "Okt". */

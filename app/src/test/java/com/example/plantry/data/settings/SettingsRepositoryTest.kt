@@ -76,6 +76,16 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun swipeHintSeen_isPersisted() {
+        assertFalse(repository.settings.value.swipeHintSeen)
+
+        repository.setSwipeHintSeen()
+
+        assertTrue(repository.settings.value.swipeHintSeen)
+        assertTrue(SettingsRepository(storage, ReversingCipher).settings.value.swipeHintSeen)
+    }
+
+    @Test
     fun setCooldownDays_rejectsOutOfRange() {
         assertFalse(repository.setCooldownDays(0))
         assertFalse(repository.setCooldownDays(366))
