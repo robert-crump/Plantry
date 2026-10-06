@@ -428,7 +428,7 @@ private fun HistoryRow(entry: CookLog, onClick: (() -> Unit)?, onDelete: () -> U
         enableDismissFromStartToEnd = false,
         backgroundContent = {
             val color by animateColorAsState(
-                if (armed) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                if (armed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.surfaceContainerHighest,
                 label = "delete background",
             )
             val scale by animateFloatAsState(if (armed) 1.4f else 1f, label = "delete icon")
@@ -439,7 +439,7 @@ private fun HistoryRow(entry: CookLog, onClick: (() -> Unit)?, onDelete: () -> U
                 Icon(
                     Icons.Filled.Delete,
                     contentDescription = null,
-                    tint = if (armed) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (armed) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.scale(scale),
                 )
             }
