@@ -62,8 +62,6 @@
         <item quantity="one">%1$d von %2$d Zutat</item>
         <item quantity="other">%1$d von %2$d Zutaten</item>
     </plurals>
-    <string name="recipe_list_protein">%.0f g Eiweiß</string>
-    <string name="recipe_list_plant_points">Pflanzenpunkte: %1$s</string>
 
     <!-- Recipe edit -->
     <string name="recipe_new">Neues Rezept</string>

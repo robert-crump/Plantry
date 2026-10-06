@@ -358,7 +358,16 @@ private fun MetadataValue(text: String) {
 
 /** Timer icon and "Kochzeit fehlt", shaped like a chip but not tappable. */
 @Composable
-internal fun MissingCookingTimeChip(modifier: Modifier = Modifier) {
+internal fun MissingCookingTimeChip(modifier: Modifier = Modifier) =
+    TimerChip(stringResource(R.string.recipe_cooking_time_missing), modifier)
+
+/** Timer icon and e.g. "25 Min.", or [MissingCookingTimeChip] without a time. */
+@Composable
+internal fun CookingTimeChip(minutes: Int?, modifier: Modifier = Modifier) =
+    if (minutes != null) TimerChip(stringResource(R.string.recipe_minutes, minutes), modifier) else MissingCookingTimeChip(modifier)
+
+@Composable
+private fun TimerChip(text: String, modifier: Modifier) {
     Surface(
         modifier,
         shape = MaterialTheme.shapes.small,
@@ -372,7 +381,7 @@ internal fun MissingCookingTimeChip(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(Icons.Outlined.Timer, contentDescription = null, Modifier.size(16.dp))
-            Text(stringResource(R.string.recipe_cooking_time_missing), style = MaterialTheme.typography.labelMedium)
+            Text(text, style = MaterialTheme.typography.labelMedium)
         }
     }
 }

@@ -35,13 +35,16 @@ data class RecipeFilter(
 /** One row of the recipe list with the values it can be sorted by. */
 data class RecipeListItem(
     val recipe: Recipe,
-    val proteinPerPortion: Double,
-    /** Sum of [PlantPoints] over the recipe's distinct ingredients. */
-    val plantPoints: Double,
+    val stats: RecipeStats,
     val lastCookedOn: LocalDate?,
     /** How many of the filter's ingredients the recipe uses; 0 without an ingredient filter. */
     val matchedIngredients: Int,
-)
+) {
+    val proteinPerPortion: Double get() = stats.proteinPerPortion
+
+    /** Sum of [PlantPoints] over the recipe's distinct ingredients. */
+    val plantPoints: Double get() = stats.plantPoints
+}
 
 object RecipeQuery {
 
@@ -103,11 +106,9 @@ object RecipeQuery {
         wanted: List<Long>,
     ): RecipeListItem {
         val used = recipeLines.mapTo(mutableSetOf()) { it.ingredientId }
-        val stats = RecipeStats.of(recipe, recipeLines, ingredients)
         return RecipeListItem(
             recipe = recipe,
-            proteinPerPortion = stats.proteinPerPortion,
-            plantPoints = stats.plantPoints,
+            stats = RecipeStats.of(recipe, recipeLines, ingredients),
             lastCookedOn = lastCooked[recipe.id],
             matchedIngredients = wanted.count { it in used },
         )

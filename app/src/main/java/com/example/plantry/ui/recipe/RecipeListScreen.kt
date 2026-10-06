@@ -33,7 +33,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -50,6 +49,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -66,8 +67,8 @@ import com.example.plantry.data.RecipeListItem
 import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeSort
+import com.example.plantry.ui.cooklog.RecipeStatsRow
 import com.example.plantry.ui.cooklog.lastCookedLabel
-import com.example.plantry.ui.currentLocale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -377,31 +378,39 @@ private fun IngredientFilterDialog(
     )
 }
 
+/**
+ * The name on up to two lines, then the stats with the cooking time on the right. A third line
+ * shows how many of the filter's ingredients the recipe uses and, sorted by last cooked, when.
+ */
 @Composable
 private fun RecipeRow(item: RecipeListItem, sort: RecipeSort, ingredientCount: Int, today: LocalDate, onClick: () -> Unit) {
     val details = listOfNotNull(
         if (ingredientCount > 0) pluralStringResource(R.plurals.recipe_list_matched, ingredientCount, item.matchedIngredients, ingredientCount) else null,
-        sourceLabel(item.recipe),
-        sortValueLabel(item, sort, today),
+        if (sort == RecipeSort.LAST_COOKED) lastCookedLabel(CookingStats.from(listOfNotNull(item.lastCookedOn), today)) else null,
     )
-    ListItem(
-        headlineContent = { Text(item.recipe.title) },
-        supportingContent = { Text(details.joinToString(" · ")) },
-        trailingContent = {
-            val minutes = item.recipe.cookingTimeMinutes
-            if (minutes != null) Text(stringResource(R.string.recipe_minutes, minutes)) else MissingCookingTimeChip()
-        },
-        modifier = Modifier.clickable(onClick = onClick),
-    )
-}
-
-/** The value a non-obvious sort orders by, so the order can be followed; null for A–Z and time. */
-@Composable
-private fun sortValueLabel(item: RecipeListItem, sort: RecipeSort, today: LocalDate): String? = when (sort) {
-    RecipeSort.TITLE, RecipeSort.COOKING_TIME -> null
-    RecipeSort.PROTEIN -> stringResource(R.string.recipe_list_protein, item.proteinPerPortion)
-    RecipeSort.PLANT_POINTS -> stringResource(R.string.recipe_list_plant_points, formatPlantPoints(item.plantPoints, currentLocale()))
-    RecipeSort.LAST_COOKED -> lastCookedLabel(CookingStats.from(listOfNotNull(item.lastCookedOn), today))
+    Column(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            item.recipe.title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RecipeStatsRow(item.stats, Modifier.weight(1f))
+            CookingTimeChip(item.recipe.cookingTimeMinutes, Modifier.padding(start = 8.dp))
+        }
+        if (details.isNotEmpty()) {
+            Text(
+                details.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 @Composable
