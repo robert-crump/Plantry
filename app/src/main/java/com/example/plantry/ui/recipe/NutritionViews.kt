@@ -7,19 +7,30 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BakeryDining
+import androidx.compose.material.icons.filled.Cookie
+import androidx.compose.material.icons.filled.Grass
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.plantry.R
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.ProteinRating
 import com.example.plantry.data.RecipeNutrition
+import com.example.plantry.ui.cooklog.ProteinIcon
 import com.example.plantry.ui.currentLocale
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -57,7 +68,7 @@ fun ProteinIndicator(proteinPerPortion: Double, modifier: Modifier = Modifier) {
     }
 }
 
-/** Every nutrient per portion with the ingredients contributing most to it. */
+/** Every nutrient per portion, each with its icon and the ingredients contributing most to it. */
 @Composable
 fun NutrientList(nutrition: RecipeNutrition) {
     val locale = currentLocale()
@@ -65,6 +76,8 @@ fun NutrientList(nutrition: RecipeNutrition) {
         Nutrient.entries.forEach { nutrient ->
             val contributors = nutrition.topContributors[nutrient].orEmpty()
             ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                leadingContent = { Icon(nutrient.icon, contentDescription = null) },
                 headlineContent = { Text(stringResource(nutrient.displayName)) },
                 supportingContent = if (contributors.isEmpty()) {
                     null
@@ -105,6 +118,16 @@ private val ProteinRating.label: Int
         ProteinRating.GREEN -> R.string.protein_rating_green
         ProteinRating.YELLOW -> R.string.protein_rating_yellow
         ProteinRating.RED -> R.string.protein_rating_red
+    }
+
+private val Nutrient.icon: Painter
+    @Composable get() = when (this) {
+        Nutrient.KCAL -> rememberVectorPainter(Icons.Filled.LocalFireDepartment)
+        Nutrient.PROTEIN -> ProteinIcon
+        Nutrient.CARBS -> rememberVectorPainter(Icons.Filled.BakeryDining)
+        Nutrient.SUGAR -> rememberVectorPainter(Icons.Filled.Cookie)
+        Nutrient.FAT -> rememberVectorPainter(Icons.Filled.WaterDrop)
+        Nutrient.FIBRE -> rememberVectorPainter(Icons.Filled.Grass)
     }
 
 private val Nutrient.displayName: Int

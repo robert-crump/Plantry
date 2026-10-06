@@ -6,6 +6,7 @@
     <string name="action_save">Speichern</string>
     <string name="action_edit">Bearbeiten</string>
     <string name="action_delete">Löschen</string>
+    <string name="action_more">Weitere Optionen</string>
     <string name="action_cancel">Abbrechen</string>
     <string name="action_ok">OK</string>
     <string name="action_replace">Ersetzen</string>
@@ -34,6 +35,7 @@
     <string name="recipe_page_only">S. %1$d</string>
     <string name="recipe_no_source">Keine Quelle</string>
     <string name="recipe_minutes">%1$d Min.</string>
+    <string name="recipe_cooking_time_missing">Kochzeit fehlt</string>
     <string name="recipe_sort">Sortieren</string>
     <string name="recipe_sort_title">A–Z</string>
     <string name="recipe_sort_protein">Eiweiß je Portion</string>

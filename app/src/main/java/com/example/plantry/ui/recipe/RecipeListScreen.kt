@@ -387,8 +387,9 @@ private fun RecipeRow(item: RecipeListItem, sort: RecipeSort, ingredientCount: I
     ListItem(
         headlineContent = { Text(item.recipe.title) },
         supportingContent = { Text(details.joinToString(" · ")) },
-        trailingContent = item.recipe.cookingTimeMinutes?.let { minutes ->
-            { Text(stringResource(R.string.recipe_minutes, minutes)) }
+        trailingContent = {
+            val minutes = item.recipe.cookingTimeMinutes
+            if (minutes != null) Text(stringResource(R.string.recipe_minutes, minutes)) else MissingCookingTimeChip()
         },
         modifier = Modifier.clickable(onClick = onClick),
     )

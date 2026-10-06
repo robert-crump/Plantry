@@ -12,13 +12,17 @@ data class Contributor(val name: String, val amount: Double)
  */
 data class RecipeNutrition(
     val perPortion: Nutrition,
-    /** Per nutrient, the ingredients contributing most, largest first; zero contributions are left out. */
+    /**
+     * Per nutrient, up to [TOP_CONTRIBUTOR_COUNT] ingredients contributing most, largest first;
+     * only those making up at least [MIN_CONTRIBUTOR_SHARE] of the total count.
+     */
     val topContributors: Map<Nutrient, List<Contributor>>,
 ) {
     val proteinRating: ProteinRating get() = ProteinRating.of(perPortion.protein)
 
     companion object {
         const val TOP_CONTRIBUTOR_COUNT = 3
+        const val MIN_CONTRIBUTOR_SHARE = 0.1
 
         fun calculate(lines: List<NutritionLine>, servings: Int): RecipeNutrition {
             require(servings > 0) { "servings must be positive, was $servings" }
@@ -31,9 +35,10 @@ data class RecipeNutrition(
                 Nutrient.entries.associateWith { nutrient -> perIngredient.sumOf { (_, n) -> n[nutrient] } },
             )
             val topContributors = Nutrient.entries.associateWith { nutrient ->
+                val minAmount = perPortion[nutrient] * MIN_CONTRIBUTOR_SHARE
                 perIngredient
                     .map { (name, n) -> Contributor(name, n[nutrient]) }
-                    .filter { it.amount > 0 }
+                    .filter { it.amount > 0 && it.amount >= minAmount }
                     .sortedByDescending { it.amount }
                     .take(TOP_CONTRIBUTOR_COUNT)
             }

@@ -62,7 +62,50 @@ class RecipeNutritionTest {
             listOf(Contributor("Linsen", 24.6), Contributor("Tofu", 17.3)),
             nutrition.topContributors.getValue(Nutrient.PROTEIN),
         )
-        assertEquals(listOf("Öl", "Tofu", "Linsen"), nutrition.topContributors.getValue(Nutrient.FAT).map { it.name })
+        assertEquals(listOf("Linsen", "Tofu", "Öl"), nutrition.topContributors.getValue(Nutrient.KCAL).map { it.name })
+    }
+
+    @Test
+    fun topContributors_leaveOutThoseBelowTenPercentOfTheTotal() {
+        // Fat per portion: Öl 10, Tofu 8.7, Linsen 1.1 of 19.8 — Linsen is 5.6 %.
+        val nutrition = RecipeNutrition.calculate(
+            listOf(line(1, "Tofu", 200.0, tofu), line(2, "Linsen", 200.0, lentils), line(3, "Öl", 20.0, oil)),
+            servings = 2,
+        )
+
+        assertEquals(listOf("Öl", "Tofu"), nutrition.topContributors.getValue(Nutrient.FAT).map { it.name })
+    }
+
+    @Test
+    fun topContributors_keepOneMakingUpExactlyTenPercent() {
+        val fat = Nutrition(fat = 1.0)
+        val nutrition = RecipeNutrition.calculate(
+            listOf(line(1, "A", 900.0, fat), line(2, "B", 100.0, fat)),
+            servings = 1,
+        )
+
+        assertEquals(listOf("A", "B"), nutrition.topContributors.getValue(Nutrient.FAT).map { it.name })
+    }
+
+    @Test
+    fun topContributors_areEmptyWhenNoneMakesUpTenPercent() {
+        // Eleven equal ingredients: each is 9.1 % of the total.
+        val lines = (1L..11L).map { line(it, "Zutat $it", 100.0, tofu) }
+
+        val protein = RecipeNutrition.calculate(lines, servings = 1).topContributors.getValue(Nutrient.PROTEIN)
+
+        assertTrue(protein.isEmpty())
+    }
+
+    @Test
+    fun topContributors_canBeASingleOne() {
+        val nutrition = RecipeNutrition.calculate(
+            listOf(line(1, "Öl", 20.0, oil), line(2, "Tofu", 10.0, tofu)),
+            servings = 1,
+        )
+
+        // Fat: Öl 20 of 20.87 g; Tofu 0.87 g is 4.2 %.
+        assertEquals(listOf("Öl"), nutrition.topContributors.getValue(Nutrient.FAT).map { it.name })
     }
 
     @Test

@@ -1,7 +1,9 @@
 package com.example.plantry.ui.recipe
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -19,8 +22,14 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,9 +44,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -151,14 +163,7 @@ fun RecipeDetailScreen(
                     }
                 },
                 actions = {
-                    if (recipe != null) {
-                        IconButton(onClick = onEdit) {
-                            Icon(Icons.Filled.Edit, stringResource(R.string.action_edit))
-                        }
-                        IconButton(onClick = { confirmDelete = true }) {
-                            Icon(Icons.Filled.Delete, stringResource(R.string.action_delete))
-                        }
-                    }
+                    if (recipe != null) OverflowMenu(onEdit = onEdit, onDelete = { confirmDelete = true })
                 },
             )
         },
@@ -204,32 +209,28 @@ fun RecipeDetailScreen(
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                 )
             }
-            DetailRow(stringResource(R.string.recipe_source), sourceLabel(current))
-            DetailRow(stringResource(R.string.recipe_book_servings), current.bookServings.toString())
-            DetailRow(stringResource(R.string.recipe_our_servings), current.ourServings.toString())
-            current.cookingTimeMinutes?.let { minutes ->
-                DetailRow(stringResource(R.string.recipe_cooking_time), stringResource(R.string.recipe_minutes, minutes))
-            }
+            MetadataCard(current)
 
-            SectionTitle(R.string.recipe_section_lines)
-            if (detail.lines.isEmpty()) {
-                Text(
-                    stringResource(R.string.recipe_lines_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
+            DetailCard {
+                SectionTitle(R.string.recipe_section_lines)
+                if (detail.lines.isEmpty()) {
+                    Text(
+                        stringResource(R.string.recipe_lines_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+                IngredientGrid(detail.lines)
             }
-            IngredientGrid(detail.lines)
 
             if (detail.lines.isNotEmpty()) {
-                SectionTitle(R.string.recipe_section_nutrition)
-                ProteinIndicator(
-                    detail.nutrition.perPortion.protein,
-                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-                NutrientList(detail.nutrition)
+                DetailCard {
+                    SectionTitle(R.string.recipe_section_nutrition)
+                    NutrientList(detail.nutrition)
+                }
             }
+            Spacer(Modifier.height(16.dp))
         }
 
         if (pickPlanDate) {
@@ -263,6 +264,115 @@ fun RecipeDetailScreen(
                     }
                 },
             )
+        }
+    }
+}
+
+/** "Bearbeiten" and "Löschen" behind the overflow icon. */
+@Composable
+private fun OverflowMenu(onEdit: () -> Unit, onDelete: () -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.action_edit)) },
+                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    onEdit()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.action_delete)) },
+                leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    onDelete()
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetailCard(content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Column(Modifier.padding(bottom = 8.dp)) { content() }
+    }
+}
+
+/** Quelle | Kochzeit, Portionen laut Buch | Unsere Portionen. */
+@Composable
+private fun MetadataCard(recipe: Recipe) {
+    DetailCard {
+        Column(
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                MetadataCell(R.string.recipe_source, Modifier.weight(1f)) { MetadataValue(sourceLabel(recipe)) }
+                MetadataCell(R.string.recipe_cooking_time, Modifier.weight(1f)) {
+                    val minutes = recipe.cookingTimeMinutes
+                    if (minutes != null) {
+                        MetadataValue(stringResource(R.string.recipe_minutes, minutes))
+                    } else {
+                        MissingCookingTimeChip()
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                MetadataCell(R.string.recipe_book_servings, Modifier.weight(1f)) {
+                    MetadataValue(recipe.bookServings.toString())
+                }
+                MetadataCell(R.string.recipe_our_servings, Modifier.weight(1f)) {
+                    MetadataValue(recipe.ourServings.toString())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetadataCell(@StringRes label: Int, modifier: Modifier, value: @Composable () -> Unit) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            stringResource(label),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        value()
+    }
+}
+
+@Composable
+private fun MetadataValue(text: String) {
+    Text(text, style = MaterialTheme.typography.bodyLarge)
+}
+
+/** Timer icon and "Kochzeit fehlt", shaped like a chip but not tappable. */
+@Composable
+internal fun MissingCookingTimeChip(modifier: Modifier = Modifier) {
+    Surface(
+        modifier,
+        shape = MaterialTheme.shapes.small,
+        color = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(
+            Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Outlined.Timer, contentDescription = null, Modifier.size(16.dp))
+            Text(stringResource(R.string.recipe_cooking_time_missing), style = MaterialTheme.typography.labelMedium)
         }
     }
 }
@@ -333,9 +443,4 @@ private fun SectionTitle(@StringRes text: Int) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp),
     )
-}
-
-@Composable
-private fun DetailRow(label: String, value: String) {
-    ListItem(overlineContent = { Text(label) }, headlineContent = { Text(value) })
 }
