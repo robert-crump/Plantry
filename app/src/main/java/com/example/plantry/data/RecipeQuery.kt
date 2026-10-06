@@ -39,6 +39,7 @@ data class RecipeListItem(
     val lastCookedOn: LocalDate?,
     /** How many of the filter's ingredients the recipe uses; 0 without an ingredient filter. */
     val matchedIngredients: Int,
+    val highlights: Set<RecipeHighlight> = emptySet(),
 ) {
     val proteinPerPortion: Double get() = stats.proteinPerPortion
 
@@ -106,11 +107,13 @@ object RecipeQuery {
         wanted: List<Long>,
     ): RecipeListItem {
         val used = recipeLines.mapTo(mutableSetOf()) { it.ingredientId }
+        val stats = RecipeStats.of(recipe, recipeLines, ingredients)
         return RecipeListItem(
             recipe = recipe,
-            stats = RecipeStats.of(recipe, recipeLines, ingredients),
+            stats = stats,
             lastCookedOn = lastCooked[recipe.id],
             matchedIngredients = wanted.count { it in used },
+            highlights = RecipeHighlight.of(stats, hasLines = recipeLines.isNotEmpty()),
         )
     }
 

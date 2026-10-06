@@ -5,6 +5,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.background
@@ -51,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,16 +64,20 @@ import com.example.plantry.data.CookingStats
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
+import com.example.plantry.data.RecipeHighlight
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
+import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.nutritionLines
 import com.example.plantry.data.toDraft
 import com.example.plantry.ui.cooklog.PlanDatePickerDialog
 import com.example.plantry.ui.cooklog.formatPlannedDate
+import com.example.plantry.ui.cooklog.label
 import com.example.plantry.ui.cooklog.lastCookedLabel
 import com.example.plantry.ui.currentLocale
+import com.example.plantry.ui.theme.highlightGreen
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -82,6 +89,7 @@ data class RecipeDetailUiState(
     val recipe: Recipe,
     val lines: List<RecipeIngredient>,
     val nutrition: RecipeNutrition,
+    val highlights: Set<RecipeHighlight>,
     val cooking: CookingStats,
     /** The day it is planned for; null while it isn't on Geplant. */
     val plannedOn: LocalDate?,
@@ -117,6 +125,7 @@ class RecipeDetailViewModel(
                 nutritionLines(lines.map { it.toDraft() }, byId),
                 recipe.ourServings,
             ),
+            highlights = RecipeHighlight.of(RecipeStats.of(recipe, lines, byId), hasLines = lines.isNotEmpty()),
             cooking = cooking,
             plannedOn = planned?.plannedOn,
         )
@@ -176,6 +185,7 @@ fun RecipeDetailScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
+            if (detail.highlights.isNotEmpty()) HighlightChips(detail.highlights)
             if (current.modified) {
                 ListItem(
                     leadingContent = {
@@ -354,6 +364,33 @@ private fun MetadataCell(@StringRes label: Int, modifier: Modifier, value: @Comp
 @Composable
 private fun MetadataValue(text: String) {
     Text(text, style = MaterialTheme.typography.bodyLarge)
+}
+
+/** A green label per highlight the recipe earns, e.g. "Proteinreich", in [RecipeHighlight] order. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HighlightChips(highlights: Set<RecipeHighlight>) {
+    val green = highlightGreen
+    FlowRow(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        RecipeHighlight.entries.filter { it in highlights }.forEach { highlight ->
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = green.copy(alpha = 0.15f),
+                contentColor = green,
+            ) {
+                Text(
+                    stringResource(highlight.label),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+        }
+    }
 }
 
 /** Timer icon and "Kochzeit fehlt", shaped like a chip but not tappable. */

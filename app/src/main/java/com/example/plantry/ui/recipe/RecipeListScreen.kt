@@ -400,7 +400,7 @@ private fun RecipeRow(item: RecipeListItem, sort: RecipeSort, ingredientCount: I
             overflow = TextOverflow.Ellipsis,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            RecipeStatsRow(item.stats, Modifier.weight(1f))
+            RecipeStatsRow(item.stats, Modifier.weight(1f), highlights = item.highlights)
             CookingTimeChip(item.recipe.cookingTimeMinutes, Modifier.padding(start = 8.dp))
         }
         if (details.isNotEmpty()) {

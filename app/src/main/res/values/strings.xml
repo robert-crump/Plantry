@@ -143,6 +143,10 @@
     <string name="recipe_stats_grams">%1$dg</string>
     <string name="recipe_stats_kcal">%1$dkcal</string>
     <string name="recipe_stats_missing">–</string>
+    <string name="highlight_high_protein">Proteinreich</string>
+    <string name="highlight_plant_point_power">Pflanzenpunkte-Power</string>
+    <string name="highlight_low_calorie">Kalorienarm</string>
+    <string name="highlight_high_fibre">Ballaststoffreich</string>
     <string name="plan_action">Planen</string>
     <string name="planned_state">Geplant: %1$s</string>
     <string name="planned_title">Geplant</string>
