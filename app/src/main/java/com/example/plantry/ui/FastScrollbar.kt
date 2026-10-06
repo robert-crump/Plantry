@@ -44,6 +44,7 @@ private const val HideDelayMillis = 1_500L
  * fades out [HideDelayMillis] after it stops; while the thumb is dragged, a bubble above it shows
  * [label] for the item at the top of the list (by index; null shows no bubble). Place it over the
  * list's right edge with the list's height. Only the thumb takes touches, and only while visible.
+ * Lists shorter than [MinViewports] viewports get no scrollbar.
  */
 @Composable
 fun FastScrollbar(state: LazyListState, label: (index: Int) -> String?, modifier: Modifier = Modifier) {
@@ -60,8 +61,20 @@ fun FastScrollbar(state: LazyListState, label: (index: Int) -> String?, modifier
             visible = false
         }
     }
-    val scrollable by remember(state) { derivedStateOf { state.canScrollForward || state.canScrollBackward } }
-    val fraction by remember(state) { derivedStateOf { state.scrollFraction() } }
+    val cache = remember(state) { ItemSizeCache() }
+    val sizes by remember(state) { derivedStateOf { cache.update(state.layoutInfo) } }
+    val scrollable by remember(state) {
+        derivedStateOf { (state.canScrollForward || state.canScrollBackward) && showsScrollbar(sizes, state.layoutInfo.contentViewport()) }
+    }
+    val fraction by remember(state) {
+        derivedStateOf {
+            if (!state.canScrollForward) {
+                if (state.canScrollBackward) 1f else 0f
+            } else {
+                scrollFraction(state.firstVisibleItemIndex, state.firstVisibleItemScrollOffset, sizes, state.layoutInfo.contentViewport())
+            }
+        }
+    }
     val alpha by animateFloatAsState(if (visible && scrollable) 1f else 0f, label = "scrollbar alpha")
 
     BoxWithConstraints(modifier) {
@@ -114,7 +127,10 @@ fun FastScrollbar(state: LazyListState, label: (index: Int) -> String?, modifier
                                 change.consume()
                                 dragFraction = (dragFraction + dy / trackPx).coerceIn(0f, 1f)
                                 val target = dragFraction
-                                scope.launch { state.scrollToFraction(target) }
+                                scope.launch {
+                                    val (index, offset) = scrollTarget(target, sizes, state.layoutInfo.contentViewport())
+                                    state.scrollToItem(index, offset)
+                                }
                             }
                         }
                     } else {
@@ -135,40 +151,85 @@ fun FastScrollbar(state: LazyListState, label: (index: Int) -> String?, modifier
     }
 }
 
-private fun LazyListState.scrollFraction(): Float {
-    if (!canScrollForward) return if (canScrollBackward) 1f else 0f
-    val info = layoutInfo
-    val average = info.averageItemSize() ?: return 0f
-    return scrollFraction(firstVisibleItemIndex, firstVisibleItemScrollOffset, average, info.totalItemsCount, info.contentViewport())
-}
+/**
+ * Remembers each item's laid-out size (plus the list's item spacing) by index, so the scrollbar's
+ * estimate of the list height doesn't swing as items of different heights scroll in and out.
+ * Forgets everything when the item count changes or an index shows a different key.
+ */
+private class ItemSizeCache {
+    private val sizes = HashMap<Int, Int>()
+    private val keys = HashMap<Int, Any>()
+    private var count = -1
 
-private suspend fun LazyListState.scrollToFraction(fraction: Float) {
-    val info = layoutInfo
-    val average = info.averageItemSize() ?: return
-    val (index, offset) = scrollTarget(fraction, average, info.totalItemsCount, info.contentViewport())
-    scrollToItem(index, offset)
+    fun update(info: LazyListLayoutInfo): ItemSizes {
+        if (info.totalItemsCount != count) {
+            sizes.clear()
+            keys.clear()
+            count = info.totalItemsCount
+        }
+        if (info.visibleItemsInfo.any { item -> keys[item.index].let { it != null && it != item.key } }) {
+            sizes.clear()
+            keys.clear()
+        }
+        for (item in info.visibleItemsInfo) {
+            sizes[item.index] = item.size + info.mainAxisItemSpacing
+            keys[item.index] = item.key
+        }
+        return ItemSizes(sizes.toMap(), count)
+    }
 }
-
-private fun LazyListLayoutInfo.averageItemSize(): Float? =
-    visibleItemsInfo.takeIf { it.isNotEmpty() }?.let { items -> items.sumOf { it.size }.toFloat() / items.size }
 
 private fun LazyListLayoutInfo.contentViewport(): Int =
     viewportSize.height - beforeContentPadding - afterContentPadding
 
 /**
- * How far the list is scrolled, 0..1, estimating every item at [averageSize]: the scrolled pixels
- * over the scroll range ([totalItems] items minus the [viewport]).
+ * The sizes of [totalItems] items: the [known] ones by index, every other one at the average of
+ * the known ones.
  */
-internal fun scrollFraction(firstIndex: Int, firstOffset: Int, averageSize: Float, totalItems: Int, viewport: Int): Float {
-    val range = averageSize * totalItems - viewport
+internal class ItemSizes(private val known: Map<Int, Int>, val totalItems: Int) {
+    private val average = if (known.isEmpty()) 0f else known.values.sum().toFloat() / known.size
+
+    fun sizeOf(index: Int): Float = known[index]?.toFloat() ?: average
+
+    /** Where item [index] starts, in pixels from the top of the list. */
+    fun offsetOf(index: Int): Float {
+        val knownBefore = known.filterKeys { it < index }
+        return knownBefore.values.sum() + (index - knownBefore.size) * average
+    }
+
+    val total: Float get() = offsetOf(totalItems)
+
+    /** The item at [pixels] from the top and how far into it [pixels] reaches. */
+    fun itemAt(pixels: Float): Pair<Int, Int> {
+        if (totalItems == 0) return 0 to 0
+        var start = 0f
+        for (index in 0 until totalItems) {
+            val size = sizeOf(index)
+            // Within half a pixel of the next item counts as that item, so rounding never lands
+            // on the very end of this one.
+            if (pixels + 0.5f < start + size || index == totalItems - 1) {
+                return index to (pixels - start).roundToInt().coerceAtLeast(0)
+            }
+            start += size
+        }
+        return totalItems - 1 to 0
+    }
+}
+
+/** Shorter lists scroll without a scrollbar: dragging a thumb over a short range is too twitchy. */
+private const val MinViewports = 3
+
+/** Whether a list of [sizes] is long enough, at least [MinViewports] of [viewport], for a scrollbar. */
+internal fun showsScrollbar(sizes: ItemSizes, viewport: Int): Boolean =
+    viewport > 0 && sizes.total >= MinViewports * viewport
+
+/** How far the list is scrolled, 0..1: the scrolled pixels over the scroll range ([sizes] minus the [viewport]). */
+internal fun scrollFraction(firstIndex: Int, firstOffset: Int, sizes: ItemSizes, viewport: Int): Float {
+    val range = sizes.total - viewport
     if (range <= 0f) return 0f
-    return ((firstIndex * averageSize + firstOffset) / range).coerceIn(0f, 1f)
+    return ((sizes.offsetOf(firstIndex) + firstOffset) / range).coerceIn(0f, 1f)
 }
 
 /** The item index and offset to scroll to for [fraction]; the inverse of [scrollFraction]. */
-internal fun scrollTarget(fraction: Float, averageSize: Float, totalItems: Int, viewport: Int): Pair<Int, Int> {
-    if (totalItems == 0) return 0 to 0
-    val pixels = fraction.coerceIn(0f, 1f) * (averageSize * totalItems - viewport).coerceAtLeast(0f)
-    val index = (pixels / averageSize).toInt().coerceIn(0, totalItems - 1)
-    return index to (pixels - index * averageSize).roundToInt().coerceAtLeast(0)
-}
+internal fun scrollTarget(fraction: Float, sizes: ItemSizes, viewport: Int): Pair<Int, Int> =
+    sizes.itemAt(fraction.coerceIn(0f, 1f) * (sizes.total - viewport).coerceAtLeast(0f))
