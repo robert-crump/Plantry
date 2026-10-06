@@ -14,6 +14,7 @@ room = "2.8.5"
 kotlinxSerializationJson = "1.11.0"
 coroutines = "1.10.2"
 anthropicJava = "2.68.0"
+codeScanner = "16.1.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -38,6 +39,7 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 anthropic-java = { group = "com.anthropic", name = "anthropic-java", version.ref = "anthropicJava" }
+play-services-code-scanner = { group = "com.google.android.gms", name = "play-services-code-scanner", version.ref = "codeScanner" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

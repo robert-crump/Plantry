@@ -3,10 +3,12 @@ package com.example.plantry.ui.ingredient
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientDraft
+import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
+import com.example.plantry.data.openfoodfacts.OffProduct
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -115,5 +117,31 @@ class IngredientFormTest {
     fun drainedWeightForm_fromWeight_formatsWithoutTrailingZeros() {
         assertEquals(DrainedWeightForm("400", "240"), DrainedWeightForm.from(DrainedWeight(400.0, 240.0)))
         assertEquals(DrainedWeightForm(), DrainedWeightForm.from(null))
+    }
+
+    @Test
+    fun withScanned_takesFoundValuesKeepsMissingOnesAndTheName() {
+        val product = OffProduct(
+            barcode = "4000000000001",
+            nameSuggestion = "Süßkartoffeln",
+            productName = "Süßkartoffel-Würfel (Frosta)",
+            quantity = "400 g",
+            nutrition = mapOf(Nutrient.KCAL to 90.0, Nutrient.PROTEIN to 1.6, Nutrient.FAT to 0.1),
+        )
+
+        val scanned = valid.withScanned(product)
+
+        assertEquals("Süßkartoffel", scanned.name)
+        assertEquals("90", scanned.nutrition[Nutrient.KCAL])
+        assertEquals("1,6", scanned.nutrition[Nutrient.PROTEIN])
+        assertEquals("0,1", scanned.nutrition[Nutrient.FAT])
+        assertEquals(valid.nutrition[Nutrient.CARBS], scanned.nutrition[Nutrient.CARBS])
+        assertEquals(valid.nutrition[Nutrient.FIBRE], scanned.nutrition[Nutrient.FIBRE])
+        assertEquals(LabelSource("Süßkartoffel-Würfel (Frosta)", "4000000000001"), scanned.toDraft()!!.scannedLabel)
+    }
+
+    @Test
+    fun loadedForm_hasNoScannedLabel() {
+        assertNull(valid.toDraft()!!.scannedLabel)
     }
 }

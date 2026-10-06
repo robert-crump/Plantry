@@ -3,10 +3,12 @@ package com.example.plantry.ui.ingredient
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientDraft
+import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
+import com.example.plantry.data.openfoodfacts.OffProduct
 import java.math.BigDecimal
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -19,8 +21,16 @@ data class IngredientForm(
     val plantPoints: PlantPoints = PlantPoints.ZERO,
     /** Already validated by [DrainedWeightForm] in its dialog. */
     val drainedWeight: DrainedWeight? = null,
+    /** The package applied from a barcode scan; replaces the USDA reference on save. */
+    val scannedLabel: LabelSource? = null,
 ) {
     fun withNutrient(nutrient: Nutrient, value: String) = copy(nutrition = nutrition + (nutrient to value))
+
+    /** Takes the values [product] has and keeps the others; the name stays as it is. */
+    fun withScanned(product: OffProduct) = copy(
+        nutrition = nutrition + product.nutrition.mapValues { formatDecimal(it.value) },
+        scannedLabel = product.labelSource,
+    )
 
     fun errors() = IngredientFormErrors(
         name = name.isBlank(),
@@ -38,6 +48,7 @@ data class IngredientForm(
             storeSection = storeSection,
             plantPoints = plantPoints,
             drainedWeight = drainedWeight,
+            scannedLabel = scannedLabel,
         )
     }
 

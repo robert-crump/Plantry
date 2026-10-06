@@ -30,7 +30,8 @@ import com.example.plantry.data.Nutrition
 /**
  * Asks for the nutrition per 100 g from the package, for an ingredient without a USDA entry; the
  * confirm button stays disabled until all values are valid. With [askName] it also asks for the
- * German name, starting from [initial]'s name.
+ * German name, starting from [initial]'s name. [message] is shown above the values (what a barcode
+ * scan found, or why not); [missing] values the scan lacked are marked while still blank.
  */
 @Composable
 fun LabelNutritionDialog(
@@ -39,6 +40,8 @@ fun LabelNutritionDialog(
     onDismiss: () -> Unit,
     initial: LabelNutritionForm = LabelNutritionForm(),
     askName: Boolean = false,
+    message: String? = null,
+    missing: Set<Nutrient> = emptySet(),
 ) {
     var form by rememberSaveable(stateSaver = LabelNutritionFormSaver) { mutableStateOf(initial) }
     val invalid = form.invalid()
@@ -59,6 +62,7 @@ fun LabelNutritionDialog(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                if (message != null) Text(message, style = MaterialTheme.typography.bodyMedium)
                 Text(
                     stringResource(R.string.label_nutrition_hint),
                     style = MaterialTheme.typography.bodySmall,
@@ -66,15 +70,20 @@ fun LabelNutritionDialog(
                 )
                 Nutrient.entries.forEach { nutrient ->
                     val error = nutrient in invalid
+                    val notFound = nutrient in missing && form.values[nutrient].isNullOrBlank()
                     OutlinedTextField(
                         value = form.values[nutrient].orEmpty(),
                         onValueChange = { form = form.withValue(nutrient, it) },
                         label = { Text(stringResource(nutrient.label)) },
                         isError = error,
-                        supportingText = if (error) {
-                            { Text(stringResource(R.string.error_non_negative_decimal)) }
-                        } else {
-                            null
+                        supportingText = when {
+                            error -> {
+                                { Text(stringResource(R.string.error_non_negative_decimal)) }
+                            }
+                            notFound -> {
+                                { Text(stringResource(R.string.barcode_value_missing), color = MaterialTheme.colorScheme.tertiary) }
+                            }
+                            else -> null
                         },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),

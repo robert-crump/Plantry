@@ -264,6 +264,28 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate14To15_keepsIngredientsWithoutLabelSource() {
+        helper.createDatabase(DB_NAME, 14).use { db ->
+            db.execSQL(
+                "INSERT INTO ingredients (id, name, fdcId, usdaDescription, kcal, protein, carbs, sugar, fat, fibre, " +
+                    "storeSection, plantPoints, reviewed, netWeightGrams, drainedWeightGrams) " +
+                    "VALUES (1, 'Kichererbsen (Dose)', 173757, 'Chickpeas, canned', 139, 7.05, 22.5, 0, 2.77, 7.6, " +
+                    "'DRY_GOODS', 'ONE', 1, 400, 240)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 15, true).use { db ->
+            db.query("SELECT fdcId, drainedWeightGrams, labelProduct, labelBarcode FROM ingredients").use { c ->
+                c.moveToFirst()
+                assertEquals(173757L, c.getLong(0))
+                assertEquals(240.0, c.getDouble(1), 0.0)
+                assertTrue(c.isNull(2))
+                assertTrue(c.isNull(3))
+            }
+        }
+    }
+
     private fun ingredientSql(id: Long, name: String, points: String, protein: Double, carbs: Double, buyAs: Long? = null) =
         "INSERT INTO ingredients (id, name, fdcId, usdaDescription, kcal, protein, carbs, sugar, fat, fibre, " +
             "unitWeights, buyUnit, packSizeGrams, storeSection, staple, plantPoints, buyAsIngredientId, " +

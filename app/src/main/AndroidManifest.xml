@@ -37,6 +37,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- Downloads the Google Code Scanner module at install, not on the first scan. -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="barcode_ui" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

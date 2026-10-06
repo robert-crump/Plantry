@@ -4,6 +4,7 @@ import com.example.plantry.data.CookLog
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
+import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.PlannedRecipe
@@ -45,9 +46,10 @@ data class BackupFile(
          * and shopping ticks any more. 5: cooking log entries carry a recipe snapshot and may
          * belong to a deleted recipe. 6: Geplant. 7: cooking log entries may carry kcal and fibre.
          * 8: ingredients without unit weights, buy unit, pack size, staple flag and buy-as link.
-         * 9: ingredients may carry net and drained weight.
+         * 9: ingredients may carry net and drained weight. 10: ingredients may carry the scanned
+         * package their nutrition came from.
          */
-        const val FORMAT_VERSION = 9
+        const val FORMAT_VERSION = 10
 
         /**
          * Unknown keys are skipped, so older files with `weekPlan` and `shoppingTicks`, or with the
@@ -107,6 +109,9 @@ data class BackupIngredient(
     /** Since version 9; both null for ingredients that are not drained. */
     val netWeightGrams: Double? = null,
     val drainedWeightGrams: Double? = null,
+    /** Since version 10; both null unless the nutrition came from a scanned package. */
+    val labelProduct: String? = null,
+    val labelBarcode: String? = null,
 )
 
 @Serializable
@@ -260,6 +265,8 @@ private fun Ingredient.toBackup() = BackupIngredient(
     reviewed = reviewed,
     netWeightGrams = drainedWeight?.netWeightGrams,
     drainedWeightGrams = drainedWeight?.drainedWeightGrams,
+    labelProduct = labelSource?.labelProduct,
+    labelBarcode = labelSource?.labelBarcode,
 )
 
 private fun BackupIngredient.toEntity() = Ingredient(
@@ -272,6 +279,7 @@ private fun BackupIngredient.toEntity() = Ingredient(
     plantPoints = plantPoints,
     reviewed = reviewed,
     drainedWeight = DrainedWeight.of(netWeightGrams, drainedWeightGrams),
+    labelSource = if (labelProduct != null && labelBarcode != null) LabelSource(labelProduct, labelBarcode) else null,
 )
 
 private fun Recipe.toBackup(photo: String?, lines: List<RecipeIngredient>) = BackupRecipe(

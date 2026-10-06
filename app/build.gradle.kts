@@ -69,6 +69,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.anthropic.java)
+    implementation(libs.play.services.code.scanner)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

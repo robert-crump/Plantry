@@ -2,6 +2,7 @@ package com.example.plantry.ui.ingredient
 
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.openfoodfacts.OffProduct
 
 /**
  * The values per 100 g from a package label, for an ingredient without a USDA entry. Every
@@ -28,5 +29,11 @@ data class LabelNutritionForm(
 
     companion object {
         fun from(nutrition: Nutrition) = LabelNutritionForm(values = Nutrient.entries.associateWith { formatDecimal(nutrition[it]) })
+
+        /** The scanned product's name suggestion and values; the ones it lacks stay blank. */
+        fun from(product: OffProduct) = LabelNutritionForm(
+            name = product.nameSuggestion,
+            values = Nutrient.entries.associateWith { nutrient -> product.nutrition[nutrient]?.let { formatDecimal(it) }.orEmpty() },
+        )
     }
 }

@@ -4,6 +4,7 @@ import com.example.plantry.data.CookLog
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
+import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.PlannedRecipe
@@ -70,7 +71,7 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 9"))
+        assertTrue(json.contains("\"formatVersion\": 10"))
         assertFalse(json.contains("\"staple\""))
         assertFalse(json.contains("\"buyAsIngredientId\""))
     }
@@ -106,7 +107,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 9", "\"formatVersion\": 10")
+        val newer = source.export().replace("\"formatVersion\": 10", "\"formatVersion\": 11")
 
         val error = readError(newer)
 
@@ -147,6 +148,21 @@ class BackupRepositoryTest {
         target.repository.import(target.repository.read(v7))
 
         assertEquals(source.store.data, target.store.data)
+    }
+
+    @Test
+    fun version9File_importsIngredientsWithoutLabelSource() = runTest {
+        val v10 = Json.parseToJsonElement(source.export()).jsonObject
+        val v9Ingredients = JsonArray(
+            v10.getValue("ingredients").jsonArray.map { JsonObject(it.jsonObject - "labelProduct" - "labelBarcode") },
+        )
+        val v9 = JsonObject(v10 + ("formatVersion" to JsonPrimitive(9)) + ("ingredients" to v9Ingredients)).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(v9))
+
+        val expected = source.store.data.ingredients.map { it.copy(labelSource = null) }
+        assertEquals(expected, target.store.data.ingredients)
     }
 
     @Test
@@ -332,7 +348,10 @@ class BackupRepositoryTest {
                     storeSection = StoreSection.DRY_GOODS,
                     reviewed = false,
                 ),
-                ingredient(id = 6, name = "Kichererbsen (Dose)").copy(drainedWeight = DrainedWeight(400.0, 240.0)),
+                ingredient(id = 6, name = "Kichererbsen (Dose)").copy(
+                    drainedWeight = DrainedWeight(400.0, 240.0),
+                    labelSource = LabelSource("Bio Kichererbsen (Alnatura)", "4104420208117"),
+                ),
             ),
             recipes = listOf(
                 Recipe(2, "Curry", "Kochbuch", 42, 4, 2, 30, modified = true),

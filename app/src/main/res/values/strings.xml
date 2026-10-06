@@ -228,6 +228,19 @@
     <string name="new_ingredient_choose_search_description">Nährwerte aus der USDA-Datenbank übernehmen</string>
     <string name="new_ingredient_choose_manual">Manuell eingeben</string>
     <string name="new_ingredient_choose_manual_description">Nährwerte von der Packung abtippen</string>
+    <string name="new_ingredient_choose_barcode">Barcode scannen</string>
+    <string name="new_ingredient_choose_barcode_description">Nährwerte aus Open Food Facts übernehmen</string>
+    <string name="barcode_searching">Produkt wird gesucht …</string>
+    <string name="barcode_found">Gefunden: %1$s</string>
+    <string name="barcode_found_quantity">Gefunden: %1$s, %2$s</string>
+    <string name="barcode_not_found">Produkt nicht gefunden</string>
+    <string name="barcode_offline">Keine Verbindung</string>
+    <string name="barcode_unavailable">Barcode-Scanner nicht verfügbar</string>
+    <string name="barcode_value_missing">Nicht gefunden – bitte von der Packung eintragen</string>
+    <string name="barcode_update">Nährwerte per Barcode aktualisieren</string>
+    <string name="barcode_compare_title">Nährwerte vom Barcode</string>
+    <string name="barcode_compare_change">%1$s → %2$s</string>
+    <string name="barcode_compare_missing">%1$s (nicht gefunden)</string>
     <string name="usda_search_loading">USDA-Daten werden geladen …</string>
     <string name="usda_search_no_results">Keine Treffer</string>
     <string name="usda_create_title">Zutat anlegen</string>
@@ -241,6 +254,7 @@
     <string name="ingredient_name">Name</string>
     <string name="ingredient_usda_source">USDA: %1$s (FDC %2$d)</string>
     <string name="ingredient_no_usda_source">Keine USDA-Quelle</string>
+    <string name="ingredient_label_source">Etikett: %1$s (Barcode %2$s)</string>
     <string name="ingredient_reviewed_hint">Speichern markiert die Zutat als geprüft.</string>
     <string name="ingredient_section_nutrition">Nährwerte je 100 g</string>
     <string name="ingredient_section_nutrition_drained">Nährwerte je 100 g (abgetropft)</string>

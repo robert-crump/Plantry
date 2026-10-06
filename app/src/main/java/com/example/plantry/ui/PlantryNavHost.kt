@@ -330,7 +330,7 @@ fun PlantryNavHost() {
                 }
                 composable<UsdaSearchRoute> {
                     UsdaSearchScreen(
-                        viewModel = viewModel { UsdaSearchViewModel({ app.usdaCatalog }, ingredientRepository) },
+                        viewModel = viewModel { UsdaSearchViewModel({ app.usdaCatalog }, ingredientRepository, app.productLookup) },
                         onBack = { navController.popBackStack() },
                         onCreated = { id ->
                             navController.navigate(IngredientDetailRoute(id)) {
@@ -342,7 +342,7 @@ fun PlantryNavHost() {
                 composable<IngredientDetailRoute> { entry ->
                     val ingredientId = entry.toRoute<IngredientDetailRoute>().ingredientId
                     IngredientDetailScreen(
-                        viewModel = viewModel { IngredientDetailViewModel(ingredientId, ingredientRepository) },
+                        viewModel = viewModel { IngredientDetailViewModel(ingredientId, ingredientRepository, app.productLookup) },
                         onBack = { navController.popBackStack() },
                     )
                 }

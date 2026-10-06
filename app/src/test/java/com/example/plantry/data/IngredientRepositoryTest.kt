@@ -59,6 +59,42 @@ class IngredientRepositoryTest {
     }
 
     @Test
+    fun createFromLabel_keepsTheScannedPackageAsSource() = runTest {
+        val label = Nutrition(128.0, 7.0, 15.4, 0.5, 2.1, 5.0)
+        val source = LabelSource("Bio Kichererbsen (Alnatura)", "4104420208117")
+
+        val ingredient = repository.getIngredient(repository.createFromLabel("Kichererbsen (Dose)", label, source))!!
+
+        assertEquals(source, ingredient.labelSource)
+        assertNull(ingredient.fdcId)
+    }
+
+    @Test
+    fun update_withScannedLabel_replacesTheUsdaReference() = runTest {
+        val id = repository.createFromUsda(riceCooked, "Reis, gekocht")
+        val source = LabelSource("Basmati Reis", "4000000000001")
+
+        repository.update(id, draft(repository.getIngredient(id)!!).copy(scannedLabel = source))
+
+        val updated = repository.getIngredient(id)!!
+        assertNull(updated.fdcId)
+        assertNull(updated.usdaDescription)
+        assertEquals(source, updated.labelSource)
+        assertEquals("Reis, gekocht", updated.name)
+    }
+
+    @Test
+    fun update_withoutScannedLabel_keepsTheSource() = runTest {
+        val id = repository.createFromUsda(riceCooked, "Reis, gekocht")
+
+        repository.update(id, draft(repository.getIngredient(id)!!))
+
+        val updated = repository.getIngredient(id)!!
+        assertEquals(168878L, updated.fdcId)
+        assertNull(updated.labelSource)
+    }
+
+    @Test
     fun createProposed_withLabelNutrition_hasNoUsdaReference() = runTest {
         val label = Nutrition(52.0, 1.0, 9.0, 4.0, 1.5, 0.0)
         val oatDrink = proposal(riceDry, "Haferdrink").copy(source = NutritionSource.Label(label))

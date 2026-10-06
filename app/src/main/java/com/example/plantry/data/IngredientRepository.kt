@@ -35,14 +35,15 @@ class IngredientRepository(private val dao: IngredientDao) {
      * from the package label, and returns its id. Other attributes get the same defaults as
      * [createFromUsda].
      */
-    suspend fun createFromLabel(name: String, nutrition: Nutrition): Long =
-        insertUnreviewed(name, nutrition, fdcId = null, usdaDescription = null)
+    suspend fun createFromLabel(name: String, nutrition: Nutrition, labelSource: LabelSource? = null): Long =
+        insertUnreviewed(name, nutrition, fdcId = null, usdaDescription = null, labelSource = labelSource)
 
     private suspend fun insertUnreviewed(
         name: String,
         nutrition: Nutrition,
         fdcId: Long?,
         usdaDescription: String?,
+        labelSource: LabelSource? = null,
     ): Long = dao.insert(
         Ingredient(
             name = name.trim(),
@@ -52,6 +53,7 @@ class IngredientRepository(private val dao: IngredientDao) {
             storeSection = StoreSection.OTHER,
             plantPoints = PlantPoints.ZERO,
             reviewed = false,
+            labelSource = labelSource,
         ),
     )
 
@@ -86,11 +88,15 @@ class IngredientRepository(private val dao: IngredientDao) {
         return usedIn
     }
 
-    /** Saves the user's edits and marks the ingredient reviewed. */
+    /**
+     * Saves the user's edits and marks the ingredient reviewed. A [IngredientDraft.scannedLabel]
+     * becomes the source and clears the USDA reference.
+     */
     suspend fun update(id: Long, draft: IngredientDraft) {
         val existing = dao.getById(id) ?: return
+        val sourced = draft.scannedLabel?.let { existing.copy(fdcId = null, usdaDescription = null, labelSource = it) } ?: existing
         dao.update(
-            existing.copy(
+            sourced.copy(
                 name = draft.name.trim(),
                 nutrition = draft.nutrition,
                 storeSection = draft.storeSection,

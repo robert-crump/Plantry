@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -22,6 +23,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -29,6 +32,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -50,10 +55,14 @@ import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
+import com.example.plantry.data.openfoodfacts.OffLookup
+import com.example.plantry.data.openfoodfacts.OffProduct
+import com.example.plantry.data.openfoodfacts.ProductLookup
 import com.example.plantry.ui.currentLocale
 import com.example.plantry.ui.settings.ChoiceDialog
 import com.example.plantry.ui.settings.SettingsGroup
 import com.example.plantry.ui.settings.SettingsRow
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -69,6 +78,8 @@ data class IngredientDetailUiState(
     /** Set while the delete dialog is open: the recipes that still use the ingredient, if any. */
     val deleteCheck: DeleteCheck? = null,
     val deleted: Boolean = false,
+    /** The scanned barcode's lookup; null when there is none to show. */
+    val barcode: BarcodeLookup? = null,
 )
 
 data class DeleteCheck(val usedIn: List<String>)
@@ -76,7 +87,10 @@ data class DeleteCheck(val usedIn: List<String>)
 class IngredientDetailViewModel(
     private val ingredientId: Long,
     private val repository: IngredientRepository,
+    private val products: ProductLookup,
 ) : ViewModel() {
+
+    private var lookupJob: Job? = null
 
     private val _state = MutableStateFlow(IngredientDetailUiState())
     val state: StateFlow<IngredientDetailUiState> = _state.asStateFlow()
@@ -102,6 +116,26 @@ class IngredientDetailViewModel(
             repository.update(ingredientId, draft)
             _state.update { it.copy(saved = true) }
         }
+    }
+
+    fun lookUp(barcode: String) {
+        lookupJob?.cancel()
+        _state.update { it.copy(barcode = BarcodeLookup.Searching) }
+        lookupJob = viewModelScope.launch {
+            val result = products.lookup(barcode)
+            _state.update { it.copy(barcode = BarcodeLookup.Done(result)) }
+        }
+    }
+
+    /** Writes the scanned values into the form; [save] still has to persist them. */
+    fun applyScanned(product: OffProduct) {
+        _state.update { it.copy(form = it.form.withScanned(product), barcode = null) }
+    }
+
+    /** Ends the lookup, or closes the dialog showing its result. */
+    fun dismissBarcode() {
+        lookupJob?.cancel()
+        _state.update { it.copy(barcode = null) }
     }
 
     /** Opens the delete dialog, which either confirms or lists the recipes that block it. */
@@ -134,6 +168,23 @@ fun IngredientDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(state.saved, state.deleted) { if (state.saved || state.deleted) onBack() }
+    val snackbar = remember { SnackbarHostState() }
+    val scannerUnavailable = stringResource(R.string.barcode_unavailable)
+    val scope = rememberCoroutineScope()
+    val scan = rememberBarcodeScanner(
+        onScanned = viewModel::lookUp,
+        onUnavailable = { scope.launch { snackbar.showSnackbar(scannerUnavailable) } },
+    )
+    // Not found or offline: say so; the fields stay as they are and editable.
+    val failure = (state.barcode as? BarcodeLookup.Done)?.result?.takeIf { it !is OffLookup.Found }
+    val failureMessage = failure?.let { failureText(it) }
+    LaunchedEffect(failure) {
+        if (failureMessage != null) {
+            // In the screen's scope: dismissing changes this effect's key, which would cancel it.
+            scope.launch { snackbar.showSnackbar(failureMessage) }
+            viewModel.dismissBarcode()
+        }
+    }
 
     val ingredient = state.ingredient
     val form = state.form
@@ -159,8 +210,21 @@ fun IngredientDetailScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         if (ingredient == null) return@Scaffold
+        when (val lookup = state.barcode) {
+            BarcodeLookup.Searching -> BarcodeSearchingDialog(onDismiss = viewModel::dismissBarcode)
+            is BarcodeLookup.Done -> (lookup.result as? OffLookup.Found)?.let { found ->
+                BarcodeCompareDialog(
+                    product = found.product,
+                    current = form,
+                    onApply = { viewModel.applyScanned(found.product) },
+                    onDismiss = viewModel::dismissBarcode,
+                )
+            }
+            null -> Unit
+        }
         state.deleteCheck?.let { check ->
             DeleteDialog(
                 name = ingredient.name,
@@ -196,7 +260,9 @@ fun IngredientDetailScreen(
                 numeric = false,
             )
             Text(
-                if (ingredient.fdcId != null && ingredient.usdaDescription != null) {
+                if (ingredient.labelSource != null) {
+                    stringResource(R.string.ingredient_label_source, ingredient.labelSource.labelProduct, ingredient.labelSource.labelBarcode)
+                } else if (ingredient.fdcId != null && ingredient.usdaDescription != null) {
                     stringResource(R.string.ingredient_usda_source, ingredient.usdaDescription, ingredient.fdcId)
                 } else {
                     stringResource(R.string.ingredient_no_usda_source)
@@ -233,9 +299,44 @@ fun IngredientDetailScreen(
                     }
                 }
             }
-
+            TextButton(onClick = scan) {
+                Icon(Icons.Filled.QrCodeScanner, contentDescription = null)
+                Text(stringResource(R.string.barcode_update), Modifier.padding(start = 8.dp))
+            }
         }
     }
+}
+
+/** Old → new per value; values the scan lacks keep the old one. The name is never touched. */
+@Composable
+private fun BarcodeCompareDialog(product: OffProduct, current: IngredientForm, onApply: () -> Unit, onDismiss: () -> Unit) {
+    val locale = currentLocale()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.barcode_compare_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(foundText(product), style = MaterialTheme.typography.bodyMedium)
+                Nutrient.entries.forEach { nutrient ->
+                    val old = current.nutrition[nutrient].orEmpty().ifBlank { "–" }
+                    val new = product.nutrition[nutrient]
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(nutrient.label), Modifier.weight(1f))
+                        Text(
+                            if (new != null) {
+                                stringResource(R.string.barcode_compare_change, old, formatDecimal(new, locale))
+                            } else {
+                                stringResource(R.string.barcode_compare_missing, old)
+                            },
+                            color = if (new != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onApply) { Text(stringResource(R.string.action_apply)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
 }
 
 @Composable

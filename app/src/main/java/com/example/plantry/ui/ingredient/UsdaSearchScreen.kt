@@ -1,5 +1,6 @@
 package com.example.plantry.ui.ingredient
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
@@ -45,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
@@ -53,13 +56,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.openfoodfacts.OffLookup
+import com.example.plantry.data.openfoodfacts.ProductLookup
 import com.example.plantry.data.usda.UsdaCatalog
 import com.example.plantry.data.usda.UsdaFood
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -72,7 +80,15 @@ data class UsdaSearchUiState(val query: String = "", val results: List<UsdaFood>
 class UsdaSearchViewModel(
     loadCatalog: () -> UsdaCatalog,
     private val repository: IngredientRepository,
+    private val products: ProductLookup,
 ) : ViewModel() {
+
+    private val _barcode = MutableStateFlow<BarcodeLookup?>(null)
+
+    /** The scanned barcode's lookup; null when there is none to show. */
+    val barcode: StateFlow<BarcodeLookup?> = _barcode.asStateFlow()
+
+    private var lookupJob: Job? = null
 
     private val query = MutableStateFlow("")
 
@@ -91,9 +107,21 @@ class UsdaSearchViewModel(
         viewModelScope.launch { onCreated(repository.createFromUsda(food, name)) }
     }
 
-    /** Creates an ingredient without a USDA entry, from the package's values. */
-    fun createFromLabel(name: String, nutrition: Nutrition, onCreated: (Long) -> Unit) {
-        viewModelScope.launch { onCreated(repository.createFromLabel(name, nutrition)) }
+    /** Creates an ingredient without a USDA entry, from the package's values (scanned from [labelSource], if set). */
+    fun createFromLabel(name: String, nutrition: Nutrition, onCreated: (Long) -> Unit, labelSource: LabelSource? = null) {
+        viewModelScope.launch { onCreated(repository.createFromLabel(name, nutrition, labelSource)) }
+    }
+
+    fun lookUp(barcode: String) {
+        lookupJob?.cancel()
+        _barcode.value = BarcodeLookup.Searching
+        lookupJob = viewModelScope.launch { _barcode.value = BarcodeLookup.Done(products.lookup(barcode)) }
+    }
+
+    /** Ends the lookup, or closes the dialog showing its result. */
+    fun dismissBarcode() {
+        lookupJob?.cancel()
+        _barcode.value = null
     }
 }
 
@@ -105,6 +133,13 @@ fun UsdaSearchScreen(
     onCreated: (Long) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val barcode by viewModel.barcode.collectAsStateWithLifecycle()
+    val scannerUnavailable = stringResource(R.string.barcode_unavailable)
+    val context = LocalContext.current
+    val scan = rememberBarcodeScanner(
+        onScanned = viewModel::lookUp,
+        onUnavailable = { Toast.makeText(context, scannerUnavailable, Toast.LENGTH_SHORT).show() },
+    )
     var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var picked by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -146,6 +181,12 @@ fun UsdaSearchScreen(
                     title = R.string.new_ingredient_choose_manual,
                     description = R.string.new_ingredient_choose_manual_description,
                     onClick = { withoutUsda = true },
+                )
+                ChoiceCard(
+                    icon = Icons.Filled.QrCodeScanner,
+                    title = R.string.new_ingredient_choose_barcode,
+                    description = R.string.new_ingredient_choose_barcode_description,
+                    onClick = scan,
                 )
             }
         } else Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
@@ -200,6 +241,23 @@ fun UsdaSearchScreen(
                 initial = LabelNutritionForm(name = query.trim()),
                 askName = true,
             )
+        }
+        when (val lookup = barcode) {
+            BarcodeLookup.Searching -> BarcodeSearchingDialog(onDismiss = viewModel::dismissBarcode)
+            is BarcodeLookup.Done -> {
+                val product = (lookup.result as? OffLookup.Found)?.product
+                // Not found or offline: the same dialog, empty, to type the label in.
+                LabelNutritionDialog(
+                    confirmLabel = R.string.action_create,
+                    onConfirm = { name, nutrition -> viewModel.createFromLabel(name, nutrition, onCreated, product?.labelSource) },
+                    onDismiss = viewModel::dismissBarcode,
+                    initial = product?.let { LabelNutritionForm.from(it) } ?: LabelNutritionForm(),
+                    askName = true,
+                    message = product?.let { foundText(it) } ?: failureText(lookup.result),
+                    missing = product?.missing.orEmpty(),
+                )
+            }
+            null -> Unit
         }
     }
 }
