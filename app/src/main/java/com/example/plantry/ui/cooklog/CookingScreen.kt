@@ -28,15 +28,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -108,7 +105,7 @@ class CookingViewModel(
     recipeRepository: RecipeRepository,
     ingredientRepository: IngredientRepository,
 ) : ViewModel() {
-    /** All recipes, for "Rezept loggen". */
+    /** All recipes, for "Kocheintrag". */
     val recipes: StateFlow<List<Recipe>> = recipeRepository.observeRecipes()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -148,7 +145,7 @@ class CookingViewModel(
         viewModelScope.launch { plannedRepository.done(item.planned)?.let(onDone) }
     }
 
-    /** "Rezept loggen": logs the recipe on [date] and takes it off Geplant; [onDone] gets what to undo. */
+    /** "Kocheintrag": logs the recipe on [date] and takes it off Geplant; [onDone] gets what to undo. */
     fun log(recipeId: Long, date: LocalDate, onDone: (Cooked) -> Unit) {
         viewModelScope.launch { plannedRepository.cook(recipeId, date)?.let(onDone) }
     }
@@ -168,9 +165,8 @@ data class JustPlanned(val recipeId: Long, val title: String)
 /**
  * The Kochen tab: Geplant on top as cards (hidden when empty), then the cooking history under
  * "Verlauf", newest first, in Monday–Sunday weeks with sticky headers, each row with its own date
- * badge. History rows show the recipe as it was when logged. Two FABs, shrinking to their icons
- * while scrolling down: "Rezept vorschlagen" and "Rezept loggen" (pick a recipe, then a day up to
- * today). [justPlanned] is shown once as a snackbar, then [onJustPlannedShown] clears it.
+ * badge. History rows show the recipe as it was when logged. A "+" FAB, hidden while scrolling
+ * down, opens "Vorschlag" and "Kocheintrag" (pick a recipe, then a day up to today). [justPlanned] is shown once as a snackbar, then [onJustPlannedShown] clears it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -215,12 +211,15 @@ fun CookingScreen(
         label = "fab lift",
     )
     val listState = rememberLazyListState()
-    var fabsExpanded by rememberSaveable { mutableStateOf(true) }
-    // Only actual scrolling counts, so dragging a list too short to scroll leaves the FABs alone.
-    val collapseFabs = remember {
+    var fabVisible by rememberSaveable { mutableStateOf(true) }
+    var fabMenuOpen by rememberSaveable { mutableStateOf(false) }
+    // Only actual scrolling counts, so dragging a list too short to scroll leaves the FAB alone.
+    // Any scrolling closes the menu.
+    val hideFab = remember {
         object : NestedScrollConnection {
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                if (consumed.y < 0) fabsExpanded = false else if (consumed.y > 0) fabsExpanded = true
+                if (consumed.y != 0f) fabMenuOpen = false
+                if (consumed.y < 0) fabVisible = false else if (consumed.y > 0) fabVisible = true
                 return Offset.Zero
             }
         }
@@ -231,24 +230,14 @@ fun CookingScreen(
         Scaffold(
             topBar = { TopAppBar(title = { Text(stringResource(R.string.cooking_title)) }) },
             floatingActionButton = {
-                Column(
-                    Modifier.padding(bottom = fabLift),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalAlignment = Alignment.End,
-                ) {
-                    ExtendedFloatingActionButton(
-                        text = { Text(stringResource(R.string.suggest_action)) },
-                        icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = stringResource(R.string.suggest_action)) },
-                        onClick = onSuggest,
-                        expanded = fabsExpanded,
-                    )
-                    ExtendedFloatingActionButton(
-                        text = { Text(stringResource(R.string.cook_log_action)) },
-                        icon = { Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.cook_log_action)) },
-                        onClick = { picking = true },
-                        expanded = fabsExpanded,
-                    )
-                }
+                CookingFabMenu(
+                    expanded = fabMenuOpen,
+                    onExpandedChange = { fabMenuOpen = it },
+                    visible = fabVisible,
+                    onSuggest = onSuggest,
+                    onLog = { picking = true },
+                    modifier = Modifier.padding(bottom = fabLift),
+                )
             },
         ) { padding ->
             val list = entries ?: return@Scaffold
@@ -266,12 +255,12 @@ fun CookingScreen(
                 }
             } else {
                 val layoutDirection = LocalLayoutDirection.current
-                // Room below the last row for both FABs. The top inset is a plain padding, not content
+                // Room below the last row for the FAB. The top inset is a plain padding, not content
                 // padding, so the sticky header pins below the app bar instead of behind it.
                 val listPadding = PaddingValues(
                     start = padding.calculateStartPadding(layoutDirection),
                     end = padding.calculateEndPadding(layoutDirection),
-                    bottom = padding.calculateBottomPadding() + 160.dp,
+                    bottom = padding.calculateBottomPadding() + 88.dp,
                 )
                 // Runs each time Kochen is shown: a new plan brings Geplant into view, otherwise the
                 // scroll position is kept.
@@ -298,7 +287,7 @@ fun CookingScreen(
                         }
                     }
                 }
-                Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).nestedScroll(collapseFabs)) {
+                Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).nestedScroll(hideFab)) {
                     LazyColumn(
                         Modifier.fillMaxSize(),
                         state = listState,
@@ -342,7 +331,7 @@ fun CookingScreen(
                     FastScrollbar(
                         listState,
                         label = { scrollLabels.getOrNull(it) },
-                        // Ends above the FABs.
+                        // Ends above the FAB.
                         modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight().padding(bottom = listPadding.calculateBottomPadding()),
                     )
                 }
@@ -382,7 +371,7 @@ fun CookingScreen(
     }
 }
 
-/** "Rezept loggen": a search field over all recipes, A–Z, narrowed as you type. */
+/** "Kocheintrag": a search field over all recipes, A–Z, narrowed as you type. */
 @Composable
 private fun LogRecipeDialog(recipes: List<Recipe>, onPick: (Recipe) -> Unit, onDismiss: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }

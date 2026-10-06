@@ -76,7 +76,7 @@ object RecipeQuery {
             )
     }
 
-    /** The recipes whose title contains [query] (ignoring case and surrounding blanks), A–Z; for "Rezept loggen". */
+    /** The recipes whose title contains [query] (ignoring case and surrounding blanks), A–Z; for "Kocheintrag". */
     fun byTitle(recipes: List<Recipe>, query: String): List<Recipe> {
         val wanted = query.trim()
         return recipes.filter { it.title.contains(wanted, ignoreCase = true) }.sortedWith(compareBy(titleCollator) { it.title })
