@@ -141,6 +141,8 @@
     <string name="planned_state">Geplant: %1$s</string>
     <string name="planned_title">Geplant</string>
     <string name="planned_history_title">Verlauf</string>
+    <string name="cook_week_this">Diese Woche</string>
+    <string name="cook_week_last">Letzte Woche</string>
     <string name="planned_remove">Entfernen</string>
     <string name="planned_done">Erledigt</string>
     <string name="planned_remove_confirm">Von „Geplant“ entfernen?</string>

@@ -47,4 +47,49 @@ class CookDatesTest {
         assertEquals("Okt 2025", cookMonthYearLabel(LocalDate.of(2025, 10, 23), Locale.GERMANY))
         assertEquals("Dec 2024", cookMonthYearLabel(LocalDate.of(2024, 12, 24), Locale.US))
     }
+
+    private fun weekLabel(monday: LocalDate, today: LocalDate = this.today) =
+        cookWeekLabel(monday, today, Locale.GERMANY, thisWeek = "Diese Woche", lastWeek = "Letzte Woche")
+
+    @Test
+    fun weekLabel_thisAndLastWeek_relativeToToday() {
+        // today (Mon 5 Oct 2026) starts this week.
+        assertEquals("Diese Woche", weekLabel(LocalDate.of(2026, 10, 5)))
+        assertEquals("Letzte Woche", weekLabel(LocalDate.of(2026, 9, 28)))
+        assertEquals("Diese Woche", weekLabel(LocalDate.of(2026, 10, 5), today = LocalDate.of(2026, 10, 11)))
+    }
+
+    @Test
+    fun weekLabel_olderWeeks_areTheRange() {
+        assertEquals("21.–27. Sep", weekLabel(LocalDate.of(2026, 9, 21)))
+        assertEquals("27. Jul – 2. Aug", weekLabel(LocalDate.of(2026, 7, 27)))
+    }
+
+    @Test
+    fun weekLabel_acrossYears_hasBothYears() {
+        assertEquals("29. Dez 2025 – 4. Jan 2026", weekLabel(LocalDate.of(2025, 12, 29)))
+        assertEquals("29. Dez 2025 – 4. Jan 2026", weekLabel(LocalDate.of(2025, 12, 29), today = LocalDate.of(2026, 3, 1)))
+    }
+
+    @Test
+    fun weekLabel_inAnEarlierYear_hasTheYear() {
+        assertEquals("6.–12. Okt 2025", weekLabel(LocalDate.of(2025, 10, 6)))
+        assertEquals("29. Sep – 5. Okt 2025", weekLabel(LocalDate.of(2025, 9, 29)))
+    }
+
+    @Test
+    fun groupByWeek_splitsAtMondays_newestFirst() {
+        val dates = listOf(
+            LocalDate.of(2026, 10, 5), // Mon
+            LocalDate.of(2026, 10, 4), // Sun
+            LocalDate.of(2026, 9, 28), // Mon
+            LocalDate.of(2026, 9, 27), // Sun
+        )
+        val weeks = groupByWeek(dates) { it }
+        assertEquals(
+            listOf(LocalDate.of(2026, 10, 5), LocalDate.of(2026, 9, 28), LocalDate.of(2026, 9, 21)),
+            weeks.keys.toList(),
+        )
+        assertEquals(listOf(LocalDate.of(2026, 10, 4), LocalDate.of(2026, 9, 28)), weeks.getValue(LocalDate.of(2026, 9, 28)))
+    }
 }

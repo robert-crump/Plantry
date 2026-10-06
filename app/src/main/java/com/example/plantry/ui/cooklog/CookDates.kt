@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.example.plantry.R
 import com.example.plantry.data.CookingStats
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -20,6 +21,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeFormatterBuilder
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
+import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
 /** "Heute", "Gestern" or e.g. "Mittwoch, 30. September". */
@@ -50,6 +52,37 @@ internal fun cookMonthLabel(date: LocalDate, locale: Locale): String =
 
 /** The abbreviated month and the year, e.g. "Okt 2025", for the history's scrollbar bubble. */
 internal fun cookMonthYearLabel(date: LocalDate, locale: Locale): String = "${cookMonthLabel(date, locale)} ${date.year}"
+
+/** The Monday of [date]'s week. */
+internal fun weekStart(date: LocalDate): LocalDate = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+
+/** Groups [items] (newest first) into Monday–Sunday weeks, keyed by each week's Monday, keeping their order. */
+internal fun <T> groupByWeek(items: List<T>, date: (T) -> LocalDate): Map<LocalDate, List<T>> =
+    items.groupBy { weekStart(date(it)) }
+
+/**
+ * The header for the week starting on [monday]: [thisWeek] or [lastWeek] relative to [today], otherwise
+ * its range, e.g. "5.–11. Okt", "28. Sep – 4. Okt", "29. Dez 2025 – 4. Jan 2026", and with the year
+ * when the whole week lies before [today]'s year, e.g. "6.–12. Okt 2025".
+ */
+internal fun cookWeekLabel(monday: LocalDate, today: LocalDate, locale: Locale, thisWeek: String, lastWeek: String): String {
+    val sunday = monday.plusDays(6)
+    return when {
+        monday == weekStart(today) -> thisWeek
+        monday == weekStart(today).minusWeeks(1) -> lastWeek
+        monday.year != sunday.year ->
+            "${monday.dayOfMonth}. ${cookMonthLabel(monday, locale)} ${monday.year} – " +
+                "${sunday.dayOfMonth}. ${cookMonthLabel(sunday, locale)} ${sunday.year}"
+        else -> {
+            val year = if (sunday.year < today.year) " ${sunday.year}" else ""
+            if (monday.month == sunday.month) {
+                "${monday.dayOfMonth}.–${sunday.dayOfMonth}. ${cookMonthLabel(sunday, locale)}$year"
+            } else {
+                "${monday.dayOfMonth}. ${cookMonthLabel(monday, locale)} – ${sunday.dayOfMonth}. ${cookMonthLabel(sunday, locale)}$year"
+            }
+        }
+    }
+}
 
 /** The year with a leading separator and a trailing suffix: ", y" in English, " y 'г'." in Russian, "y年" in Japanese. */
 private val YearField = Regex("""[\s,]*y+(?:\s*'[^']*'\.?|[年년])?""")
