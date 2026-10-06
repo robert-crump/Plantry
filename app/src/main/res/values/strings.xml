@@ -185,8 +185,22 @@
     <!-- Ingredient list -->
     <string name="ingredients_title">Zutaten</string>
     <string name="ingredients_empty">Noch keine Zutaten. Lege mit + eine Zutat an – aus der USDA-Datenbank oder mit den Nährwerten von der Packung.</string>
-    <string name="ingredients_empty_unreviewed">Alle Zutaten sind geprüft.</string>
-    <string name="ingredients_filter_unreviewed">Nur ungeprüfte (%1$d)</string>
+    <string name="ingredients_empty_filtered">Keine Zutat passt zu den Filtern.</string>
+    <plurals name="ingredients_count">
+        <item quantity="one">%d Zutat</item>
+        <item quantity="other">%d Zutaten</item>
+    </plurals>
+    <plurals name="ingredients_count_filtered">
+        <item quantity="one">%1$d/%2$d Zutat</item>
+        <item quantity="other">%1$d/%2$d Zutaten</item>
+    </plurals>
+    <string name="ingredients_filter_review">Prüfstatus</string>
+    <string name="ingredients_filter_usage">Verwendung</string>
+    <string name="filter_all">Alle</string>
+    <string name="filter_reviewed">Geprüft</string>
+    <string name="filter_unreviewed">Ungeprüft</string>
+    <string name="filter_used">Verwendet</string>
+    <string name="filter_unused">Nicht verwendet</string>
     <string name="ingredient_add">Zutat hinzufügen</string>
     <string name="ingredient_unreviewed">Ungeprüft</string>
     <plurals name="ingredient_recipe_count">

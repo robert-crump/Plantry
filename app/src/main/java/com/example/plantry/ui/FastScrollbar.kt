@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -28,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -36,11 +36,12 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private val ThumbHeight = 48.dp
+private val BubbleGap = 4.dp
 private const val HideDelayMillis = 1_500L
 
 /**
  * A draggable scrollbar for the lazy list driven by [state]. It shows while the list scrolls and
- * fades out [HideDelayMillis] after it stops; while the thumb is dragged, a bubble beside it shows
+ * fades out [HideDelayMillis] after it stops; while the thumb is dragged, a bubble above it shows
  * [label] for the item at the top of the list (by index; null shows no bubble). Place it over the
  * list's right edge with the list's height. Only the thumb takes touches, and only while visible.
  */
@@ -67,63 +68,69 @@ fun FastScrollbar(state: LazyListState, label: (index: Int) -> String?, modifier
         val trackPx = constraints.maxHeight - with(LocalDensity.current) { ThumbHeight.toPx() }
         if (trackPx <= 0f) return@BoxWithConstraints
         val thumbFraction = if (dragging) dragFraction else fraction
-        Row(
-            Modifier
-                .align(Alignment.TopEnd)
-                .offset { IntOffset(0, (thumbFraction * trackPx).roundToInt()) }
-                .graphicsLayer { this.alpha = alpha },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            val text = if (dragging) label(state.firstVisibleItemIndex) else null
-            if (text != null) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    shadowElevation = 2.dp,
-                ) {
-                    Text(
-                        text,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    )
-                }
-            }
-            Box(
-                Modifier
-                    .size(width = 24.dp, height = ThumbHeight)
-                    .then(
-                        if (visible && scrollable) {
-                            Modifier.pointerInput(state, trackPx) {
-                                detectVerticalDragGestures(
-                                    onDragStart = {
-                                        dragFraction = fraction
-                                        dragging = true
-                                    },
-                                    onDragEnd = { dragging = false },
-                                    onDragCancel = { dragging = false },
-                                ) { change, dy ->
-                                    change.consume()
-                                    dragFraction = (dragFraction + dy / trackPx).coerceIn(0f, 1f)
-                                    val target = dragFraction
-                                    scope.launch { state.scrollToFraction(target) }
-                                }
-                            }
-                        } else {
-                            Modifier
-                        },
-                    ),
-                contentAlignment = Alignment.Center,
+        val thumbY = (thumbFraction * trackPx).roundToInt()
+        val text = if (dragging) label(state.firstVisibleItemIndex) else null
+        if (text != null) {
+            // Right above the thumb, sharing its right edge, so the thumb never hides it; near the
+            // top it may reach over whatever is above the list.
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shadowElevation = 2.dp,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints)
+                        layout(placeable.width, placeable.height) {
+                            placeable.place(0, thumbY - placeable.height - BubbleGap.roundToPx())
+                        }
+                    },
             ) {
-                Box(
-                    Modifier
-                        .size(width = if (dragging) 8.dp else 6.dp, height = ThumbHeight - 8.dp)
-                        .background(
-                            if (dragging) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            RoundedCornerShape(4.dp),
-                        ),
+                Text(
+                    text,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
+        }
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .offset { IntOffset(0, thumbY) }
+                .graphicsLayer { this.alpha = alpha }
+                .size(width = 24.dp, height = ThumbHeight)
+                .then(
+                    if (visible && scrollable) {
+                        Modifier.pointerInput(state, trackPx) {
+                            detectVerticalDragGestures(
+                                onDragStart = {
+                                    dragFraction = fraction
+                                    dragging = true
+                                },
+                                onDragEnd = { dragging = false },
+                                onDragCancel = { dragging = false },
+                            ) { change, dy ->
+                                change.consume()
+                                dragFraction = (dragFraction + dy / trackPx).coerceIn(0f, 1f)
+                                val target = dragFraction
+                                scope.launch { state.scrollToFraction(target) }
+                            }
+                        }
+                    } else {
+                        Modifier
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                Modifier
+                    .size(width = if (dragging) 8.dp else 6.dp, height = ThumbHeight - 8.dp)
+                    .background(
+                        if (dragging) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        RoundedCornerShape(4.dp),
+                    ),
+            )
         }
     }
 }

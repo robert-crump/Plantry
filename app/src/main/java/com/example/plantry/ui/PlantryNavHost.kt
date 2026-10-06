@@ -26,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -86,6 +87,9 @@ object SuggestionsRoute
 /** Saved-state keys with which the suggestions hand a planned recipe back to Kochen. */
 private const val JUST_PLANNED_ID = "justPlannedId"
 private const val JUST_PLANNED_TITLE = "justPlannedTitle"
+
+/** Saved-state key set on the ingredient list when its tab is opened: back to the default filters. */
+private const val RESET_INGREDIENT_FILTERS = "resetIngredientFilters"
 
 /** With [ingredientId], the list opens filtered by that ingredient. */
 @Serializable
@@ -172,6 +176,11 @@ fun PlantryNavHost() {
                                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
+                                }
+                                // Not on a detail round trip, which doesn't go through the tab.
+                                if (top == TopLevelDestination.INGREDIENTS && currentTopLevel != top) {
+                                    navController.getBackStackEntry<IngredientListRoute>()
+                                        .savedStateHandle[RESET_INGREDIENT_FILTERS] = true
                                 }
                             },
                             icon = {
@@ -293,9 +302,18 @@ fun PlantryNavHost() {
                         onBack = { navController.popBackStack() },
                     )
                 }
-                composable<IngredientListRoute> {
+                composable<IngredientListRoute> { entry ->
+                    val viewModel = viewModel { IngredientListViewModel(ingredientRepository, recipeRepository) }
+                    val handle = entry.savedStateHandle
+                    val resetFilters by handle.getStateFlow(RESET_INGREDIENT_FILTERS, false).collectAsStateWithLifecycle()
+                    LaunchedEffect(resetFilters) {
+                        if (resetFilters) {
+                            viewModel.resetFilters()
+                            handle[RESET_INGREDIENT_FILTERS] = false
+                        }
+                    }
                     IngredientListScreen(
-                        viewModel = viewModel { IngredientListViewModel(ingredientRepository, recipeRepository) },
+                        viewModel = viewModel,
                         onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
                         onRecipesClick = { navController.navigate(RecipeListRoute(ingredientId = it)) },
                         onAddIngredient = { navController.navigate(UsdaSearchRoute) },
