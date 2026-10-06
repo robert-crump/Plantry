@@ -326,7 +326,7 @@ class RecipeEditViewModel(
         }
         _state.update { it.copy(proposals = ProposalState.Loading) }
         viewModelScope.launch {
-            val result = newIngredientFinder.propose(apiKey, settings.settings.value.scanModel, foods, ingredients.value)
+            val result = newIngredientFinder.propose(apiKey, settings.settings.value.scanModel, foods)
             _state.update { state ->
                 when (result) {
                     is ClaudeResult.Success ->
@@ -350,7 +350,7 @@ class RecipeEditViewModel(
         val food = NewFood(newTempId(), name, editor.form.originalText.trim(), searchTerms = emptyList())
         _state.update { it.copy(lineEditor = editor.copy(proposing = true, proposalFailure = null)) }
         viewModelScope.launch {
-            val result = newIngredientFinder.propose(apiKey, settings.settings.value.scanModel, listOf(food), ingredients.value)
+            val result = newIngredientFinder.propose(apiKey, settings.settings.value.scanModel, listOf(food))
             _state.update { state ->
                 // Only the editor that asked takes the answer; a closed one leaves an unused proposal.
                 val current = state.lineEditor?.takeIf { it.proposing }

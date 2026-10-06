@@ -21,7 +21,6 @@ class NewIngredientFinder(
         apiKey: String,
         model: ScanModel,
         foods: List<NewFood>,
-        ingredients: List<Ingredient>,
     ): ClaudeResult<Map<Long, IngredientProposal>> {
         if (foods.isEmpty()) return ClaudeResult.Success(emptyMap())
         val withoutTerms = foods.filter { it.searchTerms.isEmpty() }
@@ -38,6 +37,6 @@ class NewIngredientFinder(
             val withTerms = food.copy(searchTerms = food.searchTerms.ifEmpty { terms[food.id].orEmpty() })
             FoodCandidates(withTerms, catalog.candidates(withTerms.searchTerms))
         }
-        return proposer.propose(apiKey, model, candidates, ingredients)
+        return proposer.propose(apiKey, model, candidates)
     }
 }

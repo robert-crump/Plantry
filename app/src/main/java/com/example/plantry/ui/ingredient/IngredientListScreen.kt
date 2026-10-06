@@ -188,7 +188,7 @@ fun IngredientListScreen(
                                 ingredient,
                                 recipeCount = recipeCount,
                                 onClick = { onIngredientClick(ingredient.id) },
-                                onRecipesClick = if (RecipeQuery.canFilterBy(ingredient, recipeCount)) {
+                                onRecipesClick = if (recipeCount > 0) {
                                     { onRecipesClick(ingredient.id) }
                                 } else {
                                     null

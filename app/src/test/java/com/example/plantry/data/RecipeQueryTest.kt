@@ -7,12 +7,12 @@ import java.time.LocalDate
 class RecipeQueryTest {
 
     private val riceDry = ingredient(1, "Reis").copy(plantPoints = PlantPoints.ONE)
-    private val riceCooked = ingredient(2, "Reis, gekocht").copy(plantPoints = PlantPoints.ONE, buyAsIngredientId = 1)
+    private val riceCooked = ingredient(2, "Reis, gekocht").copy(plantPoints = PlantPoints.ONE)
     private val lentils = ingredient(3, "Linsen", Nutrition(protein = 25.0)).copy(plantPoints = PlantPoints.ONE)
     private val tofu = ingredient(4, "Tofu", Nutrition(protein = 15.0))
     private val cumin = ingredient(5, "Kreuzkümmel").copy(plantPoints = PlantPoints.QUARTER)
-    private val salt = ingredient(6, "Salz").copy(staple = true)
-    private val oil = ingredient(7, "Olivenöl").copy(staple = true)
+    private val salt = ingredient(6, "Salz")
+    private val oil = ingredient(7, "Olivenöl")
 
     private val ingredients = listOf(riceDry, riceCooked, lentils, tofu, cumin, salt, oil).associateBy { it.id }
 
@@ -48,29 +48,24 @@ class RecipeQueryTest {
     }
 
     @Test
-    fun recipeCounts_followBuyAsBothWays() {
+    fun recipeCounts_countOnlyTheIngredientItself() {
         val counts = RecipeQuery.recipeCounts(listOf(line(1, riceDry), line(2, riceCooked), line(2, riceDry)), ingredients)
 
         assertEquals(2, counts[riceDry.id])
-        assertEquals(2, counts[riceCooked.id])
-    }
-
-    @Test
-    fun canFilterBy_onlyUsedNonStaples() {
-        assertEquals(true, RecipeQuery.canFilterBy(lentils, 3))
-        assertEquals(false, RecipeQuery.canFilterBy(lentils, 0))
-        assertEquals(false, RecipeQuery.canFilterBy(salt, 3))
+        assertEquals(1, counts[riceCooked.id])
     }
 
     @Test
     fun filterFromRecipeCount_findsTheCountedRecipes() {
-        val recipes = listOf(recipe(1, "Reis pur"), recipe(2, "Gebratener Reis"), recipe(3, "Tofu"))
-        val lines = listOf(line(1, riceDry), line(2, riceCooked), line(3, tofu))
+        val recipes = listOf(recipe(1, "Reis pur"), recipe(2, "Gebratener Reis"), recipe(3, "Tofu"), recipe(4, "Salzig"))
+        val lines = listOf(line(1, riceDry), line(2, riceCooked), line(2, salt), line(3, tofu), line(4, salt))
 
-        val items = run(recipes, lines, RecipeFilter(ingredientIds = setOf(riceDry.id)))
+        listOf(riceDry, salt).forEach { ingredient ->
+            val items = run(recipes, lines, RecipeFilter(ingredientIds = setOf(ingredient.id)))
 
-        assertEquals(RecipeQuery.recipeCounts(lines, ingredients)[riceDry.id], items.size)
-        assertEquals(listOf("Gebratener Reis", "Reis pur"), items.titles())
+            assertEquals(RecipeQuery.recipeCounts(lines, ingredients)[ingredient.id], items.size)
+        }
+        assertEquals(listOf("Reis pur"), run(recipes, lines, RecipeFilter(ingredientIds = setOf(riceDry.id))).titles())
     }
 
     @Test
@@ -124,11 +119,11 @@ class RecipeQueryTest {
     }
 
     @Test
-    fun plantPoints_mostFirst_buyAsTargetCountsOnce() {
+    fun plantPoints_mostFirst_eachIngredientCountsOnce() {
         val result = run(
             listOf(recipe(1, "Reis doppelt"), recipe(2, "Dal"), recipe(3, "Leer")),
             listOf(
-                line(1, riceDry), line(1, riceCooked),
+                line(1, riceDry), line(1, riceDry),
                 line(2, lentils), line(2, riceCooked), line(2, cumin),
             ),
             sort = RecipeSort.PLANT_POINTS,
@@ -175,30 +170,27 @@ class RecipeQueryTest {
     }
 
     @Test
-    fun ingredientFilter_followsBuyAsLinksBothWays() {
+    fun ingredientFilter_matchesOnlyTheIngredientItself() {
         val recipes = listOf(recipe(1, "Mit gekochtem Reis"), recipe(2, "Mit Reis"))
         val lines = listOf(line(1, riceCooked), line(2, riceDry))
 
+        assertEquals(listOf("Mit Reis"), run(recipes, lines, RecipeFilter(ingredientIds = setOf(riceDry.id))).titles())
         assertEquals(
-            listOf("Mit gekochtem Reis", "Mit Reis"),
-            run(recipes, lines, RecipeFilter(ingredientIds = setOf(riceDry.id))).titles(),
-        )
-        assertEquals(
-            listOf("Mit gekochtem Reis", "Mit Reis"),
+            listOf("Mit gekochtem Reis"),
             run(recipes, lines, RecipeFilter(ingredientIds = setOf(riceCooked.id))).titles(),
         )
     }
 
     @Test
-    fun ingredientFilter_staplesNeverMatch() {
+    fun ingredientFilter_saltAndOilMatchLikeAnyOther() {
         val result = run(
-            listOf(recipe(1, "Gesalzen"), recipe(2, "Dal")),
-            listOf(line(1, salt), line(1, oil), line(2, lentils), line(2, salt)),
+            listOf(recipe(1, "Gesalzen"), recipe(2, "Dal"), recipe(3, "Tofu")),
+            listOf(line(1, salt), line(1, oil), line(2, lentils), line(2, salt), line(3, tofu)),
             filter = RecipeFilter(ingredientIds = setOf(salt.id, lentils.id)),
         )
 
-        assertEquals(listOf("Dal"), result.titles())
-        assertEquals(1, result.single().matchedIngredients)
+        assertEquals(listOf("Dal", "Gesalzen"), result.titles())
+        assertEquals(listOf(2, 1), result.map { it.matchedIngredients })
     }
 
     @Test

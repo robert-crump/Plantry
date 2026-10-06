@@ -8,12 +8,10 @@ import com.anthropic.models.messages.JsonOutputFormat
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.anthropic.models.messages.StopReason
-import com.example.plantry.data.BuyUnit
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
-import com.example.plantry.data.UnitWeight
 import com.example.plantry.data.settings.ScanModel
 import com.example.plantry.data.usda.UsdaFood
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +22,7 @@ import kotlinx.serialization.json.Json
 
 /**
  * A food that is not in the user's ingredient table yet. Its [id] is negative: a temporary id that
- * recipe lines and buy-as links refer to until the ingredient is created on save.
+ * recipe lines refer to until the ingredient is created on save.
  */
 data class NewFood(
     val id: Long,
@@ -38,9 +36,6 @@ data class NewFood(
 
 /** A [NewFood] with the USDA entries the local search found for its [NewFood.searchTerms]. */
 data class FoodCandidates(val food: NewFood, val candidates: List<UsdaFood>)
-
-/** What a new ingredient is bought as; a negative [ingredientId] is another new ingredient of the same save. */
-data class ProposedBuyAs(val ingredientId: Long, val yieldFactor: Double?)
 
 /** Where a new ingredient's nutrition comes from: a USDA entry or the values on the package. */
 sealed interface NutritionSource {
@@ -61,21 +56,13 @@ data class IngredientProposal(
     /** Null when no USDA candidate fits, so the user must pick one or enter the label values. */
     val source: NutritionSource?,
     val searchTerms: List<String>,
-    val unitWeights: List<UnitWeight>,
-    val buyUnit: BuyUnit,
-    val packSizeGrams: Double?,
     val storeSection: StoreSection,
-    val staple: Boolean,
     val plantPoints: PlantPoints,
-    val buyAs: ProposedBuyAs?,
 ) {
     /** The USDA entry, if the nutrition comes from one. */
     val food: UsdaFood? get() = (source as? NutritionSource.Usda)?.food
 
-    /**
-     * The unreviewed ingredient to create, without its buy-as link (set once all new ingredients
-     * have ids). Claude's unit weights win; USDA portions are the fallback. Requires [source].
-     */
+    /** The unreviewed ingredient to create. Requires [source]. */
     fun toIngredient(id: Long = 0): Ingredient {
         val source = checkNotNull(source) { "a new ingredient needs a nutrition source" }
         return Ingredient(
@@ -84,14 +71,8 @@ data class IngredientProposal(
             fdcId = food?.fdcId,
             usdaDescription = food?.description,
             nutrition = source.nutrition,
-            unitWeights = unitWeights.ifEmpty { food?.portions.orEmpty() },
-            buyUnit = buyUnit,
-            packSizeGrams = packSizeGrams,
             storeSection = storeSection,
-            staple = staple,
             plantPoints = plantPoints,
-            buyAsIngredientId = null,
-            buyAsYieldFactor = null,
             reviewed = false,
         )
     }
@@ -106,15 +87,11 @@ interface IngredientProposer {
     /** English USDA search terms per [NewFood.id]; a small text-only call. */
     suspend fun searchTerms(apiKey: String, model: ScanModel, foods: List<NewFood>): ClaudeResult<Map<Long, List<String>>>
 
-    /**
-     * Picks a USDA entry from each food's candidates and proposes the remaining attributes, per
-     * [NewFood.id]. Buy-as links may point to [ingredients] or to another food of [foods].
-     */
+    /** Picks a USDA entry from each food's candidates and proposes the remaining attributes, per [NewFood.id]. */
     suspend fun propose(
         apiKey: String,
         model: ScanModel,
         foods: List<FoodCandidates>,
-        ingredients: List<Ingredient>,
     ): ClaudeResult<Map<Long, IngredientProposal>>
 }
 
@@ -142,17 +119,16 @@ class AnthropicIngredientProposer : IngredientProposer {
         apiKey: String,
         model: ScanModel,
         foods: List<FoodCandidates>,
-        ingredients: List<Ingredient>,
     ): ClaudeResult<Map<Long, IngredientProposal>> {
         val params = request(
             model,
             OutputConfig.Effort.MEDIUM,
-            ProposalPrompt.proposeSystem(ingredients),
+            ProposalPrompt.PROPOSE_SYSTEM,
             ProposalPrompt.proposeSchema(),
             ProposalPrompt.proposeMessage(foods),
         )
         return when (val answer = call(apiKey, params)) {
-            is ClaudeResult.Success -> ProposalParser.proposals(answer.value, foods, ingredients.map { it.id }.toSet())
+            is ClaudeResult.Success -> ProposalParser.proposals(answer.value, foods)
             is ClaudeResult.Failure -> answer
         }
     }
@@ -221,7 +197,7 @@ object ProposalPrompt {
         foods.forEach { appendLine("${key(it.id)}\t${it.name}\t${it.originalText}") }
     }
 
-    fun proposeSystem(ingredients: List<Ingredient>) = buildString {
+    val PROPOSE_SYSTEM = buildString {
         appendLine(
             """
             You help a German meal-planning app add new foods to the user's ingredient table. For
@@ -234,19 +210,7 @@ object ProposalPrompt {
               the USDA rules below. 0 if no candidate is the same food; do not pick a different
               food just because it is similar.
             - name: see the name rule below.
-            - unitWeights: weights in grams of the units recipes use for this food, with German
-              labels such as "EL", "TL", "Bund", "Dose", "Zehe". For foods counted in pieces, give
-              one medium piece with the label "mittel". Empty if no unit applies.
-            - buyUnit: PIECES if bought by count (onions, peppers, lemons), PACK if bought in a
-              fixed package (tofu, feta, canned beans, pasta), GRAMS if bought loose by weight.
-            - packSizeGrams: the usual package size in a German supermarket if buyUnit is PACK,
-              0 otherwise.
-            - storeSection, staple, plantPoints: see the rules below.
-            - buyAsIngredientId, buyAsNewKey, buyAsYieldFactor: only if this food is bought as a
-              different food (see the buy-as rule). Link to an entry of the user's table
-              (buyAsIngredientId) or to another new food of this request (buyAsNewKey), never to
-              anything else. buyAsYieldFactor is grams of the bought food per gram of this one.
-              Otherwise 0, "" and 0.
+            - storeSection, plantPoints: see the rules below.
             """.trimIndent(),
         )
         appendLine()
@@ -254,11 +218,7 @@ object ProposalPrompt {
         appendLine()
         appendRule("Name", MatchingRules.NAME)
         appendRule("storeSection", MatchingRules.STORE_SECTION)
-        appendRule("staple", MatchingRules.STAPLE)
-        appendRule("plantPoints", MatchingRules.PLANT_POINTS)
-        appendRule("Buy-as", MatchingRules.BUY_AS)
-        appendLine("The user's ingredient table (id, tab, German name):")
-        ingredients.sortedBy { it.name.lowercase() }.forEach { appendLine("${it.id}\t${it.name}") }
+        append("plantPoints: ${MatchingRules.PLANT_POINTS}")
     }
 
     private fun StringBuilder.appendRule(title: String, rule: String) {
@@ -298,17 +258,8 @@ object ProposalPrompt {
                 "key" to mapOf("type" to "string"),
                 "fdcId" to mapOf("type" to "integer"),
                 "name" to mapOf("type" to "string"),
-                "unitWeights" to arraySchema(
-                    objectSchema("label" to mapOf("type" to "string"), "grams" to mapOf("type" to "number")),
-                ),
-                "buyUnit" to enumSchema(BuyUnit.entries),
-                "packSizeGrams" to mapOf("type" to "number"),
                 "storeSection" to enumSchema(StoreSection.entries),
-                "staple" to mapOf("type" to "boolean"),
                 "plantPoints" to enumSchema(PlantPoints.entries),
-                "buyAsIngredientId" to mapOf("type" to "integer"),
-                "buyAsNewKey" to mapOf("type" to "string"),
-                "buyAsYieldFactor" to mapOf("type" to "number"),
             ),
         ),
     )
@@ -348,19 +299,9 @@ object ProposalParser {
         val key: String,
         val fdcId: Long = 0,
         val name: String = "",
-        val unitWeights: List<UnitWeightJson> = emptyList(),
-        val buyUnit: String = "",
-        val packSizeGrams: Double = 0.0,
         val storeSection: String = "",
-        val staple: Boolean = false,
         val plantPoints: String = "",
-        val buyAsIngredientId: Long = 0,
-        val buyAsNewKey: String = "",
-        val buyAsYieldFactor: Double = 0.0,
     )
-
-    @Serializable
-    private data class UnitWeightJson(val label: String, val grams: Double)
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -373,56 +314,29 @@ object ProposalParser {
 
     /**
      * One proposal per food. Invalid or missing fields fall back to neutral values the user reviews
-     * later: a USDA entry that was not a candidate counts as none, unknown enums become
-     * GRAMS / OTHER / ZERO, a pack without a size is bought by grams, and buy-as links may only point
-     * to [knownIngredientIds] or another of [foods]. A food Claude left out gets only defaults.
+     * later: a USDA entry that was not a candidate counts as none and unknown enums become
+     * OTHER / ZERO. A food Claude left out gets only defaults.
      */
-    fun proposals(
-        text: String?,
-        foods: List<FoodCandidates>,
-        knownIngredientIds: Set<Long>,
-    ): ClaudeResult<Map<Long, IngredientProposal>> {
+    fun proposals(text: String?, foods: List<FoodCandidates>): ClaudeResult<Map<Long, IngredientProposal>> {
         val parsed = decode<ProposalsJson>(text) ?: return ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE)
         val byKey = parsed.ingredients.associateBy { it.key.trim() }
-        val newIds = foods.associate { ProposalPrompt.key(it.food.id) to it.food.id }
         return ClaudeResult.Success(
             foods.associate { candidates ->
                 val food = candidates.food
                 val answer = byKey[ProposalPrompt.key(food.id)] ?: ProposalJson(key = ProposalPrompt.key(food.id))
-                food.id to toProposal(answer, candidates, knownIngredientIds, newIds)
+                food.id to toProposal(answer, candidates)
             },
         )
     }
 
-    private fun toProposal(
-        answer: ProposalJson,
-        candidates: FoodCandidates,
-        knownIngredientIds: Set<Long>,
-        newIds: Map<String, Long>,
-    ): IngredientProposal {
+    private fun toProposal(answer: ProposalJson, candidates: FoodCandidates): IngredientProposal {
         val food = candidates.food
-        val packSize = answer.packSizeGrams.takeIf { it.isFinite() && it > 0.0 }
-        val buyUnit = enumOrNull<BuyUnit>(answer.buyUnit)
-            ?.takeUnless { it == BuyUnit.PACK && packSize == null }
-            ?: BuyUnit.GRAMS
-        val buyAsId = answer.buyAsIngredientId.takeIf { it in knownIngredientIds }
-            ?: newIds[answer.buyAsNewKey.trim()]?.takeIf { it != food.id }
         return IngredientProposal(
             name = answer.name.trim().ifEmpty { food.name.trim() },
             source = candidates.candidates.firstOrNull { it.fdcId == answer.fdcId }?.let(NutritionSource::Usda),
             searchTerms = food.searchTerms,
-            unitWeights = answer.unitWeights
-                .filter { it.label.isNotBlank() && it.grams.isFinite() && it.grams > 0.0 }
-                .map { UnitWeight(it.label.trim(), it.grams) }
-                .distinctBy { it.label.lowercase() },
-            buyUnit = buyUnit,
-            packSizeGrams = packSize.takeIf { buyUnit == BuyUnit.PACK },
             storeSection = enumOrNull<StoreSection>(answer.storeSection) ?: StoreSection.OTHER,
-            staple = answer.staple,
             plantPoints = enumOrNull<PlantPoints>(answer.plantPoints) ?: PlantPoints.ZERO,
-            buyAs = buyAsId?.let {
-                ProposedBuyAs(it, answer.buyAsYieldFactor.takeIf { factor -> factor.isFinite() && factor > 0.0 })
-            },
         )
     }
 

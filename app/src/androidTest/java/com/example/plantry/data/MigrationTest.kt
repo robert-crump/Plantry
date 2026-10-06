@@ -208,6 +208,41 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate12To13_dropsTheShoppingAttributesAndKeepsIngredientsLinesAndAliases() {
+        helper.createDatabase(DB_NAME, 12).use { db ->
+            db.execSQL(ingredientSql(4, "Zitrone", "ONE", protein = 1.1, carbs = 9.3))
+            db.execSQL(ingredientSql(3, "Zitronensaft", "ZERO", protein = 0.4, carbs = 6.9, buyAs = 4))
+            db.execSQL(
+                "INSERT INTO recipes (id, title, source, page, bookServings, ourServings, cookingTimeMinutes, modified) " +
+                    "VALUES (1, 'Dal', '', NULL, 2, 2, 30, 0)",
+            )
+            db.execSQL(
+                "INSERT INTO recipe_ingredients (id, recipeId, position, originalText, grams, ingredientId) " +
+                    "VALUES (1, 1, 0, 'Saft einer Zitrone', 40, 3)",
+            )
+            db.execSQL("INSERT INTO ingredient_aliases (wording, ingredientId) VALUES ('zitronensaft', 3)")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 13, true).use { db ->
+            db.query("SELECT id, name, protein, plantPoints, reviewed FROM ingredients ORDER BY id").use { c ->
+                c.moveToFirst()
+                assertEquals(3L, c.getLong(0))
+                assertEquals("Zitronensaft", c.getString(1))
+                assertEquals(0.4, c.getDouble(2), 0.0)
+                assertEquals("ZERO", c.getString(3))
+                assertEquals(1, c.getInt(4))
+                assertEquals(2, c.count)
+            }
+            db.query("SELECT * FROM ingredients").use { c ->
+                listOf("unitWeights", "buyUnit", "packSizeGrams", "staple", "buyAsIngredientId", "buyAsYieldFactor")
+                    .forEach { assertEquals(it, -1, c.getColumnIndex(it)) }
+            }
+            db.query("SELECT ingredientId FROM recipe_ingredients").use { assertEquals(3L, it.apply { moveToFirst() }.getLong(0)) }
+            db.query("SELECT ingredientId FROM ingredient_aliases").use { assertEquals(3L, it.apply { moveToFirst() }.getLong(0)) }
+        }
+    }
+
     private fun ingredientSql(id: Long, name: String, points: String, protein: Double, carbs: Double, buyAs: Long? = null) =
         "INSERT INTO ingredients (id, name, fdcId, usdaDescription, kcal, protein, carbs, sugar, fat, fibre, " +
             "unitWeights, buyUnit, packSizeGrams, storeSection, staple, plantPoints, buyAsIngredientId, " +

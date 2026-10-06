@@ -19,9 +19,6 @@ interface IngredientDao {
     @Query("SELECT * FROM ingredients WHERE id = :id")
     suspend fun getById(id: Long): Ingredient?
 
-    @Query("SELECT id, buyAsIngredientId FROM ingredients")
-    suspend fun getBuyAsLinks(): List<BuyAsLink>
-
     @Insert
     suspend fun insert(ingredient: Ingredient): Long
 
@@ -46,7 +43,7 @@ interface IngredientDao {
     )
     suspend fun getRecipeTitlesUsing(id: Long): List<String>
 
-    /** Aliases go with the ingredient; ingredients bought as it lose their buy-as link. */
+    /** Aliases go with the ingredient. */
     @Query("DELETE FROM ingredients WHERE id = :id")
     suspend fun deleteById(id: Long)
 

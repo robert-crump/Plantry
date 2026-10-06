@@ -19,7 +19,7 @@ class ProposalPromptLiveTest {
     private val apiKey: String? = System.getenv("ANTHROPIC_API_KEY")
 
     private fun usda(fdcId: Long, description: String) =
-        UsdaFood(fdcId, description, Nutrition(0.0, 0.0, 0.0, 0.0, 0.0, 0.0), emptyList())
+        UsdaFood(fdcId, description, Nutrition(0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
 
     private fun food(id: Long, name: String, line: String, vararg candidates: UsdaFood) =
         FoodCandidates(NewFood(id, name, line, emptyList()), candidates.toList())
@@ -46,7 +46,7 @@ class ProposalPromptLiveTest {
             food(-7, "Gnocchi", "500 g Gnocchi", usda(10, "Potatoes, flesh and skin, raw")),
         )
 
-        val result = runBlocking { AnthropicIngredientProposer().propose(apiKey!!, ScanModel.DEFAULT, foods, emptyList()) }
+        val result = runBlocking { AnthropicIngredientProposer().propose(apiKey!!, ScanModel.DEFAULT, foods) }
 
         val proposals = (result as ClaudeResult.Success).value
         val points = foods.associate { it.food.name to proposals.getValue(it.food.id).plantPoints }

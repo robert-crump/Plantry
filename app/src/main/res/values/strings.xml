@@ -246,20 +246,8 @@
     <string name="ingredient_no_usda_source">Keine USDA-Quelle</string>
     <string name="ingredient_reviewed_hint">Speichern markiert die Zutat als geprüft.</string>
     <string name="ingredient_section_nutrition">Nährwerte je 100 g</string>
-    <string name="ingredient_section_units">Einheitsgewichte</string>
-    <string name="ingredient_units_hint">Die Einheit „medium“ bzw. „mittel“ bestimmt das Stückgewicht.</string>
-    <string name="ingredient_unit_label">Einheit</string>
-    <string name="ingredient_unit_grams">Gramm</string>
-    <string name="ingredient_unit_add">Einheit hinzufügen</string>
-    <string name="ingredient_unit_remove">Einheit entfernen</string>
-    <string name="ingredient_section_buy_unit">Einkaufseinheit</string>
-    <string name="ingredient_pack_size">Packungsgröße (g)</string>
     <string name="ingredient_section_store_section">Abteilung</string>
-    <string name="ingredient_staple">Vorrat (Salz, Öl, Gewürze …)</string>
     <string name="ingredient_section_plant_points">Pflanzenpunkte</string>
-    <string name="ingredient_section_buy_as">Gekauft als</string>
-    <string name="ingredient_buy_as_none">Keine (wird selbst gekauft)</string>
-    <string name="ingredient_buy_as_yield">Faktor (g Einkauf je g Zutat)</string>
     <string name="ingredient_delete_title">Zutat löschen?</string>
     <string name="ingredient_delete_message">„%1$s“ wird endgültig gelöscht.</string>
     <string name="ingredient_delete_blocked_title">Zutat wird noch verwendet</string>
@@ -271,10 +259,6 @@
     <string name="nutrient_sugar">Zucker (g)</string>
     <string name="nutrient_fat">Fett (g)</string>
     <string name="nutrient_fibre">Ballaststoffe (g)</string>
-
-    <string name="buy_unit_pieces">Stück</string>
-    <string name="buy_unit_pack">Packung</string>
-    <string name="buy_unit_grams">Gramm</string>
 
     <string name="store_section_produce">Obst &amp; Gemüse</string>
     <string name="store_section_dairy_chilled">Kühlregal</string>
@@ -289,10 +273,6 @@
     <string name="error_name_required">Bitte einen Namen eingeben</string>
     <string name="error_non_negative_decimal">Bitte eine Zahl ≥ 0 eingeben</string>
     <string name="error_positive_decimal">Bitte eine Zahl größer 0 eingeben</string>
-    <string name="error_unit_weight">Bitte Einheit und Gramm (größer 0) angeben</string>
-    <string name="error_piece_weight_missing">Für „Stück“ wird ein Einheitsgewicht „medium“ oder „mittel“ benötigt</string>
-    <string name="error_buy_as_self">Eine Zutat kann nicht als sie selbst gekauft werden</string>
-    <string name="error_buy_as_cycle">Diese Verknüpfung würde einen Kreis bilden</string>
 
     <!-- Navigation -->
     <string name="nav_cooking">Kochen</string>

@@ -4,7 +4,6 @@ import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.example.plantry.data.BuyUnit
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
@@ -16,7 +15,6 @@ import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.StoreSection
-import com.example.plantry.data.UnitWeight
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -45,26 +43,19 @@ class BackupDaoTest {
     @After
     fun tearDown() = db.close()
 
-    private fun ingredient(id: Long, name: String, buyAs: Long? = null) = Ingredient(
+    private fun ingredient(id: Long, name: String) = Ingredient(
         id = id,
         name = name,
         fdcId = null,
         usdaDescription = null,
         nutrition = Nutrition(kcal = 130.0, protein = 2.7),
-        unitWeights = listOf(UnitWeight("mittel", 130.0)),
-        buyUnit = BuyUnit.GRAMS,
-        packSizeGrams = null,
         storeSection = StoreSection.OTHER,
-        staple = false,
         plantPoints = PlantPoints.ONE,
-        buyAsIngredientId = buyAs,
-        buyAsYieldFactor = buyAs?.let { 0.4 },
         reviewed = true,
     )
 
     private val snapshot = BackupSnapshot(
-        // Forward buy-as link: 1 -> 5.
-        ingredients = listOf(ingredient(1, "Reis, gekocht", buyAs = 5), ingredient(5, "Reis, trocken")),
+        ingredients = listOf(ingredient(1, "Reis, gekocht"), ingredient(5, "Reis, trocken")),
         recipes = listOf(Recipe(3, "Curry", "Buch", 12, 4, 2, 30, modified = true)),
         lines = listOf(RecipeIngredient(8, 3, 0, "1 Tasse Reis", 180.0, 1), RecipeIngredient(9, 3, 1, "Reis", 50.0, 5)),
         cookLog = listOf(
@@ -77,7 +68,7 @@ class BackupDaoTest {
     )
 
     @Test
-    fun replaceAll_restoresEverything_withIdsAndForwardLinks() = runTest {
+    fun replaceAll_restoresEverything_withIds() = runTest {
         db.ingredientDao().insert(ingredient(0, "Alt"))
         db.recipeDao().insert(Recipe(title = "Alt", source = "", page = null, bookServings = 1, ourServings = 1, cookingTimeMinutes = 1))
 

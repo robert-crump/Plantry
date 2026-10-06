@@ -2,7 +2,6 @@ package com.example.plantry.data.usda
 
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
-import com.example.plantry.data.UnitWeight
 
 /** An entry of the bundled USDA FoodData Central (SR Legacy) dataset. */
 data class UsdaFood(
@@ -10,8 +9,6 @@ data class UsdaFood(
     val description: String,
     /** Per 100 g; nutrients USDA has no value for are 0. */
     val nutrition: Nutrition,
-    /** Gram weight of one unit, e.g. "cup, chopped" -> 128 g. */
-    val portions: List<UnitWeight>,
 )
 
 /** Offline search over the bundled USDA foods (English descriptions). */
@@ -65,14 +62,8 @@ class UsdaCatalog(foods: List<UsdaFood>) {
             val nutrients = NUTRIENT_COLUMNS.withIndex().associate { (i, nutrient) ->
                 nutrient to (columns[2 + i].toDoubleOrNull() ?: 0.0)
             }
-            val portions = columns.getOrNull(8).orEmpty()
-                .split('|')
-                .filter { it.isNotEmpty() }
-                .map { portion ->
-                    val (label, grams) = portion.split('=', limit = 2)
-                    UnitWeight(label, grams.toDouble())
-                }
-            return UsdaFood(columns[0].toLong(), columns[1], Nutrition.of(nutrients), portions)
+            // Column 8, the portion weights, is no longer read.
+            return UsdaFood(columns[0].toLong(), columns[1], Nutrition.of(nutrients))
         }
     }
 }

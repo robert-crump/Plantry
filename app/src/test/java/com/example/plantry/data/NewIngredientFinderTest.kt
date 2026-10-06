@@ -35,7 +35,6 @@ class NewIngredientFinderTest {
             apiKey: String,
             model: ScanModel,
             foods: List<FoodCandidates>,
-            ingredients: List<Ingredient>,
         ): ClaudeResult<Map<Long, IngredientProposal>> {
             proposeRequest = foods
             return ClaudeResult.Success(emptyMap())
@@ -46,7 +45,7 @@ class NewIngredientFinderTest {
     private val onion = NewFood(-2, "Zwiebel", "1 Zwiebel", emptyList())
 
     private suspend fun propose(proposer: FakeProposer, vararg foods: NewFood) =
-        NewIngredientFinder(proposer) { catalog }.propose("key", ScanModel.OPUS, foods.toList(), emptyList())
+        NewIngredientFinder(proposer) { catalog }.propose("key", ScanModel.OPUS, foods.toList())
 
     @Test
     fun foodsWithScanTerms_skipTheSearchTermsCall_andGetLocalCandidates() = runTest {

@@ -161,9 +161,8 @@ class PlannedRepositoryTest {
         val lentils = Ingredient(
             id = 5, name = "Linsen", fdcId = null, usdaDescription = null,
             nutrition = Nutrition(kcal = 350.0, protein = 25.0, carbs = 50.0, sugar = 2.0, fat = 1.0, fibre = 10.0),
-            unitWeights = emptyList(), buyUnit = BuyUnit.GRAMS, packSizeGrams = null,
-            storeSection = StoreSection.OTHER, staple = false, plantPoints = PlantPoints.ONE,
-            buyAsIngredientId = null, buyAsYieldFactor = null, reviewed = true,
+            storeSection = StoreSection.OTHER, plantPoints = PlantPoints.ONE,
+            reviewed = true,
         )
         val lines = listOf(RecipeIngredient(1, 1, 0, "200 g Linsen", 200.0, 5))
         val planned = listOf(PlannedRecipe(2, today.minusDays(1)), PlannedRecipe(9, today), PlannedRecipe(1, today))

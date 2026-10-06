@@ -5,7 +5,7 @@ import kotlin.math.roundToInt
 
 /** The numbers a recipe is judged by at a glance. */
 data class RecipeStats(
-    /** Sum of [PlantPoints] over the recipe's distinct plants, buy-as links followed. */
+    /** Sum of [PlantPoints] over the recipe's distinct ingredients. */
     val plantPoints: Double,
     val proteinPerPortion: Double,
     /** Still stored and backed up, but no longer shown. */
@@ -24,15 +24,13 @@ data class RecipeStats(
     companion object {
         /** Lines whose ingredient is missing from [ingredients] are skipped. */
         fun of(recipe: Recipe, lines: List<RecipeIngredient>, ingredients: Map<Long, Ingredient>): RecipeStats {
-            val roots = lines.mapNotNullTo(mutableSetOf()) { line ->
-                ingredients[line.ingredientId]?.let { buyAsRoot(it, ingredients) }
-            }
+            val used = lines.mapNotNullTo(mutableSetOf()) { ingredients[it.ingredientId] }
             val nutrition = RecipeNutrition.calculate(
                 nutritionLines(lines.sortedBy { it.position }.map { it.toDraft() }, ingredients),
                 recipe.ourServings,
             ).perPortion
             return RecipeStats(
-                plantPoints = roots.sumOf { it.plantPoints.value },
+                plantPoints = used.sumOf { it.plantPoints.value },
                 proteinPerPortion = nutrition.protein,
                 carbsPerPortion = nutrition.carbs,
                 kcalPerPortion = nutrition.kcal,

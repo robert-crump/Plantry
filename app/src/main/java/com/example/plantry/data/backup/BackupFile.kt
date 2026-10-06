@@ -1,6 +1,5 @@
 package com.example.plantry.data.backup
 
-import com.example.plantry.data.BuyUnit
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
@@ -12,7 +11,6 @@ import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeSnapshot
 import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.StoreSection
-import com.example.plantry.data.UnitWeight
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -45,10 +43,14 @@ data class BackupFile(
          * 2: learned ingredient aliases. 3: a recipe's cooking time may be null. 4: no week plan
          * and shopping ticks any more. 5: cooking log entries carry a recipe snapshot and may
          * belong to a deleted recipe. 6: Geplant. 7: cooking log entries may carry kcal and fibre.
+         * 8: ingredients without unit weights, buy unit, pack size, staple flag and buy-as link.
          */
-        const val FORMAT_VERSION = 7
+        const val FORMAT_VERSION = 8
 
-        /** Unknown keys are skipped, so older files with `weekPlan` and `shoppingTicks` still import. */
+        /**
+         * Unknown keys are skipped, so older files with `weekPlan` and `shoppingTicks`, or with the
+         * ingredient attributes dropped in version 8, still import.
+         */
         private val json = Json {
             prettyPrint = true
             ignoreUnknownKeys = true
@@ -97,19 +99,10 @@ data class BackupIngredient(
     val fdcId: Long?,
     val usdaDescription: String?,
     val nutrition: BackupNutrition,
-    val unitWeights: List<BackupUnitWeight>,
-    val buyUnit: BuyUnit,
-    val packSizeGrams: Double?,
     val storeSection: StoreSection,
-    val staple: Boolean,
     val plantPoints: PlantPoints,
-    val buyAsIngredientId: Long?,
-    val buyAsYieldFactor: Double?,
     val reviewed: Boolean,
 )
-
-@Serializable
-data class BackupUnitWeight(val label: String, val grams: Double)
 
 @Serializable
 data class BackupRecipe(
@@ -257,14 +250,8 @@ private fun Ingredient.toBackup() = BackupIngredient(
     fdcId = fdcId,
     usdaDescription = usdaDescription,
     nutrition = with(nutrition) { BackupNutrition(kcal, protein, carbs, sugar, fat, fibre) },
-    unitWeights = unitWeights.map { BackupUnitWeight(it.label, it.grams) },
-    buyUnit = buyUnit,
-    packSizeGrams = packSizeGrams,
     storeSection = storeSection,
-    staple = staple,
     plantPoints = plantPoints,
-    buyAsIngredientId = buyAsIngredientId,
-    buyAsYieldFactor = buyAsYieldFactor,
     reviewed = reviewed,
 )
 
@@ -274,14 +261,8 @@ private fun BackupIngredient.toEntity() = Ingredient(
     fdcId = fdcId,
     usdaDescription = usdaDescription,
     nutrition = with(nutrition) { Nutrition(kcal, protein, carbs, sugar, fat, fibre) },
-    unitWeights = unitWeights.map { UnitWeight(it.label, it.grams) },
-    buyUnit = buyUnit,
-    packSizeGrams = packSizeGrams,
     storeSection = storeSection,
-    staple = staple,
     plantPoints = plantPoints,
-    buyAsIngredientId = buyAsIngredientId,
-    buyAsYieldFactor = buyAsYieldFactor,
     reviewed = reviewed,
 )
 

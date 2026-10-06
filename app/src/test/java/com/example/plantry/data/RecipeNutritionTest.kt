@@ -167,13 +167,7 @@ internal fun ingredient(id: Long, name: String, nutrition: Nutrition = Nutrition
     fdcId = null,
     usdaDescription = null,
     nutrition = nutrition,
-    unitWeights = emptyList(),
-    buyUnit = BuyUnit.GRAMS,
-    packSizeGrams = null,
     storeSection = StoreSection.OTHER,
-    staple = false,
     plantPoints = PlantPoints.ZERO,
-    buyAsIngredientId = null,
-    buyAsYieldFactor = null,
     reviewed = true,
 )

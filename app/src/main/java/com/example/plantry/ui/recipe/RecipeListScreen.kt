@@ -82,7 +82,7 @@ data class RecipeListUiState(
     val recipeCount: Int,
     val filter: RecipeFilter,
     val sort: RecipeSort,
-    /** The ingredients the filter offers: all but staples, A–Z. */
+    /** The ingredients the filter offers: all of them, A–Z. */
     val choosableIngredients: List<Ingredient>,
     /** The filter's ingredients, in the order of [choosableIngredients]. */
     val selectedIngredients: List<Ingredient>,
@@ -109,7 +109,7 @@ class RecipeListViewModel(
         combine(filter, sort, ::Pair),
     ) { recipes, lines, ingredients, lastCooked, (filter, sort) ->
         val byId = ingredients.associateBy { it.id }
-        val choosable = ingredients.filterNot { it.staple }.sortedBy { it.name.lowercase() }
+        val choosable = ingredients.sortedBy { it.name.lowercase() }
         RecipeListUiState(
             items = RecipeQuery.run(recipes, lines, byId, lastCooked, filter, sort),
             recipeCount = recipes.size,

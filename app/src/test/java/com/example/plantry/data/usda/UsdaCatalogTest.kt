@@ -1,7 +1,6 @@
 package com.example.plantry.data.usda
 
 import com.example.plantry.data.Nutrition
-import com.example.plantry.data.UnitWeight
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -23,20 +22,18 @@ class UsdaCatalogTest {
     private fun search(query: String) = catalog.search(query).map { it.fdcId }
 
     @Test
-    fun parse_readsNutritionAndPortions() {
+    fun parse_readsNutrition() {
         val food = catalog.search("chickpeas raw").single()
 
         assertEquals(1L, food.fdcId)
         assertEquals(Nutrition(378.0, 20.47, 62.95, 10.7, 6.04, 12.2), food.nutrition)
-        assertEquals(listOf(UnitWeight("cup", 200.0), UnitWeight("tbsp", 12.5)), food.portions)
     }
 
     @Test
-    fun parse_missingValuesBecomeZeroAndNoPortions() {
+    fun parse_missingValuesBecomeZero() {
         val food = catalog.search("canned").single()
 
         assertEquals(0.0, food.nutrition.sugar, 0.0)
-        assertEquals(emptyList<UnitWeight>(), food.portions)
     }
 
     @Test

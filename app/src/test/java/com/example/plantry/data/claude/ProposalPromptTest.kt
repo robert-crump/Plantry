@@ -1,8 +1,5 @@
 package com.example.plantry.data.claude
 
-import com.example.plantry.data.BuyUnit
-import com.example.plantry.data.Ingredient
-import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import org.junit.Assert.assertFalse
@@ -11,20 +8,12 @@ import org.junit.Test
 
 class ProposalPromptTest {
 
-    private val lemon = Ingredient(
-        id = 7, name = "Zitrone", fdcId = 167746, usdaDescription = "Lemons, raw, without peel",
-        nutrition = Nutrition(29.0, 1.1, 9.3, 2.8, 0.3, 2.5), unitWeights = emptyList(), buyUnit = BuyUnit.PIECES,
-        packSizeGrams = null, storeSection = StoreSection.PRODUCE, staple = false, plantPoints = PlantPoints.ONE,
-        buyAsIngredientId = null, buyAsYieldFactor = null, reviewed = true,
-    )
-
     @Test
     fun `propose prompt contains every calibrated rule`() {
-        val prompt = ProposalPrompt.proposeSystem(emptyList())
+        val prompt = ProposalPrompt.PROPOSE_SYSTEM
 
         listOf(
-            MatchingRules.USDA_ENTRY, MatchingRules.NAME, MatchingRules.STORE_SECTION,
-            MatchingRules.STAPLE, MatchingRules.PLANT_POINTS, MatchingRules.BUY_AS,
+            MatchingRules.USDA_ENTRY, MatchingRules.NAME, MatchingRules.STORE_SECTION, MatchingRules.PLANT_POINTS,
         ).forEach { assertTrue(it.lines().first(), prompt.contains(it)) }
     }
 
@@ -58,11 +47,12 @@ class ProposalPromptTest {
     }
 
     @Test
-    fun `table follows the rules and keeps one line per ingredient`() {
-        val prompt = ProposalPrompt.proposeSystem(listOf(lemon))
+    fun `propose prompt and schema ask only for the kept attributes`() {
+        val asked = ProposalPrompt.PROPOSE_SYSTEM + ProposalPrompt.proposeSchema().toString()
 
-        assertTrue(prompt.endsWith("The user's ingredient table (id, tab, German name):\n7\tZitrone\n"))
-        assertTrue(prompt.indexOf(MatchingRules.BUY_AS) < prompt.indexOf("7\tZitrone"))
+        listOf("unitWeights", "buyUnit", "packSize", "staple", "buyAs", "ingredient table (id").forEach {
+            assertFalse(it, asked.contains(it))
+        }
     }
 
     @Test

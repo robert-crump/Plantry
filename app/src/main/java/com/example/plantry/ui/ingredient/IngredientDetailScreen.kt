@@ -14,35 +14,24 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -52,19 +41,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
-import com.example.plantry.data.BuyAsError
-import com.example.plantry.data.BuyUnit
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -73,7 +57,6 @@ data class IngredientDetailUiState(
     val ingredient: Ingredient? = null,
     val form: IngredientForm = IngredientForm(),
     val showErrors: Boolean = false,
-    val buyAsError: BuyAsError? = null,
     val saved: Boolean = false,
     /** Set while the delete dialog is open: the recipes that still use the ingredient, if any. */
     val deleteCheck: DeleteCheck? = null,
@@ -90,11 +73,6 @@ class IngredientDetailViewModel(
     private val _state = MutableStateFlow(IngredientDetailUiState())
     val state: StateFlow<IngredientDetailUiState> = _state.asStateFlow()
 
-    /** Candidates for the buy-as link: every other ingredient. */
-    val buyAsOptions: StateFlow<List<Ingredient>> = repository.observeIngredients()
-        .map { all -> all.filter { it.id != ingredientId } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
     init {
         viewModelScope.launch {
             val ingredient = repository.getIngredient(ingredientId) ?: return@launch
@@ -103,7 +81,7 @@ class IngredientDetailViewModel(
     }
 
     fun onFormChange(transform: IngredientForm.() -> IngredientForm) {
-        _state.update { it.copy(form = it.form.transform(), buyAsError = null) }
+        _state.update { it.copy(form = it.form.transform()) }
     }
 
     fun save() {
@@ -113,8 +91,8 @@ class IngredientDetailViewModel(
             return
         }
         viewModelScope.launch {
-            val error = repository.update(ingredientId, draft)
-            _state.update { if (error == null) it.copy(saved = true) else it.copy(buyAsError = error) }
+            repository.update(ingredientId, draft)
+            _state.update { it.copy(saved = true) }
         }
     }
 
@@ -147,7 +125,6 @@ fun IngredientDetailScreen(
     onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val buyAsOptions by viewModel.buyAsOptions.collectAsStateWithLifecycle()
     LaunchedEffect(state.saved, state.deleted) { if (state.saved || state.deleted) onBack() }
 
     val ingredient = state.ingredient
@@ -239,56 +216,6 @@ fun IngredientDetailScreen(
                 }
             }
 
-            SectionTitle(R.string.ingredient_section_units)
-            Text(
-                stringResource(R.string.ingredient_units_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            form.unitWeights.forEachIndexed { index, unit ->
-                val error = errors?.unitWeights?.contains(index) == true
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FormField(
-                        value = unit.label,
-                        onValueChange = { onChange { withUnitWeight(index, unit.copy(label = it)) } },
-                        label = R.string.ingredient_unit_label,
-                        error = if (error) R.string.error_unit_weight else null,
-                        numeric = false,
-                        modifier = Modifier.weight(2f),
-                    )
-                    FormField(
-                        value = unit.grams,
-                        onValueChange = { onChange { withUnitWeight(index, unit.copy(grams = it)) } },
-                        label = R.string.ingredient_unit_grams,
-                        modifier = Modifier.weight(1f),
-                    )
-                    IconButton(onClick = { onChange { removeUnitWeight(index) } }) {
-                        Icon(Icons.Filled.Close, stringResource(R.string.ingredient_unit_remove))
-                    }
-                }
-            }
-            TextButton(onClick = { onChange { addUnitWeight() } }) {
-                Icon(Icons.Filled.Add, contentDescription = null)
-                Text(stringResource(R.string.ingredient_unit_add), Modifier.padding(start = 8.dp))
-            }
-
-            SectionTitle(R.string.ingredient_section_buy_unit)
-            ChoiceRow(
-                options = BuyUnit.entries,
-                selected = form.buyUnit,
-                label = { it.label },
-                onSelect = { onChange { copy(buyUnit = it) } },
-            )
-            if (errors?.pieceWeightMissing == true) ErrorText(R.string.error_piece_weight_missing)
-            if (form.buyUnit == BuyUnit.PACK) {
-                FormField(
-                    value = form.packSize,
-                    onValueChange = { onChange { copy(packSize = it) } },
-                    label = R.string.ingredient_pack_size,
-                    error = if (errors?.packSize == true) R.string.error_positive_decimal else null,
-                )
-            }
-
             SectionTitle(R.string.ingredient_section_store_section)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StoreSection.entries.forEach { section ->
@@ -300,13 +227,6 @@ fun IngredientDetailScreen(
                 }
             }
 
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.ingredient_staple)) },
-                trailingContent = {
-                    Switch(checked = form.staple, onCheckedChange = { onChange { copy(staple = it) } })
-                },
-            )
-
             SectionTitle(R.string.ingredient_section_plant_points)
             ChoiceRow(
                 options = PlantPoints.entries,
@@ -314,29 +234,6 @@ fun IngredientDetailScreen(
                 label = { it.label },
                 onSelect = { onChange { copy(plantPoints = it) } },
             )
-
-            SectionTitle(R.string.ingredient_section_buy_as)
-            BuyAsDropdown(
-                options = buyAsOptions,
-                selectedId = form.buyAsIngredientId,
-                onSelect = { onChange { copy(buyAsIngredientId = it) } },
-            )
-            state.buyAsError?.let { error ->
-                ErrorText(
-                    when (error) {
-                        BuyAsError.SELF_LINK -> R.string.error_buy_as_self
-                        BuyAsError.CYCLE -> R.string.error_buy_as_cycle
-                    },
-                )
-            }
-            if (form.buyAsIngredientId != null) {
-                FormField(
-                    value = form.buyAsYieldFactor,
-                    onValueChange = { onChange { copy(buyAsYieldFactor = it) } },
-                    label = R.string.ingredient_buy_as_yield,
-                    error = if (errors?.buyAsYieldFactor == true) R.string.error_positive_decimal else null,
-                )
-            }
         }
     }
 }
@@ -369,37 +266,6 @@ private fun DeleteDialog(name: String, usedIn: List<String>, onConfirm: () -> Un
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun BuyAsDropdown(options: List<Ingredient>, selectedId: Long?, onSelect: (Long?) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    val none = stringResource(R.string.ingredient_buy_as_none)
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = options.firstOrNull { it.id == selectedId }?.name ?: none,
-            onValueChange = {},
-            readOnly = true,
-            singleLine = true,
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(text = { Text(none) }, onClick = {
-                onSelect(null)
-                expanded = false
-            })
-            options.forEach { option ->
-                DropdownMenuItem(text = { Text(option.name) }, onClick = {
-                    onSelect(option.id)
-                    expanded = false
-                })
-            }
-        }
-    }
-}
-
 @Composable
 private fun <T> ChoiceRow(options: List<T>, selected: T, label: (T) -> Int, onSelect: (T) -> Unit) {
     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -421,11 +287,6 @@ private fun SectionTitle(@StringRes text: Int) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(top = 16.dp),
     )
-}
-
-@Composable
-private fun ErrorText(@StringRes text: Int) {
-    Text(stringResource(text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
 }
 
 @Composable
@@ -460,13 +321,6 @@ internal val Nutrient.label: Int
         Nutrient.SUGAR -> R.string.nutrient_sugar
         Nutrient.FAT -> R.string.nutrient_fat
         Nutrient.FIBRE -> R.string.nutrient_fibre
-    }
-
-private val BuyUnit.label: Int
-    get() = when (this) {
-        BuyUnit.PIECES -> R.string.buy_unit_pieces
-        BuyUnit.PACK -> R.string.buy_unit_pack
-        BuyUnit.GRAMS -> R.string.buy_unit_grams
     }
 
 internal val StoreSection.label: Int

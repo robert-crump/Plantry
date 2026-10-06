@@ -11,7 +11,7 @@ class RecipeStatsTest {
         ingredient(1, "Linsen", PlantPoints.ONE, Nutrition(kcal = 340.0, protein = 24.0, carbs = 50.0, fibre = 11.0)),
         ingredient(2, "Knoblauch", PlantPoints.QUARTER, Nutrition(kcal = 150.0, protein = 6.0, carbs = 33.0, fibre = 2.0)),
         ingredient(3, "Reis, trocken", PlantPoints.ONE, Nutrition(kcal = 360.0, protein = 7.0, carbs = 80.0, fibre = 1.0)),
-        ingredient(4, "Reis, gekocht", PlantPoints.ZERO, Nutrition(kcal = 130.0, protein = 2.7, carbs = 28.0, fibre = 0.4), buyAsIngredientId = 3),
+        ingredient(4, "Reis, gekocht", PlantPoints.ONE, Nutrition(kcal = 130.0, protein = 2.7, carbs = 28.0, fibre = 0.4)),
         ingredient(5, "Öl", PlantPoints.ZERO, Nutrition()),
     ).associateBy { it.id }
 
@@ -20,17 +20,19 @@ class RecipeStatsTest {
         val lines = listOf(
             line(0, 200.0, ingredientId = 1),
             line(1, 10.0, ingredientId = 2),
-            // Both rice lines are bought as Reis, trocken: one plant.
+            // Two different ingredients: two plants, even though both are rice.
             line(2, 100.0, ingredientId = 3),
             line(3, 100.0, ingredientId = 4),
-            line(4, 10.0, ingredientId = 5),
+            // The same ingredient again: counted once.
+            line(4, 0.0, ingredientId = 1),
+            line(5, 10.0, ingredientId = 5),
             // Missing ingredient: skipped.
-            line(5, 50.0, ingredientId = 99),
+            line(6, 50.0, ingredientId = 99),
         )
 
         val stats = RecipeStats.of(recipe, lines, ingredients)
 
-        assertEquals(2.25, stats.plantPoints, 0.0)
+        assertEquals(3.25, stats.plantPoints, 0.0)
         assertEquals((48.0 + 0.6 + 7.0 + 2.7) / 2, stats.proteinPerPortion, 1e-9)
         assertEquals((100.0 + 3.3 + 80.0 + 28.0) / 2, stats.carbsPerPortion, 1e-9)
         assertEquals((680.0 + 15.0 + 360.0 + 130.0) / 2, stats.kcalPerPortion!!, 1e-9)
@@ -81,21 +83,15 @@ class RecipeStatsTest {
     private fun line(position: Int, grams: Double, ingredientId: Long) =
         RecipeIngredient(id = position + 1L, recipeId = 1, position = position, originalText = "", grams = grams, ingredientId = ingredientId)
 
-    private fun ingredient(id: Long, name: String, points: PlantPoints, nutrition: Nutrition, buyAsIngredientId: Long? = null) =
+    private fun ingredient(id: Long, name: String, points: PlantPoints, nutrition: Nutrition) =
         Ingredient(
             id = id,
             name = name,
             fdcId = null,
             usdaDescription = null,
             nutrition = nutrition,
-            unitWeights = emptyList(),
-            buyUnit = BuyUnit.GRAMS,
-            packSizeGrams = null,
             storeSection = StoreSection.OTHER,
-            staple = false,
             plantPoints = points,
-            buyAsIngredientId = buyAsIngredientId,
-            buyAsYieldFactor = null,
             reviewed = true,
         )
 }

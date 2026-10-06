@@ -30,19 +30,13 @@ class IngredientDaoTest {
     @After
     fun tearDown() = db.close()
 
-    private fun ingredient(name: String, buyAs: Long? = null) = Ingredient(
+    private fun ingredient(name: String) = Ingredient(
         name = name,
         fdcId = 168877,
         usdaDescription = "Rice, white, long-grain, raw",
         nutrition = Nutrition(365.0, 7.13, 79.95, 0.12, 0.66, 1.3),
-        unitWeights = listOf(UnitWeight("cup", 185.0), UnitWeight("tbsp", 11.6)),
-        buyUnit = BuyUnit.PACK,
-        packSizeGrams = 1000.0,
         storeSection = StoreSection.DRY_GOODS,
-        staple = false,
         plantPoints = PlantPoints.ZERO,
-        buyAsIngredientId = buyAs,
-        buyAsYieldFactor = buyAs?.let { 0.4 },
         reviewed = true,
     )
 
@@ -71,17 +65,6 @@ class IngredientDaoTest {
         dao.insert(ingredient("Birne"))
 
         assertEquals(listOf("apfel", "Birne", "Zwiebel"), dao.observeAll().first().map { it.name })
-    }
-
-    @Test
-    fun getBuyAsLinks_returnsEveryLink() = runTest {
-        val dry = dao.insert(ingredient("Reis, trocken"))
-        val cooked = dao.insert(ingredient("Reis, gekocht", buyAs = dry))
-
-        assertEquals(
-            setOf(BuyAsLink(dry, null), BuyAsLink(cooked, dry)),
-            dao.getBuyAsLinks().toSet(),
-        )
     }
 
     @Test
@@ -114,15 +97,15 @@ class IngredientDaoTest {
     }
 
     @Test
-    fun deleteById_unlinksBuyAsAndRemovesAliases() = runTest {
+    fun deleteById_removesAliases() = runTest {
         val dry = dao.insert(ingredient("Reis, trocken"))
-        val cooked = dao.insert(ingredient("Reis, gekocht", buyAs = dry))
+        val cooked = dao.insert(ingredient("Reis, gekocht"))
         dao.upsertAliases(listOf(IngredientAlias("reis", dry)))
 
         dao.deleteById(dry)
 
         assertNull(dao.getById(dry))
-        assertNull(dao.getById(cooked)?.buyAsIngredientId)
+        assertEquals("Reis, gekocht", dao.getById(cooked)?.name)
         assertEquals(emptyList<IngredientAlias>(), dao.observeAliases().first())
     }
 

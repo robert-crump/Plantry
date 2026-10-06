@@ -1,8 +1,8 @@
 package com.example.plantry.data.claude
 
 /**
- * How a food is classified when it becomes a Plantry ingredient: USDA entry, plant points, store
- * section and staple. Derived from `tools/seed/matching-rules.md`, the rules calibrated for the
+ * How a food is classified when it becomes a Plantry ingredient: USDA entry, plant points and
+ * store section. Derived from `tools/seed/matching-rules.md`, the rules calibrated for the
  * seeded catalog, so ingredients Claude proposes during a scan are classified the same way.
  * Change both together. Rules that only matter to the seed (label values for products USDA lacks)
  * become "no candidate fits" here, because an app ingredient always needs a USDA entry.
@@ -47,11 +47,6 @@ object MatchingRules {
         goods), DRY_GOODS (pasta, rice, cans, spices, oils, stock), FROZEN, OTHER.
     """.trimIndent()
 
-    val STAPLE = """
-        true for basics usually kept at home (salt, pepper, oil, dried spices, flour, sugar,
-        vinegar, soy sauce, stock as ready-to-serve broth), false otherwise.
-    """.trimIndent()
-
     val PLANT_POINTS = """
         ONE for vegetables, fruit, legumes (incl. tofu, tempeh), whole grains, nuts, seeds and
         mushrooms, fresh, frozen, canned or dried. QUARTER for herbs (fresh or dried), spices,
@@ -61,10 +56,5 @@ object MatchingRules {
         Kokosmilch, Kokosraspeln, passierte and stückige Tomaten, Tahini, Erdnussbutter, Miso,
         Avocadocreme, Rote-Linsen- and Kichererbsen-Nudeln ONE; Harissa, Za'atar QUARTER;
         Tomatenmark, Sojasauce ZERO.
-    """.trimIndent()
-
-    val BUY_AS = """
-        Only where one form is bought to make the other: cooked rice is bought as dry rice
-        (0.4), juice as the fruit (Zitronensaft -> Zitrone, 2.2).
     """.trimIndent()
 }

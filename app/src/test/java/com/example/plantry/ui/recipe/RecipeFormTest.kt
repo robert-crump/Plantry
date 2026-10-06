@@ -1,7 +1,6 @@
 package com.example.plantry.ui.recipe
 
 import com.example.plantry.data.BookPage
-import com.example.plantry.data.BuyUnit
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.Recipe
@@ -232,10 +231,10 @@ class RecipeFormTest {
         assertEquals(listOf(tofu, rice), RecipeForm.from(recipe, stored).completeLines())
     }
 
-    private val smokedTofu = UsdaFood(172476, "Tofu, smoked", Nutrition(160.0, 16.0, 3.0, 1.0, 9.0, 1.0), emptyList())
+    private val smokedTofu = UsdaFood(172476, "Tofu, smoked", Nutrition(160.0, 16.0, 3.0, 1.0, 9.0, 1.0))
 
     private fun proposal(name: String, food: UsdaFood? = smokedTofu) = IngredientProposal(
-        name, food?.let(NutritionSource::Usda), emptyList(), emptyList(), BuyUnit.GRAMS, null, StoreSection.OTHER, false, PlantPoints.ONE, null,
+        name, food?.let(NutritionSource::Usda), emptyList(), StoreSection.OTHER, PlantPoints.ONE,
     )
 
     private val scanned = valid.copy(

@@ -36,7 +36,7 @@ data class RecipeFilter(
 data class RecipeListItem(
     val recipe: Recipe,
     val proteinPerPortion: Double,
-    /** Sum of [PlantPoints] over the recipe's distinct plants, buy-as links followed. */
+    /** Sum of [PlantPoints] over the recipe's distinct ingredients. */
     val plantPoints: Double,
     val lastCookedOn: LocalDate?,
     /** How many of the filter's ingredients the recipe uses; 0 without an ingredient filter. */
@@ -50,10 +50,7 @@ object RecipeQuery {
     /**
      * The recipes passing [filter], sorted by [sort]. With an ingredient filter, recipes using more
      * of the chosen ingredients come first and [sort] only breaks ties; the title breaks the rest.
-     *
-     * An ingredient counts as used when a line's ingredient and the chosen one are bought as the
-     * same thing (same end of their buy-as chains), so "Reis" also finds "Reis, gekocht". Lines
-     * with a staple are never a match. Lines whose ingredient is missing are skipped.
+     * Lines whose ingredient is missing are skipped.
      */
     fun run(
         recipes: List<Recipe>,
@@ -64,16 +61,14 @@ object RecipeQuery {
         sort: RecipeSort,
     ): List<RecipeListItem> {
         val linesByRecipe = lines.groupBy { it.recipeId }
-        val wantedRoots = filter.ingredientIds.mapNotNull { id ->
-            ingredients[id]?.let { buyAsRoot(it, ingredients).id }
-        }
+        val wanted = filter.ingredientIds.filter { it in ingredients }
         val source = filter.source?.trim()
         return recipes
             // A recipe without a time is never filtered out: it may well be quick.
             .filter { recipe -> filter.maxCookingMinutes?.let { max -> recipe.cookingTimeMinutes?.let { it <= max } } ?: true }
             .filter { recipe -> source == null || recipe.source.trim().equals(source, ignoreCase = true) }
-            .map { recipe -> item(recipe, linesByRecipe[recipe.id].orEmpty(), ingredients, lastCooked, wantedRoots) }
-            .filter { wantedRoots.isEmpty() || it.matchedIngredients > 0 }
+            .map { recipe -> item(recipe, linesByRecipe[recipe.id].orEmpty(), ingredients, lastCooked, wanted) }
+            .filter { wanted.isEmpty() || it.matchedIngredients > 0 }
             .sortedWith(
                 compareByDescending<RecipeListItem> { it.matchedIngredients }
                     .then(comparator(sort))
@@ -94,45 +89,27 @@ object RecipeQuery {
             .distinctBy { it.lowercase() }
             .sortedWith(titleCollator)
 
-    /**
-     * How many recipes use each ingredient, keyed by id; ingredients no recipe uses are left out.
-     * Like the ingredient filter, buy-as links are followed, so "Reis" and "Reis, gekocht" count
-     * the recipes using either. Unlike the filter, staples are counted too.
-     */
-    fun recipeCounts(lines: List<RecipeIngredient>, ingredients: Map<Long, Ingredient>): Map<Long, Int> {
-        val recipesByRoot = mutableMapOf<Long, MutableSet<Long>>()
-        lines.forEach { line ->
-            val ingredient = ingredients[line.ingredientId] ?: return@forEach
-            recipesByRoot.getOrPut(buyAsRoot(ingredient, ingredients).id) { mutableSetOf() } += line.recipeId
-        }
-        return ingredients.values.mapNotNull { ingredient ->
-            recipesByRoot[buyAsRoot(ingredient, ingredients).id]?.let { ingredient.id to it.size }
-        }.toMap()
-    }
-
-    /**
-     * Whether the ingredient list may open the recipe list filtered by [ingredient]: only when
-     * recipes use it and it isn't a staple, since the filter never matches staple lines.
-     */
-    fun canFilterBy(ingredient: Ingredient, recipeCount: Int): Boolean = recipeCount > 0 && !ingredient.staple
+    /** How many recipes use each ingredient, keyed by id; ingredients no recipe uses are left out. */
+    fun recipeCounts(lines: List<RecipeIngredient>, ingredients: Map<Long, Ingredient>): Map<Long, Int> =
+        lines.filter { it.ingredientId in ingredients }
+            .groupBy { it.ingredientId }
+            .mapValues { (_, used) -> used.distinctBy { it.recipeId }.size }
 
     private fun item(
         recipe: Recipe,
         recipeLines: List<RecipeIngredient>,
         ingredients: Map<Long, Ingredient>,
         lastCooked: Map<Long, LocalDate>,
-        wantedRoots: List<Long>,
+        wanted: List<Long>,
     ): RecipeListItem {
-        val matchableRoots = recipeLines.mapNotNull { ingredients[it.ingredientId] }
-            .filterNot { it.staple }
-            .mapTo(mutableSetOf()) { buyAsRoot(it, ingredients).id }
+        val used = recipeLines.mapTo(mutableSetOf()) { it.ingredientId }
         val stats = RecipeStats.of(recipe, recipeLines, ingredients)
         return RecipeListItem(
             recipe = recipe,
             proteinPerPortion = stats.proteinPerPortion,
             plantPoints = stats.plantPoints,
             lastCookedOn = lastCooked[recipe.id],
-            matchedIngredients = wantedRoots.count { it in matchableRoots },
+            matchedIngredients = wanted.count { it in used },
         )
     }
 

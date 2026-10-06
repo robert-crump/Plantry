@@ -15,7 +15,7 @@ together. Refined during the calibration round.
 4. **Plainest form**: no "enriched", "fortified", brand names or "prepared with …".
    Prefer *unenriched* for rice, pasta and cornmeal.
 5. **One ingredient per form that appears in the books**: dry and canned chickpeas are two
-   ingredients. Buy-as links only where one form is bought to make the other (cooked rice → dry rice).
+   ingredients.
 6. **Name**: German everyday name, e.g. "Kichererbsen (Dose)".
 7. **No exact variety in USDA**: take the nearest relative by nutrition, not by name
    (Hokkaido → butternut squash, not "pumpkin").
@@ -24,9 +24,8 @@ together. Refined during the calibration round.
    Don't stretch a base food to cover a product, even a single-ingredient one.
 9. **What German shops sell**: farmed Atlantic salmon, firm tofu, Greek yogurt whole milk,
    80 % margarine, parmesan as a block.
-10. **Juice** is its own ingredient, bought as the fruit: Zitronensaft → Zitrone, yield factor 2.2.
-11. **Stock** is the ready-to-serve broth, in ml of prepared broth, and a staple; the powder is
-    not tracked.
+10. **Juice** is its own ingredient: Zitronensaft, not Zitrone.
+11. **Stock** is the ready-to-serve broth, in ml of prepared broth; the powder is not tracked.
 
 ## Plant points
 
@@ -46,7 +45,8 @@ Existing five sections, in this order: Obst & Gemüse · Kühlregal · Trockenwa
 
 ## Calibration log
 
-Round 1, 2026-10-03 (20 items; ★ = proposed pick, all accepted unless noted).
+Round 1, 2026-10-03 (20 items; ★ = proposed pick, all accepted unless noted). Buy-as links and
+the staple flag were dropped from the app since (#55); the log keeps them as decided then.
 
 | # | Ingredient | Pick | Rule |
 |---|---|---|---|

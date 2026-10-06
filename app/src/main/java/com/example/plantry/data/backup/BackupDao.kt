@@ -58,11 +58,7 @@ abstract class BackupDao : BackupStore {
         deleteLines()
         deleteRecipes()
         deleteIngredients()
-        // Buy-as links may point to ingredients inserted later, so they are set in a second pass.
-        insertIngredients(snapshot.ingredients.map { it.copy(buyAsIngredientId = null) })
-        snapshot.ingredients.forEach { ingredient ->
-            ingredient.buyAsIngredientId?.let { setBuyAs(ingredient.id, it) }
-        }
+        insertIngredients(snapshot.ingredients)
         insertAliases(snapshot.aliases)
         insertRecipes(snapshot.recipes)
         insertLines(snapshot.lines)
@@ -93,9 +89,6 @@ abstract class BackupDao : BackupStore {
 
     @Insert
     protected abstract suspend fun insertAliases(aliases: List<IngredientAlias>)
-
-    @Query("UPDATE ingredients SET buyAsIngredientId = :buyAsIngredientId WHERE id = :id")
-    protected abstract suspend fun setBuyAs(id: Long, buyAsIngredientId: Long)
 
     @Insert
     protected abstract suspend fun insertRecipes(recipes: List<Recipe>)

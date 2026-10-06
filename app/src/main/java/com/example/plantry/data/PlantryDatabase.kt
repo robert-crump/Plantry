@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.AutoMigration
 import androidx.room.DeleteTable
 import androidx.room.Database
+import androidx.room.DeleteColumn
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
@@ -14,7 +15,7 @@ import com.example.plantry.data.backup.BackupDao
 
 @Database(
     entities = [Recipe::class, Ingredient::class, RecipeIngredient::class, CookLog::class, IngredientAlias::class, PlannedRecipe::class],
-    version = 12,
+    version = 13,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -26,6 +27,7 @@ import com.example.plantry.data.backup.BackupDao
         AutoMigration(from = 8, to = 9, spec = PlantryDatabase.DropWeekPlan::class),
         AutoMigration(from = 10, to = 11),
         AutoMigration(from = 11, to = 12),
+        AutoMigration(from = 12, to = 13, spec = PlantryDatabase.DropShoppingAttributes::class),
     ],
 )
 @TypeConverters(Converters::class)
@@ -45,6 +47,15 @@ abstract class PlantryDatabase : RoomDatabase() {
     @DeleteTable(tableName = "week_plan_slots")
     @DeleteTable(tableName = "shopping_ticks")
     class DropWeekPlan : AutoMigrationSpec
+
+    /** Without the shopping list, the ingredients' buying attributes, staple flag and buy-as link are gone. */
+    @DeleteColumn(tableName = "ingredients", columnName = "unitWeights")
+    @DeleteColumn(tableName = "ingredients", columnName = "buyUnit")
+    @DeleteColumn(tableName = "ingredients", columnName = "packSizeGrams")
+    @DeleteColumn(tableName = "ingredients", columnName = "staple")
+    @DeleteColumn(tableName = "ingredients", columnName = "buyAsIngredientId")
+    @DeleteColumn(tableName = "ingredients", columnName = "buyAsYieldFactor")
+    class DropShoppingAttributes : AutoMigrationSpec
 
     companion object {
         fun create(context: Context): PlantryDatabase =

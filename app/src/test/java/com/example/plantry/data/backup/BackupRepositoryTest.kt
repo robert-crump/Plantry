@@ -1,6 +1,5 @@
 package com.example.plantry.data.backup
 
-import com.example.plantry.data.BuyUnit
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
@@ -11,7 +10,6 @@ import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.StoreSection
-import com.example.plantry.data.UnitWeight
 import com.example.plantry.data.settings.ScanModel
 import com.example.plantry.data.settings.SecretCipher
 import com.example.plantry.data.settings.SettingsRepository
@@ -71,7 +69,9 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 7"))
+        assertTrue(json.contains("\"formatVersion\": 8"))
+        assertFalse(json.contains("\"staple\""))
+        assertFalse(json.contains("\"buyAsIngredientId\""))
     }
 
     @Test
@@ -105,7 +105,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 7", "\"formatVersion\": 8")
+        val newer = source.export().replace("\"formatVersion\": 8", "\"formatVersion\": 9")
 
         val error = readError(newer)
 
@@ -121,6 +121,31 @@ class BackupRepositoryTest {
         target.repository.import(target.repository.read(v1))
 
         assertEquals(source.store.data.copy(aliases = emptyList()), target.store.data)
+    }
+
+    @Test
+    fun version7File_importsAndSkipsTheDroppedIngredientAttributes() = runTest {
+        val v8 = Json.parseToJsonElement(source.export()).jsonObject
+        val v7Ingredients = JsonArray(
+            v8.getValue("ingredients").jsonArray.map { ingredient ->
+                JsonObject(
+                    ingredient.jsonObject + mapOf(
+                        "unitWeights" to JsonArray(listOf(JsonObject(mapOf("label" to JsonPrimitive("mittel"), "grams" to JsonPrimitive(130.0))))),
+                        "buyUnit" to JsonPrimitive("PACK"),
+                        "packSizeGrams" to JsonPrimitive(500.0),
+                        "staple" to JsonPrimitive(true),
+                        "buyAsIngredientId" to JsonPrimitive(5),
+                        "buyAsYieldFactor" to JsonPrimitive(0.4),
+                    ),
+                )
+            },
+        )
+        val v7 = JsonObject(v8 + ("formatVersion" to JsonPrimitive(7)) + ("ingredients" to v7Ingredients)).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(v7))
+
+        assertEquals(source.store.data, target.store.data)
     }
 
     @Test
@@ -281,20 +306,14 @@ class BackupRepositoryTest {
     private fun sampleData(): BackupSnapshot {
         return BackupSnapshot(
             ingredients = listOf(
-                // Linked to an ingredient with a higher id, which must survive the import order.
-                ingredient(id = 1, name = "Reis, gekocht", buyAsIngredientId = 5, buyAsYieldFactor = 0.4),
+                ingredient(id = 1, name = "Reis, gekocht"),
                 ingredient(id = 3, name = "Süßkartoffel").copy(
                     fdcId = 168482,
                     usdaDescription = "Sweet potato, raw",
-                    unitWeights = listOf(UnitWeight("mittel", 130.0), UnitWeight("1 cup", 133.0)),
-                    buyUnit = BuyUnit.PIECES,
                     plantPoints = PlantPoints.ONE,
                 ),
                 ingredient(id = 5, name = "Reis, trocken").copy(
-                    buyUnit = BuyUnit.PACK,
-                    packSizeGrams = 500.0,
                     storeSection = StoreSection.DRY_GOODS,
-                    staple = true,
                     reviewed = false,
                 ),
             ),
@@ -318,25 +337,14 @@ class BackupRepositoryTest {
         )
     }
 
-    private fun ingredient(
-        id: Long,
-        name: String,
-        buyAsIngredientId: Long? = null,
-        buyAsYieldFactor: Double? = null,
-    ) = Ingredient(
+    private fun ingredient(id: Long, name: String) = Ingredient(
         id = id,
         name = name,
         fdcId = null,
         usdaDescription = null,
         nutrition = Nutrition(kcal = 130.5, protein = 2.7, carbs = 28.2, sugar = 0.1, fat = 0.3, fibre = 0.4),
-        unitWeights = emptyList(),
-        buyUnit = BuyUnit.GRAMS,
-        packSizeGrams = null,
         storeSection = StoreSection.OTHER,
-        staple = false,
         plantPoints = PlantPoints.ZERO,
-        buyAsIngredientId = buyAsIngredientId,
-        buyAsYieldFactor = buyAsYieldFactor,
         reviewed = true,
     )
 }
