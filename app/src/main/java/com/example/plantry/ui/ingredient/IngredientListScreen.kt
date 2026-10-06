@@ -22,7 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.FactCheck
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -63,6 +63,7 @@ import com.example.plantry.data.Nutrition
 import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.ReviewFilter
+import com.example.plantry.data.SortView
 import com.example.plantry.data.UsageFilter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -134,7 +135,7 @@ fun IngredientListScreen(
     onIngredientClick: (Long) -> Unit,
     onRecipesClick: (Long) -> Unit,
     onAddIngredient: () -> Unit,
-    onOpenSort: () -> Unit,
+    onOpenSort: (SortView) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -143,9 +144,7 @@ fun IngredientListScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.ingredients_title)) },
                 actions = {
-                    IconButton(onClick = onOpenSort) {
-                        Icon(Icons.Filled.FactCheck, contentDescription = stringResource(R.string.sort_title))
-                    }
+                    SortMenu(onOpenSort)
                 },
             )
         },
@@ -394,5 +393,27 @@ internal fun UnreviewedBadge() {
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
         )
+    }
+}
+
+/** The ⋮ menu: each entry opens the Sortieren screen locked to that grouping. */
+@Composable
+private fun SortMenu(onOpenSort: (SortView) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            SortView.entries.forEach { view ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(view.label)) },
+                    onClick = {
+                        expanded = false
+                        onOpenSort(view)
+                    },
+                )
+            }
+        }
     }
 }

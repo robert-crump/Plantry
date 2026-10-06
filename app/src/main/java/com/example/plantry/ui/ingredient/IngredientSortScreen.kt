@@ -22,9 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -65,16 +62,18 @@ data class IngredientSortUiState(
     val canConfirm: Boolean get() = groups.any { group -> group.ingredients.any { !it.reviewed } }
 }
 
-class IngredientSortViewModel(private val repository: IngredientRepository) : ViewModel() {
-
-    private val view = MutableStateFlow(SortView.PLANT_POINTS)
+/** The Sortieren screen locked to one [view]. */
+class IngredientSortViewModel(
+    private val repository: IngredientRepository,
+    val view: SortView,
+) : ViewModel() {
 
     /** Null follows the default: on whenever unreviewed ingredients exist. */
     private val onlyUnreviewed = MutableStateFlow<Boolean?>(null)
     private val selected = MutableStateFlow(emptySet<Long>())
 
     val state: StateFlow<IngredientSortUiState?> =
-        combine(repository.observeIngredients(), view, onlyUnreviewed, selected) { all, view, filter, selected ->
+        combine(repository.observeIngredients(), onlyUnreviewed, selected) { all, filter, selected ->
             val unreviewed = all.count { !it.reviewed }
             val only = filter ?: (unreviewed > 0)
             IngredientSortUiState(
@@ -85,11 +84,6 @@ class IngredientSortViewModel(private val repository: IngredientRepository) : Vi
                 selected = selected,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    fun showView(view: SortView) {
-        this.view.value = view
-        selected.value = emptySet()
-    }
 
     fun toggleOnlyUnreviewed() {
         val current = state.value ?: return
@@ -127,7 +121,7 @@ fun IngredientSortScreen(viewModel: IngredientSortViewModel, onBack: () -> Unit)
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.sort_title)) },
+                title = { Text(stringResource(viewModel.view.label)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
@@ -138,16 +132,6 @@ fun IngredientSortScreen(viewModel: IngredientSortViewModel, onBack: () -> Unit)
     ) { padding ->
         val current = state ?: return@Scaffold
         Column(Modifier.fillMaxSize().padding(padding)) {
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                SortView.entries.forEachIndexed { index, view ->
-                    SegmentedButton(
-                        selected = current.view == view,
-                        onClick = { viewModel.showView(view) },
-                        shape = SegmentedButtonDefaults.itemShape(index, SortView.entries.size),
-                        label = { Text(stringResource(view.label)) },
-                    )
-                }
-            }
             Row(
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -260,7 +244,7 @@ private fun GroupCard(
     }
 }
 
-private val SortView.label: Int
+internal val SortView.label: Int
     get() = when (this) {
         SortView.PLANT_POINTS -> R.string.sort_view_plant_points
         SortView.STORE_SECTION -> R.string.sort_view_store_section

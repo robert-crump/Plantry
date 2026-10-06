@@ -210,9 +210,8 @@
     <string name="ingredient_summary">%1$s kcal · %2$s g Protein je 100 g</string>
 
     <!-- Sortieren: bulk-classify ingredients -->
-    <string name="sort_title">Sortieren</string>
     <string name="sort_view_plant_points">Pflanzenpunkte</string>
-    <string name="sort_view_store_section">Supermarkt</string>
+    <string name="sort_view_store_section">Supermarktkategorien</string>
     <string name="sort_only_unreviewed">Nur ungeprüft (%1$d)</string>
     <string name="sort_confirm_all">Alle bestätigen</string>
     <plurals name="sort_selection_hint">

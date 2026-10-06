@@ -51,6 +51,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.example.plantry.PlantryApplication
 import com.example.plantry.R
+import com.example.plantry.data.SortView
 import com.example.plantry.ui.cooklog.CookingScreen
 import com.example.plantry.ui.cooklog.CookingViewModel
 import com.example.plantry.ui.cooklog.JustPlanned
@@ -106,7 +107,7 @@ data class RecipeEditRoute(val recipeId: Long? = null)
 object IngredientListRoute
 
 @Serializable
-object IngredientSortRoute
+data class IngredientSortRoute(val view: SortView)
 
 @Serializable
 object UsdaSearchRoute
@@ -317,12 +318,13 @@ fun PlantryNavHost() {
                         onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
                         onRecipesClick = { navController.navigate(RecipeListRoute(ingredientId = it)) },
                         onAddIngredient = { navController.navigate(UsdaSearchRoute) },
-                        onOpenSort = { navController.navigate(IngredientSortRoute) },
+                        onOpenSort = { navController.navigate(IngredientSortRoute(it)) },
                     )
                 }
-                composable<IngredientSortRoute> {
+                composable<IngredientSortRoute> { entry ->
+                    val view = entry.toRoute<IngredientSortRoute>().view
                     IngredientSortScreen(
-                        viewModel = viewModel { IngredientSortViewModel(ingredientRepository) },
+                        viewModel = viewModel { IngredientSortViewModel(ingredientRepository, view) },
                         onBack = { navController.popBackStack() },
                     )
                 }
