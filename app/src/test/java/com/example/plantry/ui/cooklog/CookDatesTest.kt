@@ -30,6 +30,12 @@ class CookDatesTest {
     }
 
     @Test
+    fun plannedDate_isShortWeekdayDayAndMonth_withTheYearOnlyWhenNotCurrent() {
+        assertEquals("Do, 8. Okt", formatPlannedDate(LocalDate.of(2026, 10, 8), today, Locale.GERMANY))
+        assertEquals("Fr, 1. Jan 2027", formatPlannedDate(LocalDate.of(2027, 1, 1), today, Locale.GERMANY))
+    }
+
+    @Test
     fun monthLabel_isTheLocaleAbbreviationWithoutDot() {
         assertEquals("Okt", cookMonthLabel(LocalDate.of(2026, 10, 23), Locale.GERMANY))
         assertEquals("Mär", cookMonthLabel(LocalDate.of(2026, 3, 1), Locale.GERMANY))

@@ -5,9 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
@@ -24,42 +22,53 @@ class PlannedRepositoryTest {
     private val repository = PlannedRepository(dao, cookLog) { today }
 
     @Test
-    fun plan_addsTheRecipeOnceWithToday() = runTest {
-        repository.plan(1)
-        repository.plan(1)
+    fun plan_addsTheRecipeOnce_andMovesItToTheNewDay() = runTest {
+        repository.plan(1, today.plusDays(3))
+        repository.plan(1, today.plusDays(1))
 
-        assertEquals(listOf(PlannedRecipe(1, today)), repository.observe().first())
-        assertTrue(repository.observeIsPlanned(1).first())
-        assertFalse(repository.observeIsPlanned(2).first())
+        assertEquals(listOf(PlannedRecipe(1, today.plusDays(1))), repository.observe().first())
+        assertEquals(PlannedRecipe(1, today.plusDays(1)), repository.observePlanned(1).first())
+        assertNull(repository.observePlanned(2).first())
     }
 
     @Test
-    fun observe_dropsEntriesPlannedMoreThanSevenDaysAgo() = runTest {
+    fun plan_countsThePlans() = runTest {
+        assertEquals(0, repository.plans.value)
+
+        repository.plan(1, today)
+        repository.plan(1, today.plusDays(1))
+
+        assertEquals(2, repository.plans.value)
+    }
+
+    @Test
+    fun observe_keepsFutureDays_andDropsEntriesSevenDaysAfterTheirDay() = runTest {
         dao.upsert(PlannedRecipe(1, today.minusDays(7)))
         dao.upsert(PlannedRecipe(2, today.minusDays(8)))
+        dao.upsert(PlannedRecipe(3, today.plusDays(30)))
         val planned = repository.observe()
 
-        assertEquals(listOf(1L), planned.first().map { it.recipeId })
+        assertEquals(listOf(1L, 3L), planned.first().map { it.recipeId })
 
         // Read on every emission: a day later the first one is gone too.
         today = today.plusDays(1)
-        assertEquals(emptyList<PlannedRecipe>(), planned.first())
+        assertEquals(listOf(3L), planned.first().map { it.recipeId })
     }
 
     @Test
-    fun plan_droppedOffRecipe_comesBackWithToday() = runTest {
+    fun plan_droppedOffRecipe_comesBackWithTheNewDay() = runTest {
         dao.upsert(PlannedRecipe(1, today.minusDays(10)))
-        assertFalse(repository.observeIsPlanned(1).first())
+        assertNull(repository.observePlanned(1).first())
 
-        repository.plan(1)
+        repository.plan(1, today.plusDays(2))
 
-        assertEquals(listOf(PlannedRecipe(1, today)), repository.observe().first())
+        assertEquals(listOf(PlannedRecipe(1, today.plusDays(2))), repository.observe().first())
     }
 
     @Test
     fun cook_logsWithSnapshotAndTakesItOffGeplant() = runTest {
-        repository.plan(1)
-        repository.plan(2)
+        repository.plan(1, today)
+        repository.plan(2, today)
         today = today.plusDays(1)
 
         val cooked = repository.cook(1, today.minusDays(1))!!
@@ -74,7 +83,7 @@ class PlannedRepositoryTest {
 
     @Test
     fun undoCook_restoresLogAndGeplant() = runTest {
-        repository.plan(1)
+        repository.plan(1, today)
         val cooked = repository.cook(1, today)!!
 
         repository.undoCook(cooked)
@@ -115,7 +124,7 @@ class PlannedRepositoryTest {
 
     @Test
     fun removeAndRestore_keepTheOriginalDate() = runTest {
-        repository.plan(2)
+        repository.plan(2, today)
         today = today.plusDays(2)
 
         val removed = repository.remove(2)!!

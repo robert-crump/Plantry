@@ -134,18 +134,18 @@
     <string name="cooked_last_days_ago">Zuletzt vor %1$d Tagen gekocht</string>
     <string name="cooked_times">%1$d× gekocht</string>
     <string name="cooking_title">Kochen</string>
-    <string name="cook_history_empty">Noch nichts gekocht. Trage ein Rezept über „Gekocht“ ein.</string>
+    <string name="cook_history_empty">Noch nichts gekocht. Plane ein Rezept über „Planen“ oder ein Zufallsrezept.</string>
     <string name="cook_history_deleted">Eintrag gelöscht</string>
     <string name="recipe_stats_grams">%1$dg</string>
     <string name="recipe_stats_missing">–</string>
     <string name="plan_action">Planen</string>
-    <string name="planned_state">Geplant</string>
+    <string name="planned_state">Geplant: %1$s</string>
     <string name="planned_title">Geplant</string>
     <string name="planned_history_title">Verlauf</string>
     <string name="planned_remove">Entfernen</string>
     <string name="planned_removed">Von „Geplant“ entfernt</string>
     <string name="reminder_channel">Kochen-Erinnerung</string>
-    <string name="reminder_channel_description">Fragt abends, ob ein geplantes Rezept gekocht wurde</string>
+    <string name="reminder_channel_description">Fragt am Abend des geplanten Tages, ob das Rezept gekocht wurde</string>
     <string name="reminder_single_title">Habt ihr heute %1$s gekocht?</string>
     <string name="reminder_several_title">Habt ihr heute etwas von „Geplant“ gekocht?</string>
     <string name="date_today">Heute</string>
@@ -159,7 +159,6 @@
     <string name="suggest_title">Zufallsrezept</string>
     <string name="suggest_reroll">Neue Vorschläge</string>
     <string name="suggest_none">Keine weiteren Rezepte für Vorschläge.</string>
-    <string name="suggest_confirm_title">Dieses Rezept kochen?</string>
     <string name="suggest_planned">%1$s geplant</string>
 
     <!-- Nutrition -->
@@ -309,7 +308,7 @@
     <string name="settings_cooldown_label">Tage</string>
     <string name="settings_reminder">Erinnerung an Geplantes</string>
     <string name="settings_reminder_time">Uhrzeit der Erinnerung</string>
-    <string name="settings_reminder_hint">Fragt einmal am Tag, ob ein geplantes Rezept gekocht wurde, solange etwas auf „Geplant“ steht</string>
+    <string name="settings_reminder_hint">Fragt am Abend eines Tages, für den etwas geplant ist, ob es gekocht wurde</string>
     <string name="settings_cooldown_range">%1$d bis %2$d Tage</string>
     <plurals name="settings_cooldown_days">
         <item quantity="one">%d Tag</item>

@@ -3,8 +3,6 @@ package com.example.plantry.ui.recipe
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.background
@@ -19,13 +17,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -34,22 +28,15 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -58,7 +45,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.CookLogRepository
-import com.example.plantry.data.Cooked
 import com.example.plantry.data.CookingStats
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlannedRepository
@@ -69,13 +55,12 @@ import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.nutritionLines
 import com.example.plantry.data.toDraft
-import com.example.plantry.ui.cooklog.CookDatePickerDialog
-import com.example.plantry.ui.cooklog.cookDateLabel
+import com.example.plantry.ui.cooklog.PlanDatePickerDialog
+import com.example.plantry.ui.cooklog.formatPlannedDate
 import com.example.plantry.ui.cooklog.lastCookedLabel
-import kotlinx.coroutines.flow.MutableStateFlow
+import com.example.plantry.ui.currentLocale
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -86,8 +71,8 @@ data class RecipeDetailUiState(
     val lines: List<RecipeIngredient>,
     val nutrition: RecipeNutrition,
     val cooking: CookingStats,
-    /** On Geplant. */
-    val planned: Boolean,
+    /** The day it is planned for; null while it isn't on Geplant. */
+    val plannedOn: LocalDate?,
 )
 
 class RecipeDetailViewModel(
@@ -109,7 +94,7 @@ class RecipeDetailViewModel(
         repository.observeLines(recipeId),
         ingredientRepository.observeIngredients(),
         cookLogRepository.observeStats(recipeId, clock),
-        plannedRepository.observeIsPlanned(recipeId),
+        plannedRepository.observePlanned(recipeId),
     ) { recipe, lines, ingredients, cooking, planned ->
         if (recipe == null) return@combine null
         val byId = ingredients.associateBy { it.id }
@@ -121,47 +106,15 @@ class RecipeDetailViewModel(
                 recipe.ourServings,
             ),
             cooking = cooking,
-            planned = planned,
+            plannedOn = planned?.plannedOn,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** The date the "Gekocht" action logs; null means today. */
-    private val _cookDate = MutableStateFlow<LocalDate?>(null)
-    val cookDate: StateFlow<LocalDate?> = _cookDate.asStateFlow()
-
-    /** The recipe just logged, until its undo snackbar is gone. */
-    private val _justLogged = MutableStateFlow<Cooked?>(null)
-    val justLogged: StateFlow<Cooked?> = _justLogged.asStateFlow()
-
     fun today(): LocalDate = clock()
 
-    fun setCookDate(date: LocalDate) {
-        _cookDate.value = date.takeIf { it != today() }
-    }
-
-    /**
-     * Logs the recipe as cooked on the chosen date and takes it off Geplant, then resets the
-     * date to today.
-     */
-    fun markCooked() {
-        val date = _cookDate.value ?: today()
-        viewModelScope.launch {
-            _justLogged.value = plannedRepository.cook(recipeId, date)
-            _cookDate.value = null
-        }
-    }
-
-    fun plan() {
-        viewModelScope.launch { plannedRepository.plan(recipeId) }
-    }
-
-    fun onUndoShown() {
-        _justLogged.value = null
-    }
-
-    /** Deletes the log entry and puts the recipe back on Geplant if it was there. */
-    fun undoCooked(cooked: Cooked) {
-        viewModelScope.launch { plannedRepository.undoCook(cooked) }
+    /** Puts the recipe on Geplant for [date], or moves it there. */
+    fun plan(date: LocalDate) {
+        viewModelScope.launch { plannedRepository.plan(recipeId, date) }
     }
 
     fun delete(onDeleted: () -> Unit) {
@@ -183,23 +136,10 @@ fun RecipeDetailScreen(
     onPlanned: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val cookDate by viewModel.cookDate.collectAsStateWithLifecycle()
-    val justLogged by viewModel.justLogged.collectAsStateWithLifecycle()
     val photo by viewModel.photo.collectAsStateWithLifecycle()
     val recipe = state?.recipe
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
-    var pickCookDate by rememberSaveable { mutableStateOf(false) }
-    val snackbar = remember { SnackbarHostState() }
-    val loggedMessage = stringResource(R.string.cooked_logged)
-    val undoLabel = stringResource(R.string.action_undo)
-
-    LaunchedEffect(justLogged) {
-        val cooked = justLogged ?: return@LaunchedEffect
-        val result = snackbar.showSnackbar(loggedMessage, actionLabel = undoLabel, duration = SnackbarDuration.Short)
-        if (result == SnackbarResult.ActionPerformed) viewModel.undoCooked(cooked)
-        // Cleared only now: clearing it earlier would change the key and cancel this snackbar.
-        viewModel.onUndoShown()
-    }
+    var pickPlanDate by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -222,7 +162,6 @@ fun RecipeDetailScreen(
                 },
             )
         },
-        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         val detail = state ?: return@Scaffold
         val current = detail.recipe
@@ -252,15 +191,9 @@ fun RecipeDetailScreen(
             }
             CookedSection(
                 stats = detail.cooking,
-                planned = detail.planned,
-                cookDate = cookDate ?: viewModel.today(),
+                plannedOn = detail.plannedOn,
                 today = viewModel.today(),
-                onPickDate = { pickCookDate = true },
-                onCooked = viewModel::markCooked,
-                onPlan = {
-                    viewModel.plan()
-                    onPlanned()
-                },
+                onPlan = { pickPlanDate = true },
             )
             photo?.let { bytes ->
                 ZoomablePhoto(
@@ -299,12 +232,17 @@ fun RecipeDetailScreen(
             }
         }
 
-        if (pickCookDate) {
-            CookDatePickerDialog(
-                date = cookDate ?: viewModel.today(),
-                today = viewModel.today(),
-                onPick = viewModel::setCookDate,
-                onDismiss = { pickCookDate = false },
+        if (pickPlanDate) {
+            val today = viewModel.today()
+            PlanDatePickerDialog(
+                // A day that has already passed can't be picked again, so moving starts from today.
+                date = detail.plannedOn?.takeIf { it >= today } ?: today,
+                today = today,
+                onPick = { date ->
+                    viewModel.plan(date)
+                    onPlanned()
+                },
+                onDismiss = { pickPlanDate = false },
             )
         }
 
@@ -352,16 +290,12 @@ private fun IngredientGrid(lines: List<RecipeIngredient>) {
     }
 }
 
-/** Last cooked, times cooked, the "Gekocht" action with its date chip, and "Planen". */
-@OptIn(ExperimentalLayoutApi::class)
+/** Last cooked and times cooked, with "Planen" on the right; once planned, the button shows the day. */
 @Composable
 private fun CookedSection(
     stats: CookingStats,
-    planned: Boolean,
-    cookDate: LocalDate,
+    plannedOn: LocalDate?,
     today: LocalDate,
-    onPickDate: () -> Unit,
-    onCooked: () -> Unit,
     onPlan: () -> Unit,
 ) {
     ListItem(
@@ -371,34 +305,24 @@ private fun CookedSection(
         } else {
             null
         },
+        trailingContent = {
+            OutlinedButton(onClick = onPlan) {
+                Icon(
+                    if (plannedOn != null) Icons.AutoMirrored.Filled.PlaylistAddCheck else Icons.AutoMirrored.Filled.PlaylistAdd,
+                    contentDescription = null,
+                    Modifier.size(ButtonDefaults.IconSize),
+                )
+                Text(
+                    if (plannedOn != null) {
+                        stringResource(R.string.planned_state, formatPlannedDate(plannedOn, today, currentLocale()))
+                    } else {
+                        stringResource(R.string.plan_action)
+                    },
+                    Modifier.padding(start = 8.dp),
+                )
+            }
+        },
     )
-    FlowRow(
-        Modifier.padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        itemVerticalAlignment = Alignment.CenterVertically,
-    ) {
-        AssistChip(
-            onClick = onPickDate,
-            label = { Text(cookDateLabel(cookDate, today)) },
-            leadingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
-        )
-        Button(onClick = onCooked) {
-            Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(ButtonDefaults.IconSize))
-            Text(stringResource(R.string.cooked_action), Modifier.padding(start = 8.dp))
-        }
-        // While planned, the button stays as a disabled "Geplant" marker.
-        OutlinedButton(onClick = onPlan, enabled = !planned) {
-            Icon(
-                if (planned) Icons.AutoMirrored.Filled.PlaylistAddCheck else Icons.AutoMirrored.Filled.PlaylistAdd,
-                contentDescription = null,
-                Modifier.size(ButtonDefaults.IconSize),
-            )
-            Text(
-                stringResource(if (planned) R.string.planned_state else R.string.plan_action),
-                Modifier.padding(start = 8.dp),
-            )
-        }
-    }
 }
 
 @Composable

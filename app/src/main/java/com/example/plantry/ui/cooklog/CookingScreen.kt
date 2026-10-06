@@ -107,6 +107,14 @@ class CookingViewModel(
 
     fun today(): LocalDate = clock()
 
+    private var seenPlans = plannedRepository.plans.value
+
+    /** Whether something was planned (on another screen) since the last call. */
+    fun takeNewPlans(): Boolean {
+        val plans = plannedRepository.plans.value
+        return (plans != seenPlans).also { seenPlans = plans }
+    }
+
     fun delete(log: CookLog) {
         viewModelScope.launch { repository.delete(log.id) }
     }
@@ -212,6 +220,11 @@ fun CookingScreen(
                 bottom = padding.calculateBottomPadding() + 88.dp,
             )
             val listState = rememberLazyListState()
+            // Runs each time Kochen is shown: a new plan brings Geplant into view, otherwise the
+            // scroll position is kept.
+            LaunchedEffect(Unit) {
+                if (viewModel.takeNewPlans()) listState.scrollToItem(0)
+            }
             val plannedLabel = stringResource(R.string.planned_title)
             val locale = currentLocale()
             // One label per list item, in list order: "Geplant" over the planned section, the

@@ -37,6 +37,13 @@ internal fun formatCookDate(date: LocalDate, today: LocalDate, locale: Locale): 
     return date.format(DateTimeFormatter.ofPattern(pattern, locale))
 }
 
+/** The abbreviated weekday, day and month, plus the year when it isn't the current one: "Do, 8. Okt". */
+internal fun formatPlannedDate(date: LocalDate, today: LocalDate, locale: Locale): String {
+    val weekday = date.dayOfWeek.getDisplayName(TextStyle.SHORT_STANDALONE, locale).trimEnd('.')
+    val year = if (date.year == today.year) "" else " ${date.year}"
+    return "$weekday, ${date.dayOfMonth}. ${cookMonthLabel(date, locale)}$year"
+}
+
 /** The abbreviated month in [locale] without a trailing dot, e.g. "Okt" or "Oct". */
 internal fun cookMonthLabel(date: LocalDate, locale: Locale): String =
     date.month.getDisplayName(TextStyle.SHORT_STANDALONE, locale).trimEnd('.')
@@ -56,22 +63,40 @@ fun lastCookedLabel(stats: CookingStats): String = when (val days = stats.daysSi
     else -> stringResource(R.string.cooked_last_days_ago, days)
 }
 
-/** Picks a cooking date up to [today]; the picker works in UTC milliseconds. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** Picks a cooking date up to [today]. */
 @Composable
 fun CookDatePickerDialog(
     date: LocalDate,
     today: LocalDate,
     onPick: (LocalDate) -> Unit,
     onDismiss: () -> Unit,
+) = DayPickerDialog(date, (today.year - 5)..today.year, { it <= today }, onPick, onDismiss)
+
+/** Picks the day to cook a planned recipe: [today] or later. */
+@Composable
+fun PlanDatePickerDialog(
+    date: LocalDate,
+    today: LocalDate,
+    onPick: (LocalDate) -> Unit,
+    onDismiss: () -> Unit,
+) = DayPickerDialog(date, today.year..(today.year + 1), { it >= today }, onPick, onDismiss)
+
+/** A date picker limited to [years] and the days [selectable] allows; the picker works in UTC milliseconds. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DayPickerDialog(
+    date: LocalDate,
+    years: IntRange,
+    selectable: (LocalDate) -> Boolean,
+    onPick: (LocalDate) -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    val todayMillis = today.toUtcMillis()
     val state = rememberDatePickerState(
         initialSelectedDateMillis = date.toUtcMillis(),
-        yearRange = (today.year - 5)..today.year,
+        yearRange = years,
         selectableDates = object : SelectableDates {
-            override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= todayMillis
-            override fun isSelectableYear(year: Int) = year <= today.year
+            override fun isSelectableDate(utcTimeMillis: Long) = selectable(utcTimeMillis.toUtcDate())
+            override fun isSelectableYear(year: Int) = year in years
         },
     )
     DatePickerDialog(

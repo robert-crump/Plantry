@@ -15,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -24,7 +23,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,6 +48,7 @@ import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeSnapshot
 import com.example.plantry.data.planner.RecipeSuggester
 import com.example.plantry.data.planner.SuggestionRounds
+import com.example.plantry.ui.cooklog.PlanDatePickerDialog
 import com.example.plantry.ui.cooklog.RecipeStatsRow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -86,7 +85,7 @@ class SuggestionsViewModel(
     private val plannedRepository: PlannedRepository,
     private val recipeRepository: RecipeRepository,
     private val ingredientRepository: IngredientRepository,
-    clock: () -> LocalDate = LocalDate::now,
+    private val clock: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
     // Lives as long as the screen, so recipes already shown stay excluded until it is left.
     private val rounds = SuggestionRounds { count, exclude -> suggester.suggest(clock(), count, exclude) }
@@ -114,18 +113,20 @@ class SuggestionsViewModel(
         }
     }
 
-    /** Puts the recipe on Geplant, then calls [onDone]. */
-    fun plan(card: SuggestionCard, onDone: () -> Unit) {
+    fun today(): LocalDate = clock()
+
+    /** Puts the recipe on Geplant for [date], then calls [onDone]. */
+    fun plan(card: SuggestionCard, date: LocalDate, onDone: () -> Unit) {
         viewModelScope.launch {
-            plannedRepository.plan(card.recipeId)
+            plannedRepository.plan(card.recipeId, date)
             onDone()
         }
     }
 }
 
 /**
- * Up to three suggested recipes; "Neue Vorschläge" replaces them all. Tapping a card asks whether to
- * cook it; yes puts it on Geplant and hands it to [onPlanned].
+ * Up to three suggested recipes; "Neue Vorschläge" replaces them all. Tapping a card asks for the
+ * day to cook it; picking one puts it on Geplant and hands it to [onPlanned].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -182,19 +183,11 @@ fun SuggestionsScreen(
 
     val confirming = confirmId?.let { id -> cards?.firstOrNull { it.recipeId == id } }
     if (confirming != null) {
-        AlertDialog(
-            onDismissRequest = { confirmId = null },
-            title = { Text(stringResource(R.string.suggest_confirm_title)) },
-            text = { Text(confirming.snapshot.title) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmId = null
-                    viewModel.plan(confirming) { onPlanned(confirming.recipeId, confirming.snapshot.title) }
-                }) { Text(stringResource(R.string.action_yes)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmId = null }) { Text(stringResource(R.string.action_no)) }
-            },
+        PlanDatePickerDialog(
+            date = viewModel.today(),
+            today = viewModel.today(),
+            onPick = { date -> viewModel.plan(confirming, date) { onPlanned(confirming.recipeId, confirming.snapshot.title) } },
+            onDismiss = { confirmId = null },
         )
     }
 }

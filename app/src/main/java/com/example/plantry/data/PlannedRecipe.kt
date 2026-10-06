@@ -12,8 +12,8 @@ import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.flow.Flow
 
 /**
- * A recipe on Geplant: meant to be cooked, not yet confirmed. A recipe is planned at most once;
- * deleting it removes the entry.
+ * A recipe on Geplant: meant to be cooked on [plannedOn] (today or later when planned), not yet
+ * confirmed. A recipe is planned at most once; deleting it removes the entry.
  */
 @Entity(
     tableName = "planned_recipes",
@@ -30,7 +30,7 @@ data class PlannedRecipe(
     @PrimaryKey val recipeId: Long,
     val plannedOn: LocalDate,
 ) {
-    /** Entries planned more than [MAX_AGE_DAYS] days before [today] are gone from Geplant. */
+    /** Entries whose planned day is more than [MAX_AGE_DAYS] days before [today] are gone from Geplant. */
     fun isCurrent(today: LocalDate): Boolean = ChronoUnit.DAYS.between(plannedOn, today) <= MAX_AGE_DAYS
 
     companion object {
@@ -41,7 +41,7 @@ data class PlannedRecipe(
 @Dao
 interface PlannedRecipeDao {
 
-    /** Planning a recipe again (e.g. one that dropped off) starts it over with the new date. */
+    /** Planning a recipe again (e.g. to move it, or one that dropped off) replaces its date. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(planned: PlannedRecipe)
 
@@ -51,7 +51,7 @@ interface PlannedRecipeDao {
     @Query("DELETE FROM planned_recipes WHERE recipeId = :recipeId")
     suspend fun delete(recipeId: Long)
 
-    /** Oldest plan first. */
+    /** Earliest planned day first. */
     @Query("SELECT * FROM planned_recipes ORDER BY plannedOn, recipeId")
     fun observeAll(): Flow<List<PlannedRecipe>>
 }

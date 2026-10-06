@@ -27,8 +27,9 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 /**
- * The daily "Habt ihr heute … gekocht?" notification: keeps one alarm set while Geplant isn't
- * empty and the reminder is on, shows the notification when it fires and answers its Ja button.
+ * The "Habt ihr heute … gekocht?" notification on the evening of a planned day: keeps one alarm set
+ * for the next such day while the reminder is on, shows the notification when it fires and answers
+ * its Ja button.
  */
 class CookReminders(
     private val context: Context,
@@ -44,8 +45,10 @@ class CookReminders(
         scope.launch {
             combine(settings.settings, planned.observe(), ::Pair).collect { (settings, planned) ->
                 schedule(settings, planned)
-                // Nothing left to ask: an unanswered notification would only be stale.
-                if (!settings.reminderEnabled || planned.isEmpty()) notifications.cancel(NOTIFICATION_ID)
+                // Nothing left to ask today: an unanswered notification would only be stale.
+                if (CookReminder.content(settings.reminderEnabled, LocalDate.now(), planned, recipes.observeRecipes().first()) == null) {
+                    notifications.cancel(NOTIFICATION_ID)
+                }
             }
         }
     }
@@ -56,7 +59,7 @@ class CookReminders(
     /** The alarm went off: shows the reminder if there is something to ask and sets the next one. */
     suspend fun show() {
         val current = settings.settings.value
-        val content = CookReminder.content(current.reminderEnabled, planned.observe().first(), recipes.observeRecipes().first())
+        val content = CookReminder.content(current.reminderEnabled, LocalDate.now(), planned.observe().first(), recipes.observeRecipes().first())
         if (content != null && canNotify()) notifications.notify(NOTIFICATION_ID, build(content))
         sync()
     }
@@ -67,12 +70,12 @@ class CookReminders(
         if (planned.observe().first().any { it.recipeId == recipeId }) planned.cook(recipeId, LocalDate.now())
     }
 
-    /** "Nein": keeps it on Geplant; tomorrow's alarm asks again. */
+    /** "Nein": keeps it on Geplant until it drops off; no more reminders for it unless it is moved to a later day. */
     fun answerNo() = notifications.cancel(NOTIFICATION_ID)
 
     private fun schedule(settings: Settings, planned: List<PlannedRecipe>) {
         val alarm = broadcast(ReminderReceiver.ACTION_SHOW, REQUEST_SHOW)
-        val next = CookReminder.nextAt(LocalDateTime.now(), settings.reminderTime, settings.reminderEnabled, planned.isNotEmpty())
+        val next = CookReminder.nextAt(LocalDateTime.now(), settings.reminderTime, settings.reminderEnabled, planned.map { it.plannedOn })
         if (next == null) {
             alarms.cancel(alarm)
         } else {
