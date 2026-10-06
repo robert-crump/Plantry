@@ -5,8 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
@@ -23,12 +21,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -89,7 +83,6 @@ class CookingViewModel(
     private val plannedRepository: PlannedRepository,
     recipeRepository: RecipeRepository,
     ingredientRepository: IngredientRepository,
-    private val clock: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
     /** Null until the first emission, so the empty state doesn't flash. */
     val entries: StateFlow<List<CookLog>?> = repository.observeHistory()
@@ -104,8 +97,6 @@ class CookingViewModel(
     ) { planned, recipes, lines, ingredients ->
         PlannedItem.of(planned, recipes, lines, ingredients.associateBy { it.id })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    fun today(): LocalDate = clock()
 
     private var seenPlans = plannedRepository.plans.value
 
@@ -124,9 +115,9 @@ class CookingViewModel(
         viewModelScope.launch { repository.restore(log) }
     }
 
-    /** Logs a planned recipe as cooked on [date] and takes it off Geplant; [onDone] gets what to undo. */
-    fun cook(item: PlannedItem, date: LocalDate, onDone: (Cooked) -> Unit) {
-        viewModelScope.launch { plannedRepository.cook(item.recipeId, date)?.let(onDone) }
+    /** Logs a planned recipe on its planned day (today if still ahead) and takes it off Geplant; [onDone] gets what to undo. */
+    fun done(item: PlannedItem, onDone: (Cooked) -> Unit) {
+        viewModelScope.launch { plannedRepository.done(item.planned)?.let(onDone) }
     }
 
     fun undoCook(cooked: Cooked) {
@@ -135,11 +126,6 @@ class CookingViewModel(
 
     fun unplan(recipeId: Long) {
         viewModelScope.launch { plannedRepository.remove(recipeId) }
-    }
-
-    /** Puts a removed entry back with its original date. */
-    fun replan(item: PlannedItem) {
-        viewModelScope.launch { plannedRepository.restore(item.planned) }
     }
 }
 
@@ -166,10 +152,8 @@ fun CookingScreen(
     val scope = rememberCoroutineScope()
     val deletedMessage = stringResource(R.string.cook_history_deleted)
     val loggedMessage = stringResource(R.string.cooked_logged)
-    val removedMessage = stringResource(R.string.planned_removed)
     val undoLabel = stringResource(R.string.action_undo)
     val plannedMessage = stringResource(R.string.suggest_planned, justPlanned?.title.orEmpty())
-    val today = viewModel.today()
 
     /** Replaces any snackbar still showing; [onUndo] runs if its action is tapped. */
     fun showUndo(message: String, onUndo: () -> Unit) {
@@ -247,17 +231,13 @@ fun CookingScreen(
                         items(plannedItems, key = { "planned-${it.recipeId}" }) { item ->
                             PlannedCard(
                                 item,
-                                today = today,
                                 onClick = { onRecipeClick(item.recipeId) },
-                                onCooked = { date ->
-                                    viewModel.cook(item, date) { cooked ->
+                                onDone = {
+                                    viewModel.done(item) { cooked ->
                                         showUndo(loggedMessage) { viewModel.undoCook(cooked) }
                                     }
                                 },
-                                onRemove = {
-                                    viewModel.unplan(item.recipeId)
-                                    showUndo(removedMessage) { viewModel.replan(item) }
-                                },
+                                onRemove = { viewModel.unplan(item.recipeId) },
                             )
                         }
                     }
@@ -304,58 +284,61 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * A filled card with a planned recipe, its current stats, "Gekocht" with a date chip (today unless
- * another day was picked), and "Entfernen".
+ * A gray card with a planned recipe: its planned day as a date badge, the name (wrapping), its
+ * current stats, "Erledigt" and "Entfernen" (after asking).
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlannedCard(
     item: PlannedItem,
-    today: LocalDate,
     onClick: () -> Unit,
-    onCooked: (LocalDate) -> Unit,
+    onDone: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    // Saved as epoch day; null means today, so the chip follows the date across midnight.
-    var pickedDay by rememberSaveable { mutableStateOf<Long?>(null) }
-    var pickDate by rememberSaveable { mutableStateOf(false) }
-    val cookDate = pickedDay?.let(LocalDate::ofEpochDay) ?: today
+    var confirmRemove by rememberSaveable { mutableStateOf(false) }
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
-        Text(
-            item.snapshot.title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
-        )
-        RecipeStatsRow(item.snapshot.stats, Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp))
-        FlowRow(
-            Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            itemVerticalAlignment = Alignment.CenterVertically,
+        Row(
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            AssistChip(
-                onClick = { pickDate = true },
-                label = { Text(cookDateLabel(cookDate, today)) },
-                leadingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
-            )
-            Button(onClick = { onCooked(cookDate) }) {
-                Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(ButtonDefaults.IconSize))
-                Text(stringResource(R.string.cooked_action), Modifier.padding(start = 8.dp))
+            DateBadge(item.planned.plannedOn)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    item.snapshot.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                RecipeStatsRow(item.snapshot.stats)
             }
-            TextButton(onClick = onRemove) { Text(stringResource(R.string.planned_remove)) }
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(onClick = { confirmRemove = true }) { Text(stringResource(R.string.planned_remove)) }
+            TextButton(onClick = onDone) { Text(stringResource(R.string.planned_done)) }
         }
     }
-    if (pickDate) {
-        CookDatePickerDialog(
-            date = cookDate,
-            today = today,
-            onPick = { date -> pickedDay = date.takeIf { it != today }?.toEpochDay() },
-            onDismiss = { pickDate = false },
+    if (confirmRemove) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            text = { Text(stringResource(R.string.planned_remove_confirm)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmRemove = false
+                        onRemove()
+                    },
+                ) { Text(stringResource(R.string.planned_remove)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
         )
     }
 }

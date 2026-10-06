@@ -126,7 +126,6 @@
     <string name="recipe_modified_hint">Die Zutaten weichen vom Original ab.</string>
 
     <!-- Cooking log -->
-    <string name="cooked_action">Gekocht</string>
     <string name="cooked_logged">Als gekocht eingetragen</string>
     <string name="cooked_never">Noch nie gekocht</string>
     <string name="cooked_last_today">Zuletzt heute gekocht</string>
@@ -143,7 +142,8 @@
     <string name="planned_title">Geplant</string>
     <string name="planned_history_title">Verlauf</string>
     <string name="planned_remove">Entfernen</string>
-    <string name="planned_removed">Von „Geplant“ entfernt</string>
+    <string name="planned_done">Erledigt</string>
+    <string name="planned_remove_confirm">Von „Geplant“ entfernen?</string>
     <string name="reminder_channel">Kochen-Erinnerung</string>
     <string name="reminder_channel_description">Fragt am Abend des geplanten Tages, ob das Rezept gekocht wurde</string>
     <string name="reminder_single_title">Habt ihr heute %1$s gekocht?</string>

@@ -82,6 +82,23 @@ class PlannedRepositoryTest {
     }
 
     @Test
+    fun done_logsOnThePlannedDay_orTodayIfItIsStillAhead() = runTest {
+        repository.plan(1, today.minusDays(2))
+        repository.plan(2, today.plusDays(3))
+        val (past, future) = repository.observe().first()
+
+        val first = repository.done(past)!!
+        val second = repository.done(future)!!
+
+        assertEquals(listOf(today.minusDays(2), today), logDao.logs.value.map { it.cookedOn }.sorted())
+        assertEquals(PlannedRecipe(2, today.plusDays(3)), second.unplanned)
+        assertEquals(emptyList<PlannedRecipe>(), repository.observe().first())
+
+        repository.undoCook(first)
+        assertEquals(listOf(PlannedRecipe(1, today.minusDays(2))), repository.observe().first())
+    }
+
+    @Test
     fun undoCook_restoresLogAndGeplant() = runTest {
         repository.plan(1, today)
         val cooked = repository.cook(1, today)!!

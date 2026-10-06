@@ -54,6 +54,12 @@ class PlannedRepository(
         return Cooked(logId, remove(recipeId))
     }
 
+    /**
+     * "Erledigt": logs a planned recipe on its planned day, or today if that day is still ahead,
+     * and takes it off Geplant.
+     */
+    suspend fun done(planned: PlannedRecipe): Cooked? = cook(planned.recipeId, minOf(planned.plannedOn, today()))
+
     /** Undoes [cook]: deletes the log entry and puts the recipe back on Geplant if it was there. */
     suspend fun undoCook(cooked: Cooked) {
         cookLog.delete(cooked.logId)
