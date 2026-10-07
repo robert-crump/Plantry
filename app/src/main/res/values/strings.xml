@@ -282,6 +282,8 @@
     <string name="ingredient_label_source">Etikett: %1$s (Barcode %2$s)</string>
     <string name="ingredient_reviewed_hint">Mit „Geprüft“ unten bestätigst du die Zutat.</string>
     <string name="ingredient_mark_reviewed">Geprüft</string>
+    <string name="ingredient_choose">Bitte wählen</string>
+    <string name="ingredient_undecided_hint">Wähle erst Abteilung und Pflanzenpunkte, dann kannst du die Zutat bestätigen.</string>
     <string name="ingredient_marked_reviewed">Als geprüft markiert</string>
     <string name="ingredient_discard_title">Änderungen verwerfen?</string>
     <string name="ingredient_discard_message">Deine Änderungen an dieser Zutat gehen verloren.</string>
@@ -293,7 +295,7 @@
     <string name="ingredient_drained_weight">Abtropfgewicht</string>
     <string name="ingredient_drained_weight_summary">%1$s g von %2$s g</string>
     <string name="ingredient_not_drained">Nicht abgetropft</string>
-    <string name="ingredient_drained_weight_hint">Für Dosen und Gläser, die abgegossen werden: beide Werte vom Etikett. Rezepte rechnen mit der Füllmenge, die Nährwerte nur mit dem Abtropfgewicht. Leer lassen, wenn nicht abgetropft wird.</string>
+    <string name="ingredient_drained_weight_hint">Für Dosen und Gläser, die abgegossen werden: beide Werte vom Etikett. Rezepte rechnen mit der Füllmenge, die Nährwerte nur mit dem Abtropfgewicht. Wird nicht abgetropft, lass beide leer und tippe OK.</string>
     <string name="ingredient_net_weight_field">Füllmenge (g)</string>
     <string name="ingredient_drained_weight_field">Abtropfgewicht (g)</string>
     <string name="error_drained_exceeds_net">Höchstens so viel wie die Füllmenge</string>

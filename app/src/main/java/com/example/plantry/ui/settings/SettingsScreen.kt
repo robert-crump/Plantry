@@ -512,7 +512,8 @@ private fun ConnectionRow(state: ConnectionTestState, enabled: Boolean, onClick:
 internal fun <T> ChoiceDialog(
     title: String,
     options: List<T>,
-    selected: T,
+    /** Null when nothing is chosen yet. */
+    selected: T?,
     label: @Composable (T) -> String,
     onSelect: (T) -> Unit,
     onDismiss: () -> Unit,

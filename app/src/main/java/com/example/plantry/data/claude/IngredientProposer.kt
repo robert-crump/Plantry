@@ -62,6 +62,9 @@ data class IngredientProposal(
     val plantPoints: PlantPoints,
     /** Only for drained canned or jarred goods. */
     val drainedWeight: DrainedWeight? = null,
+    /** Claude gave no valid store section / plant points, so the value above is a fallback to replace. */
+    val storeSectionUndecided: Boolean = false,
+    val plantPointsUndecided: Boolean = false,
 ) {
     /** The USDA entry, if the nutrition comes from one. */
     val food: UsdaFood? get() = (source as? NutritionSource.Usda)?.food
@@ -80,6 +83,8 @@ data class IngredientProposal(
             reviewed = false,
             drainedWeight = drainedWeight,
             origin = IngredientOrigin.CLAUDE,
+            storeSectionUndecided = storeSectionUndecided,
+            plantPointsUndecided = plantPointsUndecided,
         )
     }
 }
@@ -331,7 +336,7 @@ object ProposalParser {
     /**
      * One proposal per food. Invalid or missing fields fall back to neutral values the user reviews
      * later: a USDA entry that was not a candidate counts as none and unknown enums become
-     * OTHER / ZERO, and weights other than 0 < drained ≤ net mean not drained. A food Claude left
+     * OTHER / ZERO, marked undecided so they can't be reviewed unseen, and weights other than 0 < drained ≤ net mean not drained. A food Claude left
      * out gets only defaults.
      */
     fun proposals(text: String?, foods: List<FoodCandidates>): ClaudeResult<Map<Long, IngredientProposal>> {
@@ -348,13 +353,17 @@ object ProposalParser {
 
     private fun toProposal(answer: ProposalJson, candidates: FoodCandidates): IngredientProposal {
         val food = candidates.food
+        val storeSection = enumOrNull<StoreSection>(answer.storeSection)
+        val plantPoints = enumOrNull<PlantPoints>(answer.plantPoints)
         return IngredientProposal(
             name = answer.name.trim().ifEmpty { food.name.trim() },
             source = candidates.candidates.firstOrNull { it.fdcId == answer.fdcId }?.let(NutritionSource::Usda),
             searchTerms = food.searchTerms,
-            storeSection = enumOrNull<StoreSection>(answer.storeSection) ?: StoreSection.OTHER,
-            plantPoints = enumOrNull<PlantPoints>(answer.plantPoints) ?: PlantPoints.ZERO,
+            storeSection = storeSection ?: StoreSection.OTHER,
+            plantPoints = plantPoints ?: PlantPoints.ZERO,
             drainedWeight = DrainedWeight.of(answer.netWeightGrams, answer.drainedWeightGrams),
+            storeSectionUndecided = storeSection == null,
+            plantPointsUndecided = plantPoints == null,
         )
     }
 

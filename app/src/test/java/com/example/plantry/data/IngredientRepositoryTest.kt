@@ -33,6 +33,90 @@ class IngredientRepositoryTest {
         plantPoints = PlantPoints.QUARTER,
     )
 
+    private val decided = IngredientDraft(
+        name = "",
+        nutrition = Nutrition(),
+        storeSection = StoreSection.OTHER,
+        plantPoints = PlantPoints.ZERO,
+    )
+
+    private suspend fun IngredientRepository.createFromUsda(food: UsdaFood, name: String): Long =
+        create(NewIngredientSeed(name, food.nutrition, food.fdcId, food.description), decided.copy(name = name, nutrition = food.nutrition))
+
+    private suspend fun IngredientRepository.createFromLabel(name: String, nutrition: Nutrition, labelSource: LabelSource? = null): Long =
+        create(NewIngredientSeed(name, nutrition, labelSource = labelSource), decided.copy(name = name, nutrition = nutrition))
+
+    @Test
+    fun create_storesTheUsersDecisionsAndEditedNutrition() = runTest {
+        val seed = NewIngredientSeed("Kichererbsen", riceCooked.nutrition, riceCooked.fdcId, riceCooked.description)
+        val edited = riceCooked.nutrition.copy(protein = 9.0)
+        val drained = DrainedWeight(400.0, 240.0)
+
+        val id = repository.create(
+            seed,
+            IngredientDraft(" Kichererbsen (Dose) ", edited, StoreSection.DRY_GOODS, PlantPoints.ONE, drained),
+        )
+
+        val ingredient = repository.getIngredient(id)!!
+        assertEquals("Kichererbsen (Dose)", ingredient.name)
+        assertEquals(edited, ingredient.nutrition)
+        assertEquals(StoreSection.DRY_GOODS, ingredient.storeSection)
+        assertEquals(PlantPoints.ONE, ingredient.plantPoints)
+        assertEquals(drained, ingredient.drainedWeight)
+        assertEquals(riceCooked.fdcId, ingredient.fdcId)
+        assertFalse(ingredient.hasUndecided)
+        assertFalse(ingredient.reviewed)
+    }
+
+    @Test
+    fun create_aScannedLabelReplacesTheUsdaSource() = runTest {
+        val seed = NewIngredientSeed("Reis", riceCooked.nutrition, riceCooked.fdcId, riceCooked.description)
+        val label = LabelSource("Bio Reis", "4012345678901")
+
+        val id = repository.create(seed, decided.copy(name = "Reis", nutrition = riceCooked.nutrition, scannedLabel = label))
+
+        val ingredient = repository.getIngredient(id)!!
+        assertEquals(label, ingredient.labelSource)
+        assertNull(ingredient.fdcId)
+        assertNull(ingredient.usdaDescription)
+        assertEquals(IngredientOrigin.BARCODE, ingredient.origin)
+    }
+
+    @Test
+    fun undecidedIngredient_cannotBeReviewedUntilItIsSaved() = runTest {
+        val id = dao.insert(
+            riceIngredient().copy(storeSectionUndecided = true, plantPointsUndecided = true),
+        )
+
+        repository.setReviewed(id, true)
+        repository.markReviewed(listOf(id))
+        assertFalse(repository.getIngredient(id)!!.reviewed)
+
+        repository.update(id, decided.copy(name = "Reis", nutrition = riceCooked.nutrition))
+        assertFalse(repository.getIngredient(id)!!.hasUndecided)
+        repository.setReviewed(id, true)
+        assertTrue(repository.getIngredient(id)!!.reviewed)
+    }
+
+    @Test
+    fun moveTo_settlesAnUndecidedProperty() = runTest {
+        val id = dao.insert(riceIngredient().copy(plantPointsUndecided = true))
+
+        repository.moveTo(setOf(id), SortGroup.Points(PlantPoints.ZERO))
+
+        assertFalse(repository.getIngredient(id)!!.plantPointsUndecided)
+    }
+
+    private fun riceIngredient() = Ingredient(
+        name = "Reis",
+        fdcId = null,
+        usdaDescription = null,
+        nutrition = riceCooked.nutrition,
+        storeSection = StoreSection.OTHER,
+        plantPoints = PlantPoints.ZERO,
+        reviewed = false,
+    )
+
     @Test
     fun createFromUsda_copiesUsdaDataAndIsUnreviewed() = runTest {
         val id = repository.createFromUsda(riceCooked, " Reis, gekocht ")
@@ -248,7 +332,9 @@ private class FakeIngredientDao : IngredientDao {
     override suspend fun updateAll(ingredients: List<Ingredient>) = ingredients.forEach { update(it) }
 
     override suspend fun markReviewed(ids: List<Long>) {
-        ingredients.value = ingredients.value.mapValues { (id, it) -> if (id in ids) it.copy(reviewed = true) else it }
+        ingredients.value = ingredients.value.mapValues { (id, it) ->
+            if (id in ids && !it.hasUndecided) it.copy(reviewed = true) else it
+        }
     }
 
     /** Recipe titles by ingredient id. */

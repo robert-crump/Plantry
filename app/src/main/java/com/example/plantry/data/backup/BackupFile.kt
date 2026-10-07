@@ -51,8 +51,9 @@ data class BackupFile(
          * 8: ingredients without unit weights, buy unit, pack size, staple flag and buy-as link.
          * 9: ingredients may carry net and drained weight. 10: ingredients may carry the scanned
          * package their nutrition came from. 11: ingredients carry their origin.
+         * 12: ingredients may have an undecided store section or plant points.
          */
-        const val FORMAT_VERSION = 11
+        const val FORMAT_VERSION = 12
 
         /**
          * Unknown keys are skipped, so older files with `weekPlan` and `shoppingTicks`, or with the
@@ -118,6 +119,10 @@ data class BackupIngredient(
     val labelBarcode: String? = null,
     /** Since version 11; older files hold the seed. Always written, so a file says where each ingredient came from. */
     @EncodeDefault val origin: IngredientOrigin = IngredientOrigin.SEED,
+    /** Since version 12; true while [storeSection] is only a fallback the user has yet to replace. */
+    val storeSectionUndecided: Boolean = false,
+    /** Since version 12; like [storeSectionUndecided], for [plantPoints]. */
+    val plantPointsUndecided: Boolean = false,
 )
 
 @Serializable
@@ -274,6 +279,8 @@ private fun Ingredient.toBackup() = BackupIngredient(
     labelProduct = labelSource?.labelProduct,
     labelBarcode = labelSource?.labelBarcode,
     origin = origin,
+    storeSectionUndecided = storeSectionUndecided,
+    plantPointsUndecided = plantPointsUndecided,
 )
 
 private fun BackupIngredient.toEntity() = Ingredient(
@@ -288,6 +295,8 @@ private fun BackupIngredient.toEntity() = Ingredient(
     drainedWeight = DrainedWeight.of(netWeightGrams, drainedWeightGrams),
     labelSource = if (labelProduct != null && labelBarcode != null) LabelSource(labelProduct, labelBarcode) else null,
     origin = origin,
+    storeSectionUndecided = storeSectionUndecided,
+    plantPointsUndecided = plantPointsUndecided,
 )
 
 private fun Recipe.toBackup(photo: String?, lines: List<RecipeIngredient>) = BackupRecipe(

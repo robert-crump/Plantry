@@ -15,7 +15,7 @@ import com.example.plantry.data.backup.BackupDao
 
 @Database(
     entities = [Recipe::class, Ingredient::class, RecipeIngredient::class, CookLog::class, IngredientAlias::class, PlannedRecipe::class],
-    version = 16,
+    version = 17,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -31,6 +31,7 @@ import com.example.plantry.data.backup.BackupDao
         AutoMigration(from = 13, to = 14),
         AutoMigration(from = 14, to = 15),
         AutoMigration(from = 15, to = 16),
+        AutoMigration(from = 16, to = 17),
     ],
 )
 @TypeConverters(Converters::class)

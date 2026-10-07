@@ -7,19 +7,19 @@ import java.util.Locale
 /** The attribute the Sortieren screen groups ingredients by. */
 enum class SortView { PLANT_POINTS, STORE_SECTION }
 
-/** One group of the Sortieren screen; moving an ingredient there sets its value. */
+/** One group of the Sortieren screen; moving an ingredient there sets its value, which also settles an undecided one. */
 sealed interface SortGroup {
     fun contains(ingredient: Ingredient): Boolean
     fun applyTo(ingredient: Ingredient): Ingredient
 
     data class Points(val points: PlantPoints) : SortGroup {
         override fun contains(ingredient: Ingredient) = ingredient.plantPoints == points
-        override fun applyTo(ingredient: Ingredient) = ingredient.copy(plantPoints = points)
+        override fun applyTo(ingredient: Ingredient) = ingredient.copy(plantPoints = points, plantPointsUndecided = false)
     }
 
     data class Section(val section: StoreSection) : SortGroup {
         override fun contains(ingredient: Ingredient) = ingredient.storeSection == section
-        override fun applyTo(ingredient: Ingredient) = ingredient.copy(storeSection = section)
+        override fun applyTo(ingredient: Ingredient) = ingredient.copy(storeSection = section, storeSectionUndecided = false)
     }
 }
 
@@ -64,5 +64,5 @@ object IngredientSorting {
 
     /** The ingredients of [ids] that change when moved to [group]; the reviewed flag is kept. */
     fun move(ingredients: List<Ingredient>, ids: Set<Long>, group: SortGroup): List<Ingredient> =
-        ingredients.filter { it.id in ids && !group.contains(it) }.map(group::applyTo)
+        ingredients.filter { it.id in ids }.mapNotNull { old -> group.applyTo(old).takeIf { it != old } }
 }

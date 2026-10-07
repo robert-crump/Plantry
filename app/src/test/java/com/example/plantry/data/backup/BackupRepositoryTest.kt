@@ -72,7 +72,7 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 11"))
+        assertTrue(json.contains("\"formatVersion\": 12"))
         assertTrue(json.contains("\"origin\": \"SEED\""))
         assertFalse(json.contains("\"staple\""))
         assertFalse(json.contains("\"buyAsIngredientId\""))
@@ -109,7 +109,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 11", "\"formatVersion\": 12")
+        val newer = source.export().replace("\"formatVersion\": 12", "\"formatVersion\": 13")
 
         val error = readError(newer)
 

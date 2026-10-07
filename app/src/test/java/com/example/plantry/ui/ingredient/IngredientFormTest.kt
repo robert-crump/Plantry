@@ -31,6 +31,22 @@ class IngredientFormTest {
     private val valid = IngredientForm.from(ingredient)
 
     @Test
+    fun undecidedProperties_areErrorsUntilChosen() {
+        val undecided = IngredientForm.from(
+            ingredient.copy(storeSectionUndecided = true, plantPointsUndecided = true),
+            drainedAnswered = false,
+        )
+
+        assertNull(undecided.storeSection)
+        assertNull(undecided.plantPoints)
+        assertTrue(undecided.errors().storeSection && undecided.errors().plantPoints && undecided.errors().drained)
+        assertNull(undecided.toDraft())
+
+        val chosen = undecided.copy(storeSection = StoreSection.PRODUCE, plantPoints = PlantPoints.ONE).withDrainedWeight(null)
+        assertEquals(valid.toDraft(), chosen.toDraft())
+    }
+
+    @Test
     fun from_formatsDecimalsWithComma() {
         assertEquals("1,57", valid.nutrition[Nutrient.PROTEIN])
         assertEquals("3", valid.nutrition[Nutrient.FIBRE])

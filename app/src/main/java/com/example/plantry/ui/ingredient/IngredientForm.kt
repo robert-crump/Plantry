@@ -17,14 +17,21 @@ import java.util.Locale
 data class IngredientForm(
     val name: String = "",
     val nutrition: Map<Nutrient, String> = Nutrient.entries.associateWith { "" },
-    val storeSection: StoreSection = StoreSection.OTHER,
-    val plantPoints: PlantPoints = PlantPoints.ZERO,
+    /** Null while undecided, which is an error until the user chooses. */
+    val storeSection: StoreSection? = StoreSection.OTHER,
+    /** Null while undecided, like [storeSection]. */
+    val plantPoints: PlantPoints? = PlantPoints.ZERO,
     /** Already validated by [DrainedWeightForm] in its dialog. */
     val drainedWeight: DrainedWeight? = null,
+    /** False until the user said whether the product is drained, as null means "no" as well. */
+    val drainedAnswered: Boolean = true,
     /** The package applied from a barcode scan; replaces the USDA reference on save. */
     val scannedLabel: LabelSource? = null,
 ) {
     fun withNutrient(nutrient: Nutrient, value: String) = copy(nutrition = nutrition + (nutrient to value))
+
+    /** Null for "not drained"; either way the question is answered. */
+    fun withDrainedWeight(weight: DrainedWeight?) = copy(drainedWeight = weight, drainedAnswered = true)
 
     /** Takes the values [product] has and keeps the others; the name stays as it is. */
     fun withScanned(product: OffProduct) = copy(
@@ -37,6 +44,9 @@ data class IngredientForm(
         nutrients = Nutrient.entries.filterTo(mutableSetOf()) { nutrient ->
             nutrition[nutrient].orEmpty().toDecimalOrNull().let { it == null || it < 0 }
         },
+        storeSection = storeSection == null,
+        plantPoints = plantPoints == null,
+        drained = !drainedAnswered,
     )
 
     /** Returns the validated draft, or null if any field is invalid. */
@@ -45,20 +55,22 @@ data class IngredientForm(
         return IngredientDraft(
             name = name,
             nutrition = Nutrition.of(nutrition.mapValues { it.value.toDecimalOrNull()!! }),
-            storeSection = storeSection,
-            plantPoints = plantPoints,
+            storeSection = storeSection!!,
+            plantPoints = plantPoints!!,
             drainedWeight = drainedWeight,
             scannedLabel = scannedLabel,
         )
     }
 
     companion object {
-        fun from(ingredient: Ingredient) = IngredientForm(
+        /** [drainedAnswered] is false for an ingredient that doesn't exist yet. */
+        fun from(ingredient: Ingredient, drainedAnswered: Boolean = true) = IngredientForm(
             name = ingredient.name,
             nutrition = Nutrient.entries.associateWith { formatDecimal(ingredient.nutrition[it]) },
-            storeSection = ingredient.storeSection,
-            plantPoints = ingredient.plantPoints,
+            storeSection = ingredient.storeSection.takeUnless { ingredient.storeSectionUndecided },
+            plantPoints = ingredient.plantPoints.takeUnless { ingredient.plantPointsUndecided },
             drainedWeight = ingredient.drainedWeight,
+            drainedAnswered = drainedAnswered,
         )
     }
 }
@@ -96,8 +108,12 @@ enum class DrainedWeightError { INVALID, EXCEEDS_NET }
 data class IngredientFormErrors(
     val name: Boolean,
     val nutrients: Set<Nutrient>,
+    val storeSection: Boolean = false,
+    val plantPoints: Boolean = false,
+    /** Whether the product is drained was never answered. */
+    val drained: Boolean = false,
 ) {
-    val hasAny: Boolean get() = name || nutrients.isNotEmpty()
+    val hasAny: Boolean get() = name || nutrients.isNotEmpty() || storeSection || plantPoints || drained
 }
 
 /** Formats with the decimal separator of [locale] and without trailing zeros, e.g. 0.40 -> "0,4" (German). */

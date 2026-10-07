@@ -55,9 +55,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
-import com.example.plantry.data.IngredientRepository
-import com.example.plantry.data.LabelSource
-import com.example.plantry.data.Nutrition
+import com.example.plantry.data.NewIngredientSeed
 import com.example.plantry.data.openfoodfacts.OffLookup
 import com.example.plantry.data.openfoodfacts.ProductLookup
 import com.example.plantry.data.usda.UsdaCatalog
@@ -79,7 +77,6 @@ data class UsdaSearchUiState(val query: String = "", val results: List<UsdaFood>
 
 class UsdaSearchViewModel(
     loadCatalog: () -> UsdaCatalog,
-    private val repository: IngredientRepository,
     private val products: ProductLookup,
 ) : ViewModel() {
 
@@ -103,15 +100,6 @@ class UsdaSearchViewModel(
         query.value = value
     }
 
-    fun create(food: UsdaFood, name: String, onCreated: (Long) -> Unit) {
-        viewModelScope.launch { onCreated(repository.createFromUsda(food, name)) }
-    }
-
-    /** Creates an ingredient without a USDA entry, from the package's values (scanned from [labelSource], if set). */
-    fun createFromLabel(name: String, nutrition: Nutrition, onCreated: (Long) -> Unit, labelSource: LabelSource? = null) {
-        viewModelScope.launch { onCreated(repository.createFromLabel(name, nutrition, labelSource)) }
-    }
-
     fun lookUp(barcode: String) {
         lookupJob?.cancel()
         _barcode.value = BarcodeLookup.Searching
@@ -130,7 +118,8 @@ class UsdaSearchViewModel(
 fun UsdaSearchScreen(
     viewModel: UsdaSearchViewModel,
     onBack: () -> Unit,
-    onCreated: (Long) -> Unit,
+    /** The start of a new ingredient, which the user finishes (and saves) on its own screen. */
+    onNew: (NewIngredientSeed) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val barcode by viewModel.barcode.collectAsStateWithLifecycle()
@@ -230,13 +219,19 @@ fun UsdaSearchScreen(
             CreateIngredientDialog(
                 food = pickedFood,
                 onDismiss = { picked = null },
-                onCreate = { name -> viewModel.create(pickedFood, name, onCreated) },
+                onCreate = { name ->
+                    picked = null
+                    onNew(NewIngredientSeed(name, pickedFood.nutrition, pickedFood.fdcId, pickedFood.description))
+                },
             )
         }
         if (withoutUsda) {
             LabelNutritionDialog(
                 confirmLabel = R.string.action_create,
-                onConfirm = { name, nutrition -> viewModel.createFromLabel(name, nutrition, onCreated) },
+                onConfirm = { name, nutrition ->
+                    withoutUsda = false
+                    onNew(NewIngredientSeed(name, nutrition))
+                },
                 onDismiss = { withoutUsda = false },
                 initial = LabelNutritionForm(name = query.trim()),
                 askName = true,
@@ -249,7 +244,10 @@ fun UsdaSearchScreen(
                 // Not found or offline: the same dialog, empty, to type the label in.
                 LabelNutritionDialog(
                     confirmLabel = R.string.action_create,
-                    onConfirm = { name, nutrition -> viewModel.createFromLabel(name, nutrition, onCreated, product?.labelSource) },
+                    onConfirm = { name, nutrition ->
+                        viewModel.dismissBarcode()
+                        onNew(NewIngredientSeed(name, nutrition, labelSource = product?.labelSource))
+                    },
                     onDismiss = viewModel::dismissBarcode,
                     initial = product?.let { LabelNutritionForm.from(it) } ?: LabelNutritionForm(),
                     askName = true,

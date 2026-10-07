@@ -45,6 +45,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -62,7 +63,9 @@ import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PlantPoints
+import com.example.plantry.data.NewIngredientSeed
 import com.example.plantry.data.StoreSection
+import com.example.plantry.data.hasUndecided
 import com.example.plantry.data.openfoodfacts.OffLookup
 import com.example.plantry.data.openfoodfacts.OffProduct
 import com.example.plantry.data.openfoodfacts.ProductLookup
@@ -88,7 +91,12 @@ data class IngredientDetailUiState(
     val confirmDiscard: Boolean = false,
     /** Set while the delete dialog is open: the recipes that still use the ingredient, if any. */
     val deleteCheck: DeleteCheck? = null,
-    val deleted: Boolean = false,
+    /** Set once the screen is done, after a delete or when a new ingredient is dropped. */
+    val closed: Boolean = false,
+    /** A new ingredient, which exists only once it is saved; the screen then starts in edit mode. */
+    val isNew: Boolean = false,
+    /** The id of the new ingredient after it was saved. */
+    val createdId: Long? = null,
     /** The scanned barcode's lookup; null when there is none to show. */
     val barcode: BarcodeLookup? = null,
 )
@@ -99,6 +107,8 @@ class IngredientDetailViewModel(
     private val ingredientId: Long,
     private val repository: IngredientRepository,
     private val products: ProductLookup,
+    /** Set for an ingredient that doesn't exist yet; [ingredientId] is then unused. */
+    private val seed: NewIngredientSeed? = null,
 ) : ViewModel() {
 
     private var lookupJob: Job? = null
@@ -107,7 +117,17 @@ class IngredientDetailViewModel(
     val state: StateFlow<IngredientDetailUiState> = _state.asStateFlow()
 
     init {
-        viewModelScope.launch {
+        if (seed != null) {
+            val ingredient = seed.toIngredient()
+            _state.update {
+                it.copy(
+                    ingredient = ingredient,
+                    form = IngredientForm.from(ingredient, drainedAnswered = false),
+                    editing = true,
+                    isNew = true,
+                )
+            }
+        } else viewModelScope.launch {
             val ingredient = repository.getIngredient(ingredientId) ?: return@launch
             _state.update { it.copy(ingredient = ingredient, form = IngredientForm.from(ingredient)) }
         }
@@ -124,7 +144,7 @@ class IngredientDetailViewModel(
     /** Leaves edit mode; with unsaved edits it asks first, see [discard]. */
     fun cancelEdit() {
         val current = _state.value
-        val unchanged = current.ingredient?.let { IngredientForm.from(it) == current.form } ?: true
+        val unchanged = current.ingredient?.let { IngredientForm.from(it, drainedAnswered = !current.isNew) == current.form } ?: true
         if (unchanged) discard() else _state.update { it.copy(confirmDiscard = true) }
     }
 
@@ -134,9 +154,13 @@ class IngredientDetailViewModel(
 
     /** Drops the edits and returns to view mode. */
     fun discard() {
+        if (_state.value.isNew) {
+            _state.update { it.copy(closed = true) }
+            return
+        }
         _state.update {
             it.copy(
-                form = it.ingredient?.let(IngredientForm::from) ?: it.form,
+                form = it.ingredient?.let { ingredient -> IngredientForm.from(ingredient) } ?: it.form,
                 editing = false,
                 showErrors = false,
                 confirmDiscard = false,
@@ -150,6 +174,13 @@ class IngredientDetailViewModel(
         val draft = _state.value.form.toDraft()
         if (draft == null) {
             _state.update { it.copy(showErrors = true) }
+            return
+        }
+        if (seed != null) {
+            viewModelScope.launch {
+                val id = repository.create(seed, draft)
+                _state.update { it.copy(createdId = id) }
+            }
             return
         }
         viewModelScope.launch {
@@ -202,7 +233,7 @@ class IngredientDetailViewModel(
         viewModelScope.launch {
             val usedIn = repository.delete(ingredientId)
             _state.update {
-                if (usedIn.isEmpty()) it.copy(deleteCheck = null, deleted = true) else it.copy(deleteCheck = DeleteCheck(usedIn))
+                if (usedIn.isEmpty()) it.copy(deleteCheck = null, closed = true) else it.copy(deleteCheck = DeleteCheck(usedIn))
             }
         }
     }
@@ -213,9 +244,12 @@ class IngredientDetailViewModel(
 fun IngredientDetailScreen(
     viewModel: IngredientDetailViewModel,
     onBack: () -> Unit,
+    /** Called with the id once a new ingredient is saved. */
+    onCreated: (Long) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    LaunchedEffect(state.deleted) { if (state.deleted) onBack() }
+    LaunchedEffect(state.closed) { if (state.closed) onBack() }
+    LaunchedEffect(state.createdId) { state.createdId?.let(onCreated) }
     BackHandler(enabled = state.editing, onBack = viewModel::cancelEdit)
     val snackbar = remember { SnackbarHostState() }
     val scannerUnavailable = stringResource(R.string.barcode_unavailable)
@@ -261,8 +295,10 @@ fun IngredientDetailScreen(
                 actions = {
                     if (ingredient != null) {
                         if (editing) {
-                            IconButton(onClick = viewModel::requestDelete) {
-                                Icon(Icons.Filled.Delete, stringResource(R.string.action_delete))
+                            if (!state.isNew) {
+                                IconButton(onClick = viewModel::requestDelete) {
+                                    Icon(Icons.Filled.Delete, stringResource(R.string.action_delete))
+                                }
                             }
                             IconButton(onClick = viewModel::save) {
                                 Icon(Icons.Filled.Check, stringResource(R.string.action_save))
@@ -279,6 +315,7 @@ fun IngredientDetailScreen(
         bottomBar = {
             if (ingredient != null && !ingredient.reviewed && !editing) {
                 Button(
+                    enabled = !ingredient.hasUndecided,
                     onClick = {
                         viewModel.setReviewed(true)
                         scope.launch {
@@ -335,11 +372,11 @@ fun IngredientDetailScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (!ingredient.reviewed) {
+            if (!ingredient.reviewed && !state.isNew) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     UnreviewedBadge()
                     Text(
-                        stringResource(R.string.ingredient_reviewed_hint),
+                        stringResource(if (ingredient.hasUndecided) R.string.ingredient_undecided_hint else R.string.ingredient_reviewed_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -368,9 +405,10 @@ fun IngredientDetailScreen(
             SectionTitle(R.string.ingredient_section_properties)
             PropertiesGroup(
                 form = form,
+                errors = errors,
                 onStoreSection = { onChange { copy(storeSection = it) } },
                 onPlantPoints = { onChange { copy(plantPoints = it) } },
-                onDrainedWeight = { onChange { copy(drainedWeight = it) } },
+                onDrainedWeight = { onChange { withDrainedWeight(it) } },
                 editable = editing,
             )
 
@@ -471,6 +509,8 @@ private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_IN
 @Composable
 private fun PropertiesGroup(
     form: IngredientForm,
+    /** Null until a save failed; an undecided property is then shown as an error. */
+    errors: IngredientFormErrors?,
     onStoreSection: (StoreSection) -> Unit,
     onPlantPoints: (PlantPoints) -> Unit,
     onDrainedWeight: (DrainedWeight?) -> Unit,
@@ -482,7 +522,8 @@ private fun PropertiesGroup(
             SettingsRow(
                 icon = null,
                 title = stringResource(R.string.ingredient_section_store_section),
-                summary = stringResource(form.storeSection.label),
+                summary = form.storeSection?.let { stringResource(it.label) } ?: stringResource(R.string.ingredient_choose),
+                summaryColor = undecidedColor(form.storeSection == null, errors?.storeSection == true),
                 onClick = if (editable) ({ dialog = PropertyDialog.STORE_SECTION }) else null,
             )
         },
@@ -490,7 +531,8 @@ private fun PropertiesGroup(
             SettingsRow(
                 icon = null,
                 title = stringResource(R.string.ingredient_section_plant_points),
-                summary = plantPointsLabel(form.plantPoints),
+                summary = form.plantPoints?.let { plantPointsLabel(it) } ?: stringResource(R.string.ingredient_choose),
+                summaryColor = undecidedColor(form.plantPoints == null, errors?.plantPoints == true),
                 onClick = if (editable) ({ dialog = PropertyDialog.PLANT_POINTS }) else null,
                 trailing = {
                     IconButton(onClick = { dialog = PropertyDialog.PLANT_POINTS_INFO }) {
@@ -510,7 +552,8 @@ private fun PropertiesGroup(
                         formatDecimal(it.drainedWeightGrams, locale),
                         formatDecimal(it.netWeightGrams, locale),
                     )
-                } ?: stringResource(R.string.ingredient_not_drained),
+                } ?: stringResource(if (form.drainedAnswered) R.string.ingredient_not_drained else R.string.ingredient_choose),
+                summaryColor = undecidedColor(!form.drainedAnswered, errors?.drained == true),
                 onClick = if (editable) ({ dialog = PropertyDialog.DRAINED_WEIGHT }) else null,
             )
         },
@@ -543,6 +586,14 @@ private fun PropertiesGroup(
         )
         null -> Unit
     }
+}
+
+/** Primary while a property still waits for a choice, error once a save was refused for it. */
+@Composable
+private fun undecidedColor(undecided: Boolean, error: Boolean): Color = when {
+    error -> MaterialTheme.colorScheme.error
+    undecided -> MaterialTheme.colorScheme.primary
+    else -> Color.Unspecified
 }
 
 /** Net and drained weight from the can; OK stays disabled until both are empty or 0 < drained ≤ net. */

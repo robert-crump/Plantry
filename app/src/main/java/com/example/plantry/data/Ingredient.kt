@@ -24,7 +24,17 @@ data class Ingredient(
     @Embedded val labelSource: LabelSource? = null,
     /** How the ingredient got into the app; the default is what the seed import and old rows are. */
     @ColumnInfo(defaultValue = "'SEED'") val origin: IngredientOrigin = IngredientOrigin.SEED,
+    /**
+     * Set while [storeSection] is only a fallback nobody chose, e.g. when Claude's proposal had
+     * none; the ingredient can't be marked reviewed until the user picks one.
+     */
+    @ColumnInfo(defaultValue = "0") val storeSectionUndecided: Boolean = false,
+    /** Like [storeSectionUndecided], for [plantPoints]. */
+    @ColumnInfo(defaultValue = "0") val plantPointsUndecided: Boolean = false,
 )
+
+/** True while the user still has to choose a property, which keeps the ingredient from being reviewed. */
+val Ingredient.hasUndecided: Boolean get() = storeSectionUndecided || plantPointsUndecided
 
 /** Where an [Ingredient] came from: the seed import, or added later by Claude, a barcode scan or by hand. */
 enum class IngredientOrigin { SEED, CLAUDE, BARCODE, MANUAL }
@@ -56,6 +66,33 @@ val Ingredient.drainedShare: Double get() = drainedWeight?.share ?: 1.0
 enum class StoreSection { PRODUCE, DAIRY_CHILLED, DRY_GOODS, FROZEN, OTHER }
 
 enum class PlantPoints(val value: Double) { ONE(1.0), QUARTER(0.25), ZERO(0.0) }
+
+/**
+ * What a new ingredient starts from: its name and where the nutrition came from. The ingredient is
+ * only created once the user has decided its other properties, see [IngredientRepository.create].
+ */
+data class NewIngredientSeed(
+    val name: String,
+    val nutrition: Nutrition,
+    val fdcId: Long? = null,
+    val usdaDescription: String? = null,
+    val labelSource: LabelSource? = null,
+) {
+    /** The unsaved ingredient the detail screen shows: every property is still undecided. */
+    fun toIngredient() = Ingredient(
+        name = name,
+        fdcId = fdcId,
+        usdaDescription = usdaDescription,
+        nutrition = nutrition,
+        storeSection = StoreSection.OTHER,
+        plantPoints = PlantPoints.ZERO,
+        reviewed = false,
+        labelSource = labelSource,
+        origin = IngredientOrigin.MANUAL,
+        storeSectionUndecided = true,
+        plantPointsUndecided = true,
+    )
+}
 
 /** User-editable attributes of an [Ingredient]; the USDA reference is kept unless [scannedLabel] is set. */
 data class IngredientDraft(

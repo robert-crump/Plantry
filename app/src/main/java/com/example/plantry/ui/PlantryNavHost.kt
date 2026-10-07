@@ -53,6 +53,10 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.example.plantry.PlantryApplication
 import com.example.plantry.R
+import com.example.plantry.data.LabelSource
+import com.example.plantry.data.NewIngredientSeed
+import com.example.plantry.data.Nutrient
+import com.example.plantry.data.Nutrition
 import com.example.plantry.data.SortView
 import com.example.plantry.ui.cooklog.CookingScreen
 import com.example.plantry.ui.cooklog.CookingViewModel
@@ -116,6 +120,34 @@ object UsdaSearchRoute
 
 @Serializable
 data class IngredientDetailRoute(val ingredientId: Long)
+
+/** A new ingredient; [nutrition] is in [Nutrient] order. It exists only once the user saves it. */
+@Serializable
+data class IngredientCreateRoute(
+    val name: String,
+    val nutrition: List<Double>,
+    val fdcId: Long? = null,
+    val usdaDescription: String? = null,
+    val labelProduct: String? = null,
+    val labelBarcode: String? = null,
+) {
+    constructor(seed: NewIngredientSeed) : this(
+        name = seed.name,
+        nutrition = Nutrient.entries.map { seed.nutrition[it] },
+        fdcId = seed.fdcId,
+        usdaDescription = seed.usdaDescription,
+        labelProduct = seed.labelSource?.labelProduct,
+        labelBarcode = seed.labelSource?.labelBarcode,
+    )
+
+    fun toSeed() = NewIngredientSeed(
+        name = name,
+        nutrition = Nutrition.of(Nutrient.entries.zip(nutrition).toMap()),
+        fdcId = fdcId,
+        usdaDescription = usdaDescription,
+        labelSource = if (labelProduct != null && labelBarcode != null) LabelSource(labelProduct, labelBarcode) else null,
+    )
+}
 
 @Serializable
 object SettingsRoute
@@ -342,7 +374,15 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                 }
                 composable<UsdaSearchRoute> {
                     UsdaSearchScreen(
-                        viewModel = viewModel { UsdaSearchViewModel({ app.usdaCatalog }, ingredientRepository, app.productLookup) },
+                        viewModel = viewModel { UsdaSearchViewModel({ app.usdaCatalog }, app.productLookup) },
+                        onBack = { navController.popBackStack() },
+                        onNew = { seed -> navController.navigate(IngredientCreateRoute(seed)) },
+                    )
+                }
+                composable<IngredientCreateRoute> { entry ->
+                    val seed = entry.toRoute<IngredientCreateRoute>().toSeed()
+                    IngredientDetailScreen(
+                        viewModel = viewModel { IngredientDetailViewModel(0, ingredientRepository, app.productLookup, seed) },
                         onBack = { navController.popBackStack() },
                         onCreated = { id ->
                             navController.navigate(IngredientDetailRoute(id)) {

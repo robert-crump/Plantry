@@ -24,43 +24,28 @@ class IngredientRepository(private val dao: IngredientDao) {
     }
 
     /**
-     * Creates an unreviewed ingredient with the nutrition of [food] and returns its id. The
-     * remaining attributes get neutral defaults until the user reviews it.
+     * Creates the unreviewed ingredient from [seed] with the user's decisions in [draft] (which also
+     * holds the nutrition, as the user may have edited it) and returns its id. A scanned label in
+     * the draft replaces the seed's source and is what makes the ingredient a barcode one.
      */
-    suspend fun createFromUsda(food: UsdaFood, name: String): Long =
-        insertUnreviewed(name, food.nutrition, food.fdcId, food.description, origin = IngredientOrigin.MANUAL)
-
-    /**
-     * Creates an unreviewed ingredient without a USDA reference, with the [nutrition] per 100 g
-     * from the package label, and returns its id. Other attributes get the same defaults as
-     * [createFromUsda].
-     */
-    suspend fun createFromLabel(name: String, nutrition: Nutrition, labelSource: LabelSource? = null): Long =
-        insertUnreviewed(
-            name, nutrition, fdcId = null, usdaDescription = null, labelSource = labelSource,
-            origin = if (labelSource != null) IngredientOrigin.BARCODE else IngredientOrigin.MANUAL,
+    suspend fun create(seed: NewIngredientSeed, draft: IngredientDraft): Long {
+        val label = draft.scannedLabel ?: seed.labelSource
+        val scanned = draft.scannedLabel != null
+        return dao.insert(
+            Ingredient(
+                name = draft.name.trim(),
+                fdcId = if (scanned) null else seed.fdcId,
+                usdaDescription = if (scanned) null else seed.usdaDescription,
+                nutrition = draft.nutrition,
+                storeSection = draft.storeSection,
+                plantPoints = draft.plantPoints,
+                reviewed = false,
+                drainedWeight = draft.drainedWeight,
+                labelSource = label,
+                origin = if (label != null) IngredientOrigin.BARCODE else IngredientOrigin.MANUAL,
+            ),
         )
-
-    private suspend fun insertUnreviewed(
-        name: String,
-        nutrition: Nutrition,
-        fdcId: Long?,
-        usdaDescription: String?,
-        labelSource: LabelSource? = null,
-        origin: IngredientOrigin,
-    ): Long = dao.insert(
-        Ingredient(
-            name = name.trim(),
-            fdcId = fdcId,
-            usdaDescription = usdaDescription,
-            nutrition = nutrition,
-            storeSection = StoreSection.OTHER,
-            plantPoints = PlantPoints.ZERO,
-            reviewed = false,
-            labelSource = labelSource,
-            origin = origin,
-        ),
-    )
+    }
 
     /**
      * Creates the unreviewed ingredients Claude proposed, keyed by their temporary (negative) ids,
@@ -76,6 +61,7 @@ class IngredientRepository(private val dao: IngredientDao) {
         if (changed.isNotEmpty()) dao.updateAll(changed)
     }
 
+    /** Ingredients with an undecided property stay unreviewed. */
     suspend fun markReviewed(ids: Collection<Long>) {
         if (ids.isNotEmpty()) dao.markReviewed(ids.toList())
     }
@@ -107,12 +93,15 @@ class IngredientRepository(private val dao: IngredientDao) {
                 storeSection = draft.storeSection,
                 plantPoints = draft.plantPoints,
                 drainedWeight = draft.drainedWeight,
+                storeSectionUndecided = false,
+                plantPointsUndecided = false,
             ),
         )
     }
 
     suspend fun setReviewed(id: Long, reviewed: Boolean) {
         val existing = dao.getById(id) ?: return
+        if (reviewed && existing.hasUndecided) return
         if (existing.reviewed != reviewed) dao.update(existing.copy(reviewed = reviewed))
     }
 }
