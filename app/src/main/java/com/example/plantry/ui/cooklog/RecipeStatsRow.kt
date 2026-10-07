@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.example.plantry.R
 import com.example.plantry.data.RecipeHighlight
@@ -29,7 +31,7 @@ import com.example.plantry.ui.theme.highlightGreen
  * Per portion and rounded: leaf with plant points, flame with kcal, [ProteinIcon] with protein,
  * grass with fibre, e.g. "5  520kcal  27g  9g". Kcal and fibre missing (old cooking log entries) show "–".
  * The stats behind [highlights] are green and bold. Compact, meant for its own line below a title;
- * [large] makes it half as big again, each stat left-aligned in a quarter of the width.
+ * [large] makes it half as big again and spreads the stats over the width, see [EqualExtraSpace].
  */
 @Composable
 fun RecipeStatsRow(
@@ -42,17 +44,15 @@ fun RecipeStatsRow(
     val scale = if (large) 1.5f else 1f
     Row(
         modifier,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = if (large) EqualExtraSpace else Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val column = if (large) Modifier.weight(1f) else Modifier
         Stat(
             rememberVectorPainter(Icons.Filled.Eco),
             stringResource(R.string.recipe_sort_plant_points),
             stats.roundedPlantPoints.toString(),
             RecipeHighlight.PLANT_POINT_POWER.takeIf { it in highlights },
             scale,
-            column,
         )
         Stat(
             rememberVectorPainter(Icons.Filled.LocalFireDepartment),
@@ -60,7 +60,6 @@ fun RecipeStatsRow(
             stats.roundedKcal?.let { stringResource(R.string.recipe_stats_kcal, it) } ?: missing,
             RecipeHighlight.LOW_CALORIE.takeIf { it in highlights },
             scale,
-            column,
         )
         Stat(
             ProteinIcon,
@@ -68,7 +67,6 @@ fun RecipeStatsRow(
             stringResource(R.string.recipe_stats_grams, stats.roundedProtein),
             RecipeHighlight.HIGH_PROTEIN.takeIf { it in highlights },
             scale,
-            column,
         )
         Stat(
             rememberVectorPainter(Icons.Filled.Grass),
@@ -76,8 +74,22 @@ fun RecipeStatsRow(
             stats.roundedFibre?.let { stringResource(R.string.recipe_stats_grams, it) } ?: missing,
             RecipeHighlight.HIGH_FIBRE.takeIf { it in highlights },
             scale,
-            column,
         )
+    }
+}
+
+/**
+ * Each stat keeps its own width and the room left over is shared equally, after each one: the stats
+ * start left-aligned in columns as even as their widths allow, and a long value doesn't wrap.
+ */
+private object EqualExtraSpace : Arrangement.Horizontal {
+    override fun Density.arrange(totalSize: Int, sizes: IntArray, layoutDirection: LayoutDirection, outPositions: IntArray) {
+        val extra = ((totalSize - sizes.sum()) / sizes.size.coerceAtLeast(1)).coerceAtLeast(0)
+        var x = 0
+        sizes.forEachIndexed { i, size ->
+            outPositions[i] = if (layoutDirection == LayoutDirection.Ltr) x else totalSize - x - size
+            x += size + extra
+        }
     }
 }
 
@@ -93,12 +105,11 @@ private fun Stat(
     value: String,
     highlight: RecipeHighlight?,
     scale: Float,
-    modifier: Modifier,
 ) {
     val label = highlight?.let { "$description, ${stringResource(it.label)}" } ?: description
     val green = highlightGreen
     val style = MaterialTheme.typography.bodySmall.let { it.copy(fontSize = it.fontSize * scale, lineHeight = it.lineHeight * scale) }
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp * scale), verticalAlignment = Alignment.CenterVertically) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp * scale), verticalAlignment = Alignment.CenterVertically) {
         Icon(
             icon,
             contentDescription = label,

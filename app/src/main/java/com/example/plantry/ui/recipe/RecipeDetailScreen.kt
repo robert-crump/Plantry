@@ -189,7 +189,7 @@ fun RecipeDetailScreen(
             if (detail.lines.isNotEmpty()) {
                 RecipeStatsRow(
                     detail.stats,
-                    Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
                     highlights = detail.highlights,
                     large = true,
                 )
