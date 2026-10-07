@@ -46,6 +46,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -139,6 +142,8 @@ data class RecipeEditUiState(
     val scanning: Boolean = false,
     /** Starting a scan waits for "Ersetzen", because the form already has input. */
     val confirmReplace: Boolean = false,
+    /** The sheet to take the page photo with the camera or pick it from the gallery is open. */
+    val choosingPhotoSource: Boolean = false,
     /** Null unless a Claude feature waits for the costs to be accepted or a key to be entered. */
     val claudeGate: ClaudeGate? = null,
 )
@@ -162,7 +167,6 @@ data class UsdaPickerState(val ingredientId: Long, val query: String)
 
 /** Reading the photo with Claude; the form shows once it is [Done] (or skipped). */
 sealed interface ScanState {
-    data object WaitingForPhoto : ScanState
     data object Reading : ScanState
     data class Failed(val reason: ClaudeFailure) : ScanState
     data object Done : ScanState
@@ -322,7 +326,7 @@ class RecipeEditViewModel(
         _state.update { it.copy(claudeGate = null) }
     }
 
-    /** Keeps the compressed photo; while scanning a new recipe, reads it right away. */
+    /** Keeps the compressed photo of the page and reads the new recipe from it right away. */
     fun onPhoto(uri: Uri) {
         viewModelScope.launch {
             val bytes = compressPhoto(uri)
@@ -330,8 +334,10 @@ class RecipeEditViewModel(
                 _state.update { it.copy(photoUnreadable = true) }
                 return@launch
             }
-            _state.update { it.copy(photo = bytes, photoChanged = true, photoUnreadable = false) }
-            if (_state.value.scan != ScanState.Done) readPhoto()
+            _state.update {
+                it.copy(photo = bytes, photoChanged = true, photoUnreadable = false, scanning = true, linesStep = false, showErrors = false)
+            }
+            readPhoto()
         }
     }
 
@@ -464,8 +470,8 @@ class RecipeEditViewModel(
     }
 
     /**
-     * Switches a new recipe to reading it from a photo; asks first ([RecipeEditUiState.confirmReplace])
-     * when there is input the scan would replace.
+     * Offers camera or gallery for the photo to read a new recipe from; asks first
+     * ([RecipeEditUiState.confirmReplace]) when there is input the scan would replace.
      */
     fun startScan(confirmed: Boolean = false) {
         if (!isNew) return
@@ -473,9 +479,13 @@ class RecipeEditViewModel(
             if (!confirmed && (!state.form.isEmpty || state.photo != null)) {
                 state.copy(confirmReplace = true)
             } else {
-                state.copy(scanning = true, scan = ScanState.WaitingForPhoto, confirmReplace = false, linesStep = false, showErrors = false)
+                state.copy(choosingPhotoSource = true, confirmReplace = false)
             }
         }
+    }
+
+    fun dismissPhotoSource() {
+        _state.update { it.copy(choosingPhotoSource = false) }
     }
 
     fun dismissReplace() {
@@ -580,6 +590,7 @@ fun RecipeEditScreen(
     val ingredientNames by viewModel.ingredientNames.collectAsStateWithLifecycle()
     val sourceSuggestions by viewModel.sourceSuggestions.collectAsStateWithLifecycle()
     val photoSource = rememberPhotoSource(viewModel::onPhoto)
+    var showingScanInfo by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(state.saved) { if (state.saved) onBack() }
 
     val form = state.form
@@ -603,11 +614,7 @@ fun RecipeEditScreen(
                 title = {
                     Text(
                         stringResource(
-                            when {
-                                !viewModel.isNew -> R.string.recipe_edit
-                                isScan -> R.string.recipe_scan
-                                else -> R.string.recipe_new
-                            },
+                            if (viewModel.isNew) R.string.recipe_new else R.string.recipe_edit,
                         ),
                     )
                 },
@@ -650,15 +657,24 @@ fun RecipeEditScreen(
                 .imePadding(),
         ) {
             if (viewModel.isNew && !isScan) {
-                Button(
-                    onClick = { viewModel.useClaude(ClaudeAction.SCAN) },
-                    modifier = Modifier
+                Row(
+                    Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, top = 8.dp)
-                        .heightIn(min = 56.dp),
+                        .padding(start = 16.dp, end = 4.dp, top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Filled.AutoAwesome, contentDescription = null)
-                    Text(stringResource(R.string.recipe_scan_start), Modifier.padding(start = 8.dp))
+                    Button(
+                        onClick = { viewModel.useClaude(ClaudeAction.SCAN) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 56.dp),
+                    ) {
+                        Icon(Icons.Filled.AutoAwesome, contentDescription = null)
+                        Text(stringResource(R.string.recipe_scan_start), Modifier.padding(start = 8.dp))
+                    }
+                    IconButton(onClick = { showingScanInfo = true }) {
+                        Icon(Icons.Filled.Info, contentDescription = stringResource(R.string.recipe_scan_info_description))
+                    }
                 }
             }
             // A scan shows the photo only until it is read; the review works from the fields alone.
@@ -666,8 +682,6 @@ fun RecipeEditScreen(
                 // Fixed above the form, so the page stays in view while correcting the lines.
                 PhotoSection(
                     state = state,
-                    isScan = isScan,
-                    photoSource = photoSource,
                     onRead = viewModel::readPhoto,
                     onSkipScan = viewModel::skipScan,
                 )
@@ -739,6 +753,30 @@ fun RecipeEditScreen(
                     }
                 }
             }
+        }
+
+        if (state.choosingPhotoSource) {
+            PhotoSourceSheet(
+                onTakePhoto = {
+                    viewModel.dismissPhotoSource()
+                    photoSource.takePhoto()
+                },
+                onPickPhoto = {
+                    viewModel.dismissPhotoSource()
+                    photoSource.pickPhoto()
+                },
+                onDismiss = viewModel::dismissPhotoSource,
+            )
+        }
+
+        if (showingScanInfo) {
+            AlertDialog(
+                onDismissRequest = { showingScanInfo = false },
+                text = { Text(stringResource(R.string.scan_intro)) },
+                confirmButton = {
+                    TextButton(onClick = { showingScanInfo = false }) { Text(stringResource(R.string.action_ok)) }
+                },
+            )
         }
 
         if (state.confirmReplace) {
@@ -842,12 +880,32 @@ private fun ProposalStatus(proposals: ProposalState, onRetry: () -> Unit) {
     }
 }
 
-/** The page photo with its actions, and the progress or error of reading it. */
+/** Camera or gallery for the page photo a new recipe is read from. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PhotoSourceSheet(onTakePhoto: () -> Unit, onPickPhoto: () -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(bottom = 16.dp)) {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.photo_take)) },
+                leadingContent = { Icon(Icons.Filled.PhotoCamera, contentDescription = null) },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier.clickable(onClick = onTakePhoto),
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.photo_pick)) },
+                leadingContent = { Icon(Icons.Filled.PhotoLibrary, contentDescription = null) },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier.clickable(onClick = onPickPhoto),
+            )
+        }
+    }
+}
+
+/** The page photo, and the progress or error of reading it. */
 @Composable
 private fun PhotoSection(
     state: RecipeEditUiState,
-    isScan: Boolean,
-    photoSource: PhotoSource,
     onRead: () -> Unit,
     onSkipScan: () -> Unit,
 ) {
@@ -861,12 +919,6 @@ private fun PhotoSection(
                     .fillMaxWidth()
                     .height(if (scan == ScanState.Done) 240.dp else 420.dp)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-            )
-        } else if (isScan && scan != ScanState.Done) {
-            Text(
-                stringResource(R.string.scan_intro),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(16.dp),
             )
         }
 
@@ -886,36 +938,17 @@ private fun PhotoSection(
                     TextButton(onClick = onSkipScan) { Text(stringResource(R.string.scan_skip)) }
                 }
             }
-            else -> Unit
+            ScanState.Done -> Unit
         }
         if (state.photoUnreadable) {
             Text(
                 stringResource(R.string.photo_unreadable),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
-
-        if (scan != ScanState.Reading) {
-            FlowRow(
-                Modifier.padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                TextButton(onClick = photoSource.takePhoto) {
-                    Icon(Icons.Filled.PhotoCamera, contentDescription = null)
-                    Text(
-                        stringResource(if (photo == null) R.string.photo_take else R.string.photo_retake),
-                        Modifier.padding(start = 8.dp),
-                    )
-                }
-                TextButton(onClick = photoSource.pickPhoto) {
-                    Icon(Icons.Filled.PhotoLibrary, contentDescription = null)
-                    Text(stringResource(R.string.photo_pick), Modifier.padding(start = 8.dp))
-                }
-            }
-        }
-        if (photo != null || (isScan && scan != ScanState.Done)) HorizontalDivider()
+        if (photo != null) HorizontalDivider()
     }
 }
 
