@@ -78,6 +78,11 @@
     <!-- Recipe ingredient lines -->
     <string name="recipe_section_lines">Zutaten</string>
     <string name="recipe_lines_empty">Noch keine Zutaten.</string>
+    <plurals name="recipe_lines_more">
+        <item quantity="one">+ %1$d weitere Zutat</item>
+        <item quantity="other">+ %1$d weitere Zutaten</item>
+    </plurals>
+    <string name="recipe_lines_less">Weniger anzeigen</string>
     <string name="recipe_line_amount">%1$s g · %2$s</string>
     <string name="recipe_line_add">Zutat hinzufügen</string>
     <string name="recipe_line_new">Neue Zeile</string>

@@ -1,7 +1,9 @@
 package com.example.plantry.ui.recipe
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +25,8 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.AlertDialog
@@ -50,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -222,7 +228,7 @@ fun RecipeDetailScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                 }
-                IngredientGrid(detail.lines)
+                IngredientList(detail.lines)
             }
 
             if (detail.lines.isNotEmpty()) {
@@ -391,28 +397,63 @@ private fun TimerChip(text: String, modifier: Modifier) {
     }
 }
 
-/** The lines' original wording, two per row in recipe order; long text wraps in its cell. */
+/**
+ * The lines' original wording in recipe order, one per line. A long list shows only its first
+ * lines, see [collapsedLineCount], and a toggle below them for the rest; it starts collapsed
+ * whenever the screen opens.
+ */
 @Composable
-private fun IngredientGrid(lines: List<RecipeIngredient>) {
+private fun IngredientList(lines: List<RecipeIngredient>) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val collapsedCount = collapsedLineCount(lines.size)
+    val hidden = lines.size - collapsedCount
     Column(
-        Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .animateContentSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        lines.chunked(2).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                row.forEach { line ->
-                    Text(
-                        line.originalText,
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                // Keeps a lone last line in the left column.
-                if (row.size == 1) Spacer(Modifier.weight(1f))
+        (if (expanded) lines else lines.take(collapsedCount)).forEach { line ->
+            Text(line.originalText, style = MaterialTheme.typography.bodyLarge)
+        }
+        if (hidden > 0) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .clickable { expanded = !expanded },
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (expanded) {
+                        stringResource(R.string.recipe_lines_less)
+                    } else {
+                        pluralStringResource(R.plurals.recipe_lines_more, hidden, hidden)
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Icon(
+                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
             }
         }
     }
 }
+
+/** Lines shown while the ingredient list is collapsed. */
+internal const val COLLAPSED_LINES = 6
+
+/** Fewer hidden lines than this aren't worth a toggle, which takes about as much room. */
+internal const val MIN_HIDDEN_LINES = 3
+
+/** How many of [count] lines show while collapsed: all of them unless enough would hide behind the first [COLLAPSED_LINES]. */
+internal fun collapsedLineCount(count: Int): Int =
+    if (count - COLLAPSED_LINES >= MIN_HIDDEN_LINES) COLLAPSED_LINES else count
 
 /**
  * "5× gekocht" above "Zuletzt: 8. Okt", or just "Noch nie gekocht", with "Planen" on the right;
