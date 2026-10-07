@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -83,14 +84,18 @@ fun NutrientList(nutrition: RecipeNutrition) {
                     null
                 } else {
                     {
-                        Text(
-                            contributors.joinToString(" · ") { "${it.name} ${formatNutrientWithUnit(it.amount, nutrient, locale)}" },
-                        )
+                        // Each entry is one unbreakable unit; a wide one moves to the next line as a whole.
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            contributors.forEachIndexed { index, contributor ->
+                                val separator = if (index < contributors.lastIndex) "$NBSP·" else ""
+                                Text("${contributor.name}$NBSP${formatRounded(contributor.amount, nutrient, locale)}$separator")
+                            }
+                        }
                     }
                 },
                 trailingContent = {
                     Text(
-                        formatNutrientWithUnit(nutrition.perPortion[nutrient], nutrient, locale),
+                        formatRounded(nutrition.perPortion[nutrient], nutrient, locale),
                         style = MaterialTheme.typography.titleSmall,
                     )
                 },
@@ -103,8 +108,15 @@ fun NutrientList(nutrition: RecipeNutrition) {
 fun formatNutrient(value: Double, nutrient: Nutrient, locale: Locale): String =
     String.format(locale, if (nutrient == Nutrient.KCAL) "%.0f" else "%.1f", value)
 
-private fun formatNutrientWithUnit(value: Double, nutrient: Nutrient, locale: Locale): String =
-    formatNutrient(value, nutrient, locale) + if (nutrient == Nutrient.KCAL) " kcal" else " g"
+private const val NBSP = " "
+
+/** Whole numbers with a non-breaking space before the unit; a nonzero amount under 1 reads "<1 g". */
+internal fun formatRounded(value: Double, nutrient: Nutrient, locale: Locale): String {
+    val unit = if (nutrient == Nutrient.KCAL) "kcal" else "g"
+    val rounded = Math.round(value)
+    val number = if (rounded == 0L && value > 0) "<1" else String.format(locale, "%d", rounded)
+    return "$number$NBSP$unit"
+}
 
 private val ProteinRating.color: Color
     get() = when (this) {
