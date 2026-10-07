@@ -5,8 +5,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.background
@@ -53,7 +51,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -75,10 +72,9 @@ import com.example.plantry.data.nutritionLines
 import com.example.plantry.data.toDraft
 import com.example.plantry.ui.cooklog.PlanDatePickerDialog
 import com.example.plantry.ui.cooklog.formatPlannedDate
-import com.example.plantry.ui.cooklog.label
+import com.example.plantry.ui.cooklog.RecipeStatsRow
 import com.example.plantry.ui.cooklog.lastCookedLabel
 import com.example.plantry.ui.currentLocale
-import com.example.plantry.ui.theme.highlightGreen
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -90,6 +86,7 @@ data class RecipeDetailUiState(
     val recipe: Recipe,
     val lines: List<RecipeIngredient>,
     val nutrition: RecipeNutrition,
+    val stats: RecipeStats,
     val highlights: Set<RecipeHighlight>,
     val cooking: CookingStats,
     /** The day it is planned for; null while it isn't on Geplant. */
@@ -119,6 +116,7 @@ class RecipeDetailViewModel(
     ) { recipe, lines, ingredients, cooking, planned ->
         if (recipe == null) return@combine null
         val byId = ingredients.associateBy { it.id }
+        val stats = RecipeStats.of(recipe, lines, byId)
         RecipeDetailUiState(
             recipe = recipe,
             lines = lines,
@@ -126,7 +124,8 @@ class RecipeDetailViewModel(
                 nutritionLines(lines.map { it.toDraft() }, byId),
                 recipe.ourServings,
             ),
-            highlights = RecipeHighlight.of(RecipeStats.of(recipe, lines, byId), hasLines = lines.isNotEmpty()),
+            stats = stats,
+            highlights = RecipeHighlight.of(stats, hasLines = lines.isNotEmpty()),
             cooking = cooking,
             plannedOn = planned?.plannedOn,
         )
@@ -188,23 +187,12 @@ fun RecipeDetailScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            if (detail.highlights.isNotEmpty()) HighlightChips(detail.highlights)
-            if (current.modified) {
-                ListItem(
-                    leadingContent = {
-                        Surface(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            shape = MaterialTheme.shapes.small,
-                        ) {
-                            Text(
-                                stringResource(R.string.recipe_modified),
-                                style = MaterialTheme.typography.labelMedium,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            )
-                        }
-                    },
-                    headlineContent = { Text(stringResource(R.string.recipe_modified_hint)) },
+            // Without lines its zeros would say nothing.
+            if (detail.lines.isNotEmpty()) {
+                RecipeStatsRow(
+                    detail.stats,
+                    Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                    highlights = detail.highlights,
                 )
             }
             CookedSection(
@@ -373,33 +361,6 @@ private fun MetadataValue(text: String) {
     Text(text, style = MaterialTheme.typography.bodyLarge)
 }
 
-/** A green label per highlight the recipe earns, e.g. "Proteinreich", in [RecipeHighlight] order. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun HighlightChips(highlights: Set<RecipeHighlight>) {
-    val green = highlightGreen
-    FlowRow(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        RecipeHighlight.entries.filter { it in highlights }.forEach { highlight ->
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = green.copy(alpha = 0.15f),
-                contentColor = green,
-            ) {
-                Text(
-                    stringResource(highlight.label),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                )
-            }
-        }
-    }
-}
-
 /** Timer icon and "Unbekannt", shaped like a chip but not tappable. */
 @Composable
 internal fun MissingCookingTimeChip(modifier: Modifier = Modifier) =
@@ -453,7 +414,10 @@ private fun IngredientGrid(lines: List<RecipeIngredient>) {
     }
 }
 
-/** Last cooked and times cooked, with "Planen" on the right; once planned, the button shows the day. */
+/**
+ * "5× gekocht" above "Zuletzt: 8. Okt", or just "Noch nie gekocht", with "Planen" on the right;
+ * once planned, the button shows the day.
+ */
 @Composable
 private fun CookedSection(
     stats: CookingStats,
@@ -461,13 +425,18 @@ private fun CookedSection(
     today: LocalDate,
     onPlan: () -> Unit,
 ) {
+    val lastCookedOn = stats.daysSinceLastCooked?.let { today.minusDays(it) }
     ListItem(
-        headlineContent = { Text(lastCookedLabel(stats)) },
-        supportingContent = if (stats.timesCooked > 0) {
-            { Text(stringResource(R.string.cooked_times, stats.timesCooked)) }
-        } else {
-            null
+        headlineContent = {
+            Text(
+                if (lastCookedOn != null) {
+                    stringResource(R.string.cooked_times, stats.timesCooked)
+                } else {
+                    lastCookedLabel(null, today)
+                },
+            )
         },
+        supportingContent = lastCookedOn?.let { { Text(lastCookedLabel(it, today)) } },
         trailingContent = {
             OutlinedButton(onClick = onPlan) {
                 Icon(

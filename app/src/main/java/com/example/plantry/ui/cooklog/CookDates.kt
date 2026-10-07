@@ -42,8 +42,13 @@ internal fun formatCookDate(date: LocalDate, today: LocalDate, locale: Locale): 
 /** The abbreviated weekday, day and month, plus the year when it isn't the current one: "Do, 8. Okt". */
 internal fun formatPlannedDate(date: LocalDate, today: LocalDate, locale: Locale): String {
     val weekday = date.dayOfWeek.getDisplayName(TextStyle.SHORT_STANDALONE, locale).trimEnd('.')
+    return "$weekday, ${formatShortDate(date, today, locale)}"
+}
+
+/** Day and abbreviated month, plus the year when it isn't the current one: "8. Okt", "8. Okt 2025". */
+internal fun formatShortDate(date: LocalDate, today: LocalDate, locale: Locale): String {
     val year = if (date.year == today.year) "" else " ${date.year}"
-    return "$weekday, ${date.dayOfMonth}. ${cookMonthLabel(date, locale)}$year"
+    return "${date.dayOfMonth}. ${cookMonthLabel(date, locale)}$year"
 }
 
 /** The abbreviated month in [locale] without a trailing dot, e.g. "Okt" or "Oct". */
@@ -86,6 +91,15 @@ internal fun cookWeekLabel(monday: LocalDate, today: LocalDate, locale: Locale, 
 
 /** The year with a leading separator and a trailing suffix: ", y" in English, " y 'г'." in Russian, "y年" in Japanese. */
 private val YearField = Regex("""[\s,]*y+(?:\s*'[^']*'\.?|[年년])?""")
+
+/** E.g. "Zuletzt: 8. Okt", or "Noch nie gekocht" without a [lastCookedOn]. */
+@Composable
+fun lastCookedLabel(lastCookedOn: LocalDate?, today: LocalDate): String =
+    if (lastCookedOn == null) {
+        stringResource(R.string.cooked_never)
+    } else {
+        stringResource(R.string.cooked_last_on, formatShortDate(lastCookedOn, today, currentLocale()))
+    }
 
 /** E.g. "Zuletzt vor 3 Tagen gekocht" or "Noch nie gekocht". */
 @Composable

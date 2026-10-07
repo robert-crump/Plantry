@@ -36,6 +36,12 @@ class CookDatesTest {
     }
 
     @Test
+    fun shortDate_isDayAndMonth_withTheYearOnlyWhenNotCurrent() {
+        assertEquals("8. Okt", formatShortDate(LocalDate.of(2026, 10, 8), today, Locale.GERMANY))
+        assertEquals("30. Dez 2025", formatShortDate(LocalDate.of(2025, 12, 30), today, Locale.GERMANY))
+    }
+
+    @Test
     fun monthLabel_isTheLocaleAbbreviationWithoutDot() {
         assertEquals("Okt", cookMonthLabel(LocalDate.of(2026, 10, 23), Locale.GERMANY))
         assertEquals("Mär", cookMonthLabel(LocalDate.of(2026, 3, 1), Locale.GERMANY))

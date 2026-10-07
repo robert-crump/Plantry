@@ -124,8 +124,6 @@
     <string name="error_ingredient_required">Bitte eine Zutat aus den Vorschlägen wählen</string>
     <string name="action_apply">Übernehmen</string>
     <string name="action_next">Weiter</string>
-    <string name="recipe_modified">Angepasst</string>
-    <string name="recipe_modified_hint">Die Zutaten weichen vom Original ab.</string>
 
     <!-- Cooking log -->
     <string name="cooked_logged">Als gekocht eingetragen</string>
@@ -134,6 +132,7 @@
     <string name="cooked_last_yesterday">Zuletzt gestern gekocht</string>
     <string name="cooked_last_days_ago">Zuletzt vor %1$d Tagen gekocht</string>
     <string name="cooked_times">%1$d× gekocht</string>
+    <string name="cooked_last_on">Zuletzt: %1$s</string>
     <string name="cooking_title">Kochen</string>
     <string name="cook_history_empty">Noch nichts gekocht. Plane ein Rezept über „Planen“ oder tippe auf „+“ für einen Vorschlag oder einen Kocheintrag.</string>
     <string name="cook_history_delete_confirm">Eintrag „%1$s“ vom %2$s löschen?</string>
