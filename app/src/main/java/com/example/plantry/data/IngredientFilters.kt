@@ -9,12 +9,39 @@ enum class UsageFilter { ALL, USED, UNUSED }
 /** The ingredient list's Herkunft filter: the seed import, or everything added since (Claude, barcode, by hand). */
 enum class OriginFilter { ALL, SEED, ADDED }
 
+/** The ingredient list's filter chips; the two of each filter exclude each other, none on means Alle. */
+enum class IngredientChip(override val group: Any) : FilterChoice {
+    REVIEWED(ReviewFilter::class),
+    UNREVIEWED(ReviewFilter::class),
+    USED(UsageFilter::class),
+    UNUSED(UsageFilter::class),
+    SEED(OriginFilter::class),
+    ADDED(OriginFilter::class),
+}
+
 object IngredientFilters {
 
-    /** The list opens with these each time the Zutaten tab is opened. */
-    val DEFAULT_REVIEW = ReviewFilter.ALL
-    val DEFAULT_USAGE = UsageFilter.ALL
-    val DEFAULT_ORIGIN = OriginFilter.ALL
+    /** The [ingredients] matching all of [chips], in their order. */
+    fun apply(ingredients: List<Ingredient>, recipeCounts: Map<Long, Int>, chips: Collection<IngredientChip>): List<Ingredient> =
+        apply(
+            ingredients,
+            recipeCounts,
+            review = when {
+                IngredientChip.REVIEWED in chips -> ReviewFilter.REVIEWED
+                IngredientChip.UNREVIEWED in chips -> ReviewFilter.UNREVIEWED
+                else -> ReviewFilter.ALL
+            },
+            usage = when {
+                IngredientChip.USED in chips -> UsageFilter.USED
+                IngredientChip.UNUSED in chips -> UsageFilter.UNUSED
+                else -> UsageFilter.ALL
+            },
+            origin = when {
+                IngredientChip.SEED in chips -> OriginFilter.SEED
+                IngredientChip.ADDED in chips -> OriginFilter.ADDED
+                else -> OriginFilter.ALL
+            },
+        )
 
     /**
      * The [ingredients] matching all filters, in their order; [recipeCounts] as from

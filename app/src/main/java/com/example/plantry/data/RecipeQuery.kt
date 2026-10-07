@@ -21,15 +21,35 @@ enum class RecipeSort {
     LAST_COOKED,
 }
 
+/** The recipe list's filter chips: any number of ingredients, at most one cooking time. */
+sealed interface RecipeChip : FilterChoice {
+
+    data class WithIngredient(val ingredientId: Long) : RecipeChip {
+        override val group: Any? get() = null
+    }
+
+    data class MaxCookingTime(val minutes: Int) : RecipeChip {
+        override val group: Any get() = MaxCookingTime::class
+    }
+
+    companion object {
+        val COOKING_TIMES = listOf(MaxCookingTime(20), MaxCookingTime(45))
+    }
+}
+
 /** What the recipe list shows; the empty filter shows every recipe. */
 data class RecipeFilter(
     /** Recipes using at least one of these are shown, ranked by how many of them they use. */
     val ingredientIds: Set<Long> = emptySet(),
     val maxCookingMinutes: Int? = null,
-    /** A recipe's [Recipe.source], compared ignoring case and surrounding blanks. */
-    val source: String? = null,
 ) {
-    val isEmpty: Boolean get() = ingredientIds.isEmpty() && maxCookingMinutes == null && source == null
+    companion object {
+        /** The filter the [chips] stand for; the ingredients keep the chips' order. */
+        fun of(chips: List<RecipeChip>) = RecipeFilter(
+            ingredientIds = chips.filterIsInstance<RecipeChip.WithIngredient>().mapTo(LinkedHashSet()) { it.ingredientId },
+            maxCookingMinutes = chips.filterIsInstance<RecipeChip.MaxCookingTime>().firstOrNull()?.minutes,
+        )
+    }
 }
 
 /** One row of the recipe list with the values it can be sorted by. */
@@ -66,11 +86,9 @@ object RecipeQuery {
     ): List<RecipeListItem> {
         val linesByRecipe = lines.groupBy { it.recipeId }
         val wanted = filter.ingredientIds.filter { it in ingredients }
-        val source = filter.source?.trim()
         return recipes
             // A recipe without a time is never filtered out: it may well be quick.
             .filter { recipe -> filter.maxCookingMinutes?.let { max -> recipe.cookingTimeMinutes?.let { it <= max } } ?: true }
-            .filter { recipe -> source == null || recipe.source.trim().equals(source, ignoreCase = true) }
             .map { recipe -> item(recipe, linesByRecipe[recipe.id].orEmpty(), ingredients, lastCooked, wanted) }
             .filter { wanted.isEmpty() || it.matchedIngredients > 0 }
             .sortedWith(
@@ -85,13 +103,6 @@ object RecipeQuery {
         val wanted = query.trim()
         return recipes.filter { it.title.contains(wanted, ignoreCase = true) }.sortedWith(compareBy(titleCollator) { it.title })
     }
-
-    /** The distinct non-blank sources of [recipes], A–Z; for the book filter. */
-    fun sources(recipes: List<Recipe>): List<String> =
-        recipes.map { it.source.trim() }
-            .filter { it.isNotEmpty() }
-            .distinctBy { it.lowercase() }
-            .sortedWith(titleCollator)
 
     /** How many recipes use each ingredient, keyed by id; ingredients no recipe uses are left out. */
     fun recipeCounts(lines: List<RecipeIngredient>, ingredients: Map<Long, Ingredient>): Map<Long, Int> =

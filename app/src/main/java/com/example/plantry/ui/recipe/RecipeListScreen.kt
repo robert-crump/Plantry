@@ -1,39 +1,34 @@
 package com.example.plantry.ui.recipe
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -59,16 +54,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
+import com.example.plantry.data.ChipSelection
 import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientSuggestions
 import com.example.plantry.data.Recipe
+import com.example.plantry.data.RecipeChip
 import com.example.plantry.data.RecipeFilter
 import com.example.plantry.data.RecipeListItem
 import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeSort
+import com.example.plantry.ui.FilterChipFlow
 import com.example.plantry.ui.cooklog.RecipeStatsRow
 import com.example.plantry.ui.cooklog.lastCookedLabel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -84,12 +82,12 @@ data class RecipeListUiState(
     /** All recipes, unfiltered; 0 shows the empty state instead of the filters. */
     val recipeCount: Int,
     val filter: RecipeFilter,
+    /** The chips that are on, in the order they were switched on; deleted ingredients left out. */
+    val activeChips: List<RecipeChip>,
     val sort: RecipeSort,
     /** The ingredients the filter offers: all of them, A–Z. */
     val choosableIngredients: List<Ingredient>,
-    /** The filter's ingredients, in the order of [choosableIngredients]. */
-    val selectedIngredients: List<Ingredient>,
-    val sources: List<String>,
+    val ingredientNames: Map<Long, String>,
 )
 
 /** [initialIngredientId] opens the list filtered by that ingredient. */
@@ -100,7 +98,9 @@ class RecipeListViewModel(
     initialIngredientId: Long? = null,
 ) : ViewModel() {
 
-    private val filter = MutableStateFlow(RecipeFilter(ingredientIds = setOfNotNull(initialIngredientId)))
+    private val chips = MutableStateFlow(
+        ChipSelection(listOfNotNull<RecipeChip>(initialIngredientId?.let { RecipeChip.WithIngredient(it) })),
+    )
     private val sort = MutableStateFlow(RecipeSort.TITLE)
 
     /** Null until the first emission, so the empty state doesn't flash on launch. */
@@ -109,18 +109,18 @@ class RecipeListViewModel(
         recipeRepository.observeAllLines(),
         ingredientRepository.observeIngredients(),
         cookLogRepository.observeLastCooked(),
-        combine(filter, sort, ::Pair),
-    ) { recipes, lines, ingredients, lastCooked, (filter, sort) ->
+        combine(chips, sort, ::Pair),
+    ) { recipes, lines, ingredients, lastCooked, (chips, sort) ->
         val byId = ingredients.associateBy { it.id }
-        val choosable = ingredients.sortedBy { it.name.lowercase() }
+        val filter = RecipeFilter.of(chips.active)
         RecipeListUiState(
             items = RecipeQuery.run(recipes, lines, byId, lastCooked, filter, sort),
             recipeCount = recipes.size,
             filter = filter,
+            activeChips = chips.active.filter { it !is RecipeChip.WithIngredient || it.ingredientId in byId },
             sort = sort,
-            choosableIngredients = choosable,
-            selectedIngredients = ingredients.filter { it.id in filter.ingredientIds }.sortedBy { it.name.lowercase() },
-            sources = RecipeQuery.sources(recipes),
+            choosableIngredients = ingredients.sortedBy { it.name.lowercase() },
+            ingredientNames = ingredients.associate { it.id to it.name },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -128,21 +128,12 @@ class RecipeListViewModel(
         sort.value = value
     }
 
-    fun toggleIngredient(id: Long) = filter.update { current ->
-        val ids = current.ingredientIds
-        current.copy(ingredientIds = if (id in ids) ids - id else ids + id)
-    }
-
-    fun setMaxCookingMinutes(minutes: Int?) = filter.update { it.copy(maxCookingMinutes = minutes) }
-
-    fun setSource(source: String?) = filter.update { it.copy(source = source) }
+    fun toggleChip(chip: RecipeChip) = chips.update { it.toggle(chip) }
 
     fun resetFilter() {
-        filter.value = RecipeFilter()
+        chips.value = ChipSelection()
     }
 }
-
-private val COOKING_TIME_OPTIONS = listOf(15, 30, 45, 60)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -233,113 +224,38 @@ private fun SortMenu(sort: RecipeSort, onSort: (RecipeSort) -> Unit) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/** Ingredient and Kochzeit chips, with "+ Zutat" first among the ones that are off. */
 @Composable
 private fun FilterBar(state: RecipeListUiState, viewModel: RecipeListViewModel) {
     var pickIngredients by rememberSaveable { mutableStateOf(false) }
-    val filter = state.filter
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        FilterChip(
-            selected = filter.ingredientIds.isNotEmpty(),
-            onClick = { pickIngredients = true },
-            label = {
-                Text(
-                    if (filter.ingredientIds.isEmpty()) stringResource(R.string.recipe_filter_ingredients)
-                    else pluralStringResource(R.plurals.recipe_filter_ingredients_count, filter.ingredientIds.size, filter.ingredientIds.size),
-                )
-            },
-            trailingIcon = { DropdownIcon() },
-        )
-        ChoiceChip(
-            label = stringResource(R.string.recipe_filter_cooking_time),
-            selectedLabel = filter.maxCookingMinutes?.let { stringResource(R.string.recipe_filter_cooking_time_max, it) },
-            options = COOKING_TIME_OPTIONS,
-            optionLabel = { stringResource(R.string.recipe_filter_cooking_time_max, it) },
-            onSelect = viewModel::setMaxCookingMinutes,
-        )
-        if (state.sources.isNotEmpty() || filter.source != null) {
-            ChoiceChip(
-                label = stringResource(R.string.recipe_filter_source),
-                selectedLabel = filter.source,
-                options = state.sources,
-                optionLabel = { it },
-                onSelect = viewModel::setSource,
-            )
-        }
-    }
-    if (state.selectedIngredients.isNotEmpty()) {
-        FlowRow(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            state.selectedIngredients.forEach { ingredient ->
-                val remove = stringResource(R.string.recipe_filter_ingredient_remove, ingredient.name)
-                InputChip(
-                    selected = true,
-                    onClick = { viewModel.toggleIngredient(ingredient.id) },
-                    label = { Text(ingredient.name) },
-                    trailingIcon = { Icon(Icons.Filled.Close, remove, Modifier.padding(start = 2.dp)) },
-                )
+    FilterChipFlow(
+        active = state.activeChips,
+        inactive = RecipeChip.COOKING_TIMES - state.activeChips.toSet(),
+        label = { chip ->
+            when (chip) {
+                is RecipeChip.WithIngredient -> state.ingredientNames[chip.ingredientId].orEmpty()
+                is RecipeChip.MaxCookingTime -> stringResource(R.string.recipe_filter_cooking_time_max, chip.minutes)
             }
-        }
-    }
+        },
+        onToggle = viewModel::toggleChip,
+        onClear = viewModel::resetFilter,
+        extra = {
+            FilterChip(
+                selected = false,
+                onClick = { pickIngredients = true },
+                label = { Text(stringResource(R.string.recipe_filter_add_ingredient)) },
+                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null, Modifier.size(FilterChipDefaults.IconSize)) },
+            )
+        },
+    )
     if (pickIngredients) {
         IngredientFilterDialog(
             ingredients = state.choosableIngredients,
-            selected = filter.ingredientIds,
-            onToggle = viewModel::toggleIngredient,
+            selected = state.filter.ingredientIds,
+            onToggle = { viewModel.toggleChip(RecipeChip.WithIngredient(it)) },
             onDismiss = { pickIngredients = false },
         )
     }
-}
-
-/** A filter chip with a menu of [options] and "Alle"; [selectedLabel] is null while nothing is chosen. */
-@Composable
-private fun <T> ChoiceChip(
-    label: String,
-    selectedLabel: String?,
-    options: List<T>,
-    optionLabel: @Composable (T) -> String,
-    onSelect: (T?) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        FilterChip(
-            selected = selectedLabel != null,
-            onClick = { expanded = true },
-            label = { Text(selectedLabel ?: label) },
-            trailingIcon = { DropdownIcon() },
-        )
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.recipe_filter_any)) },
-                onClick = {
-                    onSelect(null)
-                    expanded = false
-                },
-                leadingIcon = { if (selectedLabel == null) Icon(Icons.Filled.Check, contentDescription = null) },
-            )
-            options.forEach { option ->
-                val text = optionLabel(option)
-                DropdownMenuItem(
-                    text = { Text(text) },
-                    onClick = {
-                        onSelect(option)
-                        expanded = false
-                    },
-                    leadingIcon = { if (text == selectedLabel) Icon(Icons.Filled.Check, contentDescription = null) },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun DropdownIcon() {
-    Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
 }
 
 @Composable

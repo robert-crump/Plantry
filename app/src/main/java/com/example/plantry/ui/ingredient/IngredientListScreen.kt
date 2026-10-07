@@ -20,8 +20,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
@@ -31,10 +29,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,8 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -54,23 +50,24 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.ui.FastScrollbar
+import com.example.plantry.ui.FilterChipFlow
 import com.example.plantry.ui.currentLocale
+import com.example.plantry.data.ChipSelection
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.IngredientChip
 import com.example.plantry.data.IngredientFilters
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientSorting
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
-import com.example.plantry.data.OriginFilter
-import com.example.plantry.data.ReviewFilter
 import com.example.plantry.data.SortView
-import com.example.plantry.data.UsageFilter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import java.util.Locale
 
 data class IngredientListUiState(
@@ -79,11 +76,9 @@ data class IngredientListUiState(
     val totalCount: Int,
     /** Recipes using each ingredient (buy-as links followed); missing ids mean 0. */
     val recipeCounts: Map<Long, Int>,
-    val review: ReviewFilter,
-    val usage: UsageFilter,
-    val origin: OriginFilter,
+    val chips: ChipSelection<IngredientChip>,
 ) {
-    val filtered: Boolean get() = review != ReviewFilter.ALL || usage != UsageFilter.ALL || origin != OriginFilter.ALL
+    val filtered: Boolean get() = chips.active.isNotEmpty()
 }
 
 class IngredientListViewModel(
@@ -91,50 +86,32 @@ class IngredientListViewModel(
     recipeRepository: RecipeRepository,
 ) : ViewModel() {
 
-    private val review = MutableStateFlow(IngredientFilters.DEFAULT_REVIEW)
-    private val usage = MutableStateFlow(IngredientFilters.DEFAULT_USAGE)
-    private val origin = MutableStateFlow(IngredientFilters.DEFAULT_ORIGIN)
+    private val chips = MutableStateFlow(ChipSelection<IngredientChip>())
 
     /** Null until the first emission, so the empty state doesn't flash on launch. */
     val state: StateFlow<IngredientListUiState?> =
         combine(
             repository.observeIngredients(),
             recipeRepository.observeAllLines(),
-            review,
-            usage,
-            origin,
-        ) { all, lines, review, usage, origin ->
+            chips,
+        ) { all, lines, chips ->
             val recipeCounts = RecipeQuery.recipeCounts(lines, all.associateBy { it.id })
             IngredientListUiState(
                 ingredients = IngredientSorting.sortedByName(
-                    IngredientFilters.apply(all, recipeCounts, review, usage, origin),
+                    IngredientFilters.apply(all, recipeCounts, chips.active),
                     Locale.getDefault(),
                 ),
                 totalCount = all.size,
                 recipeCounts = recipeCounts,
-                review = review,
-                usage = usage,
-                origin = origin,
+                chips = chips,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    fun setReview(filter: ReviewFilter) {
-        review.value = filter
-    }
+    fun toggleChip(chip: IngredientChip) = chips.update { it.toggle(chip) }
 
-    fun setUsage(filter: UsageFilter) {
-        usage.value = filter
-    }
-
-    fun setOrigin(filter: OriginFilter) {
-        origin.value = filter
-    }
-
-    /** Back to the defaults; called each time the Zutaten tab is opened. */
+    /** No chip on; called each time the Zutaten tab is opened. */
     fun resetFilters() {
-        review.value = IngredientFilters.DEFAULT_REVIEW
-        usage.value = IngredientFilters.DEFAULT_USAGE
-        origin.value = IngredientFilters.DEFAULT_ORIGIN
+        chips.value = ChipSelection()
     }
 }
 
@@ -168,15 +145,20 @@ fun IngredientListScreen(
     ) { padding ->
         val current = state ?: return@Scaffold
         Column(Modifier.fillMaxSize().padding(padding)) {
-            FilterRow(
-                current,
-                onReviewChange = viewModel::setReview,
-                onUsageChange = viewModel::setUsage,
-                onOriginChange = viewModel::setOrigin,
+            FilterChipFlow(
+                active = current.chips.active,
+                inactive = IngredientChip.entries - current.chips.active.toSet(),
+                label = { stringResource(it.label) },
+                onToggle = viewModel::toggleChip,
+                onClear = viewModel::resetFilters,
             )
             CountRow(current)
             if (current.ingredients.isEmpty()) {
-                Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                Column(
+                    Modifier.fillMaxSize().padding(32.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
                     Text(
                         stringResource(
                             if (current.totalCount > 0) R.string.ingredients_empty_filtered
@@ -185,6 +167,9 @@ fun IngredientListScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (current.filtered) {
+                        TextButton(onClick = viewModel::resetFilters) { Text(stringResource(R.string.recipe_filter_reset)) }
+                    }
                 }
             } else {
                 val listState = rememberLazyListState()
@@ -229,45 +214,6 @@ fun IngredientListScreen(
 
 private val FabClearance = 88.dp
 
-/** The Prüfstatus, Verwendung and Herkunft filter chips. */
-@Composable
-private fun FilterRow(
-    state: IngredientListUiState,
-    onReviewChange: (ReviewFilter) -> Unit,
-    onUsageChange: (UsageFilter) -> Unit,
-    onOriginChange: (OriginFilter) -> Unit,
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-    ) {
-        FilterDropdown(
-            name = stringResource(R.string.ingredients_filter_review),
-            selected = state.review,
-            options = ReviewFilter.entries,
-            label = { stringResource(it.label) },
-            onSelect = onReviewChange,
-            modifier = Modifier.weight(1f),
-        )
-        FilterDropdown(
-            name = stringResource(R.string.ingredients_filter_usage),
-            selected = state.usage,
-            options = UsageFilter.entries,
-            label = { stringResource(it.label) },
-            onSelect = onUsageChange,
-            modifier = Modifier.weight(1f),
-        )
-        FilterDropdown(
-            name = stringResource(R.string.ingredients_filter_origin),
-            selected = state.origin,
-            options = OriginFilter.entries,
-            label = { stringResource(it.label) },
-            onSelect = onOriginChange,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
 /** "212 Zutaten" or "90/213 Zutaten". */
 @Composable
 private fun CountRow(state: IngredientListUiState) {
@@ -283,77 +229,15 @@ private fun CountRow(state: IngredientListUiState) {
     )
 }
 
-private val ReviewFilter.label: Int
+private val IngredientChip.label: Int
     get() = when (this) {
-        ReviewFilter.ALL -> R.string.filter_all
-        ReviewFilter.REVIEWED -> R.string.filter_reviewed
-        ReviewFilter.UNREVIEWED -> R.string.filter_unreviewed
+        IngredientChip.REVIEWED -> R.string.filter_reviewed
+        IngredientChip.UNREVIEWED -> R.string.filter_unreviewed
+        IngredientChip.USED -> R.string.filter_used
+        IngredientChip.UNUSED -> R.string.filter_unused
+        IngredientChip.SEED -> R.string.filter_seed
+        IngredientChip.ADDED -> R.string.filter_added
     }
-
-private val OriginFilter.label: Int
-    get() = when (this) {
-        OriginFilter.ALL -> R.string.filter_all
-        OriginFilter.SEED -> R.string.filter_seed
-        OriginFilter.ADDED -> R.string.filter_added
-    }
-
-private val UsageFilter.label: Int
-    get() = when (this) {
-        UsageFilter.ALL -> R.string.filter_all
-        UsageFilter.USED -> R.string.filter_used
-        UsageFilter.UNUSED -> R.string.filter_unused
-    }
-
-/**
- * A filter chip with a menu of [options], the first of which is "Alle": the chip shows [name] while
- * that is selected and the chosen value otherwise. TalkBack reads "[name]: [selected]".
- */
-@Composable
-private fun <T> FilterDropdown(
-    name: String,
-    selected: T,
-    options: List<T>,
-    label: @Composable (T) -> String,
-    onSelect: (T) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedLabel = label(selected)
-    val filtered = selected != options.first()
-    Box(modifier) {
-        FilterChip(
-            selected = filtered,
-            onClick = { expanded = true },
-            label = {
-                Text(
-                    if (filtered) selectedLabel else name,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics(mergeDescendants = true) { contentDescription = "$name: $selectedLabel" },
-        )
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(label(option)) },
-                    onClick = {
-                        expanded = false
-                        onSelect(option)
-                    },
-                    trailingIcon = if (option == selected) {
-                        { Icon(Icons.Filled.Check, contentDescription = null) }
-                    } else {
-                        null
-                    },
-                )
-            }
-        }
-    }
-}
 
 /** One line: name (ellipsized), unreviewed badge, and the recipes button aligned right. */
 @Composable

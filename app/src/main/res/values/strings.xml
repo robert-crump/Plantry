@@ -44,19 +44,11 @@
     <string name="recipe_sort_cooking_time">Kochzeit</string>
     <string name="recipe_sort_plant_points">Pflanzenpunkte</string>
     <string name="recipe_sort_last_cooked">Am längsten nicht gekocht</string>
-    <string name="recipe_filter_ingredients">Zutaten</string>
-    <plurals name="recipe_filter_ingredients_count">
-        <item quantity="one">%1$d Zutat</item>
-        <item quantity="other">%1$d Zutaten</item>
-    </plurals>
+    <string name="recipe_filter_add_ingredient">Zutat</string>
     <string name="recipe_filter_ingredients_title">Was soll rein?</string>
     <string name="recipe_filter_ingredients_search">Zutat suchen</string>
     <string name="recipe_filter_ingredients_none">Keine Zutat gefunden.</string>
-    <string name="recipe_filter_ingredient_remove">%1$s entfernen</string>
-    <string name="recipe_filter_cooking_time">Kochzeit</string>
-    <string name="recipe_filter_cooking_time_max">bis %1$d Min.</string>
-    <string name="recipe_filter_source">Buch</string>
-    <string name="recipe_filter_any">Alle</string>
+    <string name="recipe_filter_cooking_time_max">≤ %1$d Min.</string>
     <string name="recipe_filter_done">Fertig</string>
     <string name="recipe_filter_no_match">Kein Rezept passt zum Filter.</string>
     <string name="recipe_filter_reset">Filter zurücksetzen</string>
@@ -213,12 +205,9 @@
         <item quantity="one">%1$d/%2$d Zutat</item>
         <item quantity="other">%1$d/%2$d Zutaten</item>
     </plurals>
-    <string name="ingredients_filter_review">Prüfstatus</string>
-    <string name="ingredients_filter_usage">Verwendung</string>
-    <string name="ingredients_filter_origin">Herkunft</string>
-    <string name="filter_seed">Seed</string>
-    <string name="filter_added">Eigene</string>
-    <string name="filter_all">Alle</string>
+    <string name="filter_clear">Alle Filter entfernen</string>
+    <string name="filter_seed">Mitgeliefert</string>
+    <string name="filter_added">Selbst hinzugefügt</string>
     <string name="filter_reviewed">Geprüft</string>
     <string name="filter_unreviewed">Ungeprüft</string>
     <string name="filter_used">Verwendet</string>

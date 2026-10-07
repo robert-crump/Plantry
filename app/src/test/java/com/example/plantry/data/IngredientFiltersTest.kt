@@ -62,9 +62,20 @@ class IngredientFiltersTest {
     }
 
     @Test
-    fun defaults_showEverything() {
-        assertEquals(OriginFilter.ALL, IngredientFilters.DEFAULT_ORIGIN)
-        assertEquals(ReviewFilter.ALL, IngredientFilters.DEFAULT_REVIEW)
-        assertEquals(UsageFilter.ALL, IngredientFilters.DEFAULT_USAGE)
+    fun chips_combineAcrossGroups() {
+        fun names(vararg chips: IngredientChip) = IngredientFilters.apply(all, counts, chips.toList()).map { it.name }
+
+        assertEquals(listOf("Knoblauch", "Kurkuma", "Linsen", "Spinat"), names())
+        assertEquals(listOf("Linsen"), names(IngredientChip.UNREVIEWED, IngredientChip.USED))
+        assertEquals(listOf("Kurkuma"), names(IngredientChip.UNUSED, IngredientChip.REVIEWED))
+        assertEquals(listOf("Knoblauch", "Kurkuma", "Linsen", "Spinat"), names(IngredientChip.SEED))
+        assertEquals(emptyList<String>(), names(IngredientChip.ADDED))
+    }
+
+    @Test
+    fun chips_pairsExcludeEachOther() {
+        val selection = ChipSelection<IngredientChip>().toggle(IngredientChip.REVIEWED).toggle(IngredientChip.UNREVIEWED)
+
+        assertEquals(listOf(IngredientChip.UNREVIEWED), selection.active)
     }
 }
