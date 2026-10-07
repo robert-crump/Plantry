@@ -10,7 +10,6 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.example.plantry.R
-import com.example.plantry.data.CookingStats
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -100,15 +99,6 @@ fun lastCookedLabel(lastCookedOn: LocalDate?, today: LocalDate): String =
     } else {
         stringResource(R.string.cooked_last_on, formatShortDate(lastCookedOn, today, currentLocale()))
     }
-
-/** E.g. "Zuletzt vor 3 Tagen gekocht" or "Noch nie gekocht". */
-@Composable
-fun lastCookedLabel(stats: CookingStats): String = when (val days = stats.daysSinceLastCooked) {
-    null -> stringResource(R.string.cooked_never)
-    0L -> stringResource(R.string.cooked_last_today)
-    1L -> stringResource(R.string.cooked_last_yesterday)
-    else -> stringResource(R.string.cooked_last_days_ago, days)
-}
 
 /** Picks a cooking date up to [today]. */
 @Composable

@@ -60,7 +60,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.CookLogRepository
-import com.example.plantry.data.CookingStats
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientSuggestions
@@ -396,7 +395,7 @@ private fun IngredientFilterDialog(
 private fun RecipeRow(item: RecipeListItem, sort: RecipeSort, ingredientCount: Int, today: LocalDate, onClick: () -> Unit) {
     val details = listOfNotNull(
         if (ingredientCount > 0) pluralStringResource(R.plurals.recipe_list_matched, ingredientCount, item.matchedIngredients, ingredientCount) else null,
-        if (sort == RecipeSort.LAST_COOKED) lastCookedLabel(CookingStats.from(listOfNotNull(item.lastCookedOn), today)) else null,
+        if (sort == RecipeSort.LAST_COOKED) lastCookedLabel(item.lastCookedOn, today) else null,
     )
     Column(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),

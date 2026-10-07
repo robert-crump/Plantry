@@ -128,9 +128,6 @@
     <!-- Cooking log -->
     <string name="cooked_logged">Als gekocht eingetragen</string>
     <string name="cooked_never">Noch nie gekocht</string>
-    <string name="cooked_last_today">Zuletzt heute gekocht</string>
-    <string name="cooked_last_yesterday">Zuletzt gestern gekocht</string>
-    <string name="cooked_last_days_ago">Zuletzt vor %1$d Tagen gekocht</string>
     <string name="cooked_times">%1$d× gekocht</string>
     <string name="cooked_last_on">Zuletzt: %1$s</string>
     <string name="cooking_title">Kochen</string>
