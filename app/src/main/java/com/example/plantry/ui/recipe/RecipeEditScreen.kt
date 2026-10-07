@@ -625,8 +625,8 @@ fun RecipeEditScreen(
                 },
                 actions = {
                     if (showLines) {
-                        // Enabled once no line needs attention; field errors still show on a click.
-                        TextButton(onClick = viewModel::save, enabled = !form.errors().lines) {
+                        // Enabled once there are lines and none needs attention; field errors still show on a click.
+                        TextButton(onClick = viewModel::save, enabled = form.errors().let { !it.lines && !it.noLines }) {
                             Text(stringResource(R.string.action_save))
                         }
                     } else if (showFields) {
@@ -716,7 +716,13 @@ fun RecipeEditScreen(
                             modifier = Modifier.padding(top = 16.dp),
                         )
                         val problems = form.lines.count { form.problem(it) != null }
-                        if (problems > 0) {
+                        if (form.lines.isEmpty()) {
+                            Text(
+                                stringResource(R.string.recipe_lines_required),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else if (problems > 0) {
                             Text(
                                 pluralStringResource(R.plurals.recipe_lines_to_check, problems, problems),
                                 style = MaterialTheme.typography.bodySmall,

@@ -78,6 +78,7 @@
     <!-- Recipe ingredient lines -->
     <string name="recipe_section_lines">Zutaten</string>
     <string name="recipe_lines_empty">Noch keine Zutaten.</string>
+    <string name="recipe_lines_required">Mindestens eine Zutat hinzufügen.</string>
     <plurals name="recipe_lines_more">
         <item quantity="one">+ %1$d weitere Zutat</item>
         <item quantity="other">+ %1$d weitere Zutaten</item>

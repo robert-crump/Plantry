@@ -49,12 +49,12 @@ class RecipeFormTest {
 
     @Test
     fun toDraft_parsesValidInput() {
-        val form = valid.copy(source = "Buch", page = " 12 ").withOurServings("")
+        val form = valid.copy(source = "Buch", page = " 12 ").withOurServings("").withLine(null, tofu)
 
         assertEquals(
             RecipeDraft(
                 "Chili", "Buch", page = 12, bookServings = 4, ourServings = null, cookingTimeMinutes = 45,
-                lines = emptyList(),
+                lines = listOf(tofu),
             ),
             form.toDraft(),
         )
@@ -70,8 +70,15 @@ class RecipeFormTest {
     }
 
     @Test
+    fun toDraft_needsAtLeastOneLine() {
+        assertTrue(valid.errors().noLines)
+        assertNull(valid.toDraft())
+        assertFalse(valid.withLine(null, tofu).errors().noLines)
+    }
+
+    @Test
     fun cookingTime_isOptional() {
-        val draft = valid.copy(cookingTime = " ").toDraft()
+        val draft = valid.copy(cookingTime = " ").withLine(null, tofu).toDraft()
 
         assertEquals(null, draft?.cookingTimeMinutes)
         assertEquals("Chili", draft?.title)

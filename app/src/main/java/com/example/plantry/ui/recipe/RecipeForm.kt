@@ -197,6 +197,7 @@ data class RecipeForm(
         ourServings = ourServings.isNotBlank() && ourServings.toPositiveIntOrNull() == null,
         cookingTime = cookingTime.isNotBlank() && cookingTime.toPositiveIntOrNull() == null,
         lines = lines.any { problem(it) != null },
+        noLines = lines.isEmpty(),
     )
 
     /** Returns the validated draft, or null if any field is invalid. */
@@ -235,11 +236,13 @@ data class RecipeFormErrors(
     val cookingTime: Boolean,
     /** Some line is still a problem, see [RecipeForm.problem]. */
     val lines: Boolean = false,
+    /** A recipe needs at least one ingredient line. */
+    val noLines: Boolean = false,
 ) {
     /** Some recipe field (all but the lines) is invalid. */
     val fields: Boolean get() = title || page || bookServings || ourServings || cookingTime
 
-    val hasAny: Boolean get() = fields || lines
+    val hasAny: Boolean get() = fields || lines || noLines
 }
 
 /** An ingredient line as edited; a scanned line may still lack an ingredient or a weight. */
