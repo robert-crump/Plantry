@@ -190,8 +190,6 @@
     <string name="recipe_section_nutrition">Nährwerte je Portion</string>
     <string name="nutrition_expand">Größte Beiträge anzeigen</string>
     <string name="nutrition_collapse">Größte Beiträge ausblenden</string>
-    <string name="nutrition_expand_all">Alle aufklappen</string>
-    <string name="nutrition_collapse_all">Alle zuklappen</string>
     <string name="nutrition_protein_per_portion">%1$s g Eiweiß je Portion</string>
     <string name="protein_rating_green">Ziel erreicht (ab 30 g)</string>
     <string name="protein_rating_yellow">Etwas wenig (unter 30 g)</string>
