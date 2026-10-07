@@ -393,7 +393,7 @@ private fun HighlightChips(highlights: Set<RecipeHighlight>) {
     }
 }
 
-/** Timer icon and "Kochzeit fehlt", shaped like a chip but not tappable. */
+/** Timer icon and "Unbekannt", shaped like a chip but not tappable. */
 @Composable
 internal fun MissingCookingTimeChip(modifier: Modifier = Modifier) =
     TimerChip(stringResource(R.string.recipe_cooking_time_missing), modifier)

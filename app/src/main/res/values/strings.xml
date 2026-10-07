@@ -37,7 +37,7 @@
     <string name="recipe_page_only">S. %1$d</string>
     <string name="recipe_no_source">Keine Quelle</string>
     <string name="recipe_minutes">%1$d Min.</string>
-    <string name="recipe_cooking_time_missing">Kochzeit fehlt</string>
+    <string name="recipe_cooking_time_missing">Unbekannt</string>
     <string name="recipe_sort">Sortieren</string>
     <string name="recipe_sort_title">A–Z</string>
     <string name="recipe_sort_protein">Eiweiß je Portion</string>
