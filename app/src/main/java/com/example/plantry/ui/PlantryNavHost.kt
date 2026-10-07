@@ -320,7 +320,6 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                                 recipeId,
                                 recipeRepository,
                                 ingredientRepository,
-                                cookLogRepository,
                                 app.plannedRepository,
                                 app.recipePhotoRepository,
                             )

@@ -133,7 +133,6 @@
     <!-- Cooking log -->
     <string name="cooked_logged">Als gekocht eingetragen</string>
     <string name="cooked_never">Noch nie gekocht</string>
-    <string name="cooked_times">%1$d× gekocht</string>
     <string name="cooked_last_on">Zuletzt: %1$s</string>
     <string name="cooking_title">Kochen</string>
     <string name="cook_history_empty">Noch nichts gekocht. Plane ein Rezept über „Planen“ oder tippe auf „+“ für einen Vorschlag oder einen Kocheintrag.</string>

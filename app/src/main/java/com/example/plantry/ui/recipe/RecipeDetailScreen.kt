@@ -38,7 +38,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -62,8 +61,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
-import com.example.plantry.data.CookLogRepository
-import com.example.plantry.data.CookingStats
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PlannedRepository
@@ -79,7 +76,6 @@ import com.example.plantry.data.toDraft
 import com.example.plantry.ui.cooklog.PlanDatePickerDialog
 import com.example.plantry.ui.cooklog.formatPlannedDate
 import com.example.plantry.ui.cooklog.RecipeStatsRow
-import com.example.plantry.ui.cooklog.lastCookedLabel
 import com.example.plantry.ui.currentLocale
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -94,7 +90,6 @@ data class RecipeDetailUiState(
     val nutrition: RecipeNutrition,
     val stats: RecipeStats,
     val highlights: Set<RecipeHighlight>,
-    val cooking: CookingStats,
     /** The day it is planned for; null while it isn't on Geplant. */
     val plannedOn: LocalDate?,
 )
@@ -103,7 +98,6 @@ class RecipeDetailViewModel(
     private val recipeId: Long,
     private val repository: RecipeRepository,
     ingredientRepository: IngredientRepository,
-    cookLogRepository: CookLogRepository,
     private val plannedRepository: PlannedRepository,
     private val photos: RecipePhotoRepository,
     private val clock: () -> LocalDate = LocalDate::now,
@@ -117,9 +111,8 @@ class RecipeDetailViewModel(
         repository.observeRecipe(recipeId),
         repository.observeLines(recipeId),
         ingredientRepository.observeIngredients(),
-        cookLogRepository.observeStats(recipeId, clock),
         plannedRepository.observePlanned(recipeId),
-    ) { recipe, lines, ingredients, cooking, planned ->
+    ) { recipe, lines, ingredients, planned ->
         if (recipe == null) return@combine null
         val byId = ingredients.associateBy { it.id }
         val stats = RecipeStats.of(recipe, lines, byId)
@@ -132,7 +125,6 @@ class RecipeDetailViewModel(
             ),
             stats = stats,
             highlights = RecipeHighlight.of(stats, hasLines = lines.isNotEmpty()),
-            cooking = cooking,
             plannedOn = planned?.plannedOn,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -199,10 +191,10 @@ fun RecipeDetailScreen(
                     detail.stats,
                     Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
                     highlights = detail.highlights,
+                    large = true,
                 )
             }
-            CookedSection(
-                stats = detail.cooking,
+            PlanButton(
                 plannedOn = detail.plannedOn,
                 today = viewModel.today(),
                 onPlan = { pickPlanDate = true },
@@ -455,47 +447,27 @@ internal const val MIN_HIDDEN_LINES = 3
 internal fun collapsedLineCount(count: Int): Int =
     if (count - COLLAPSED_LINES >= MIN_HIDDEN_LINES) COLLAPSED_LINES else count
 
-/**
- * "5× gekocht" above "Zuletzt: 8. Okt", or just "Noch nie gekocht", with "Planen" on the right;
- * once planned, the button shows the day.
- */
+/** "Planen" across the full width; once planned, it shows the day. */
 @Composable
-private fun CookedSection(
-    stats: CookingStats,
-    plannedOn: LocalDate?,
-    today: LocalDate,
-    onPlan: () -> Unit,
-) {
-    val lastCookedOn = stats.daysSinceLastCooked?.let { today.minusDays(it) }
-    ListItem(
-        headlineContent = {
-            Text(
-                if (lastCookedOn != null) {
-                    stringResource(R.string.cooked_times, stats.timesCooked)
-                } else {
-                    lastCookedLabel(null, today)
-                },
-            )
-        },
-        supportingContent = lastCookedOn?.let { { Text(lastCookedLabel(it, today)) } },
-        trailingContent = {
-            OutlinedButton(onClick = onPlan) {
-                Icon(
-                    if (plannedOn != null) Icons.AutoMirrored.Filled.PlaylistAddCheck else Icons.AutoMirrored.Filled.PlaylistAdd,
-                    contentDescription = null,
-                    Modifier.size(ButtonDefaults.IconSize),
-                )
-                Text(
-                    if (plannedOn != null) {
-                        stringResource(R.string.planned_state, formatPlannedDate(plannedOn, today, currentLocale()))
-                    } else {
-                        stringResource(R.string.plan_action)
-                    },
-                    Modifier.padding(start = 8.dp),
-                )
-            }
-        },
-    )
+private fun PlanButton(plannedOn: LocalDate?, today: LocalDate, onPlan: () -> Unit) {
+    OutlinedButton(
+        onClick = onPlan,
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
+    ) {
+        Icon(
+            if (plannedOn != null) Icons.AutoMirrored.Filled.PlaylistAddCheck else Icons.AutoMirrored.Filled.PlaylistAdd,
+            contentDescription = null,
+            Modifier.size(ButtonDefaults.IconSize),
+        )
+        Text(
+            if (plannedOn != null) {
+                stringResource(R.string.planned_state, formatPlannedDate(plannedOn, today, currentLocale()))
+            } else {
+                stringResource(R.string.plan_action)
+            },
+            Modifier.padding(start = 8.dp),
+        )
+    }
 }
 
 @Composable
