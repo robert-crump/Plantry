@@ -260,6 +260,9 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                 exitTransition = { ExitTransition.None },
                 popEnterTransition = { EnterTransition.None },
                 popExitTransition = { ExitTransition.None },
+                // The back swipe would otherwise shrink the screen and fade in the one below.
+                predictivePopEnterTransition = { EnterTransition.None },
+                predictivePopExitTransition = { ExitTransition.None },
                 // The banner already took the status bar.
                 modifier = if (showBackupReminder) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier,
             ) {
