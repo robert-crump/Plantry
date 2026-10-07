@@ -433,7 +433,7 @@ private fun TimerChip(text: String, modifier: Modifier) {
         Row(
             Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
             Icon(Icons.Outlined.Timer, contentDescription = null, Modifier.size(16.dp))
             Text(text, style = MaterialTheme.typography.labelMedium)

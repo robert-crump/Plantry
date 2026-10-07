@@ -972,33 +972,38 @@ private fun LineItem(
         LineProblem.UNCERTAIN -> colors.tertiaryContainer to R.string.recipe_line_uncertain
         null -> Color.Transparent to null
     }
-    ListItem(
-        overlineContent = label?.let { { Text(stringResource(it)) } },
-        leadingContent = if (problem == null) {
-            { Icon(Icons.Filled.Check, stringResource(R.string.recipe_line_resolved), tint = colors.primary) }
-        } else {
-            null
-        },
-        headlineContent = { Text(line.originalText) },
-        supportingContent = {
+    // Not a ListItem: its leading icon is centred in a two-line row, here it sits on the first line.
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(container)
+            .clickable(onClick = onClick)
+            .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        if (problem == null) {
+            Icon(Icons.Filled.Check, stringResource(R.string.recipe_line_resolved), tint = colors.primary)
+        }
+        Column(Modifier.weight(1f)) {
+            label?.let {
+                Text(stringResource(it), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+            }
+            Text(line.originalText, style = MaterialTheme.typography.bodyLarge)
             Text(
                 stringResource(
                     R.string.recipe_line_amount,
                     if (line.grams > 0.0) formatDecimal(line.grams, currentLocale()) else "?",
                     ingredientName ?: stringResource(R.string.recipe_line_no_ingredient),
                 ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
             )
-        },
-        trailingContent = {
-            IconButton(onClick = onRemove) {
-                Icon(Icons.Filled.Close, stringResource(R.string.recipe_line_remove))
-            }
-        },
-        colors = ListItemDefaults.colors(containerColor = container),
-        modifier = Modifier
-            .clip(MaterialTheme.shapes.medium)
-            .clickable(onClick = onClick),
-    )
+        }
+        IconButton(onClick = onRemove, Modifier.align(Alignment.CenterVertically)) {
+            Icon(Icons.Filled.Close, stringResource(R.string.recipe_line_remove))
+        }
+    }
 }
 
 @Composable
