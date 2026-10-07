@@ -379,7 +379,7 @@
     <string name="settings_connection_success">Verbindung erfolgreich.</string>
 
     <!-- Claude errors -->
-    <string name="claude_error_invalid_key">Der API-Schlüssel ist ungültig. Bitte prüfe ihn in den Einstellungen.</string>
+    <string name="claude_error_invalid_key">Der API-Schlüssel ist ungültig. Bitte prüfe den Anthropic-API-Schlüssel in den Einstellungen.</string>
     <string name="claude_error_no_credit">Kein Guthaben mehr auf dem Anthropic-Konto. Bitte in der Console aufladen.</string>
     <string name="claude_error_permission">Dieser API-Schlüssel hat keine Berechtigung für diese Anfrage.</string>
     <string name="claude_error_model_not_found">Das gewählte Modell ist für diesen Schlüssel nicht verfügbar.</string>
