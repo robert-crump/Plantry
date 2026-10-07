@@ -31,7 +31,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -229,7 +229,7 @@ fun IngredientListScreen(
 
 private val FabClearance = 88.dp
 
-/** The Prüfstatus, Verwendung and Herkunft dropdowns. */
+/** The Prüfstatus, Verwendung and Herkunft filter chips. */
 @Composable
 private fun FilterRow(
     state: IngredientListUiState,
@@ -305,8 +305,8 @@ private val UsageFilter.label: Int
     }
 
 /**
- * A fixed-width outlined button showing [selected]; tapping it opens a menu of [options].
- * TalkBack reads "[name]: [selected]".
+ * A filter chip with a menu of [options], the first of which is "Alle": the chip shows [name] while
+ * that is selected and the chosen value otherwise. TalkBack reads "[name]: [selected]".
  */
 @Composable
 private fun <T> FilterDropdown(
@@ -319,22 +319,23 @@ private fun <T> FilterDropdown(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedLabel = label(selected)
+    val filtered = selected != options.first()
     Box(modifier) {
-        OutlinedButton(
+        FilterChip(
+            selected = filtered,
             onClick = { expanded = true },
-            contentPadding = PaddingValues(start = 12.dp, end = 0.dp),
+            label = {
+                Text(
+                    if (filtered) selectedLabel else name,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
             modifier = Modifier
                 .fillMaxWidth()
                 .semantics(mergeDescendants = true) { contentDescription = "$name: $selectedLabel" },
-        ) {
-            Text(
-                selectedLabel,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-        }
+        )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
                 DropdownMenuItem(
