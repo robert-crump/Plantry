@@ -3,7 +3,9 @@ package com.example.plantry.data.reminder
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.Recipe
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalTime
@@ -53,7 +55,7 @@ class CookReminderTest {
     fun content_severalRecipesForToday_listsTitlesInPlanOrder() {
         val planned = listOf(PlannedRecipe(2, today), PlannedRecipe(1, today))
 
-        assertEquals(ReminderContent.Several(listOf("Curry", "Linsen-Dal")), CookReminder.content(true, today, planned, listOf(dal, curry)))
+        assertEquals(ReminderContent.Several(2, listOf("Curry", "Linsen-Dal")), CookReminder.content(true, today, planned, listOf(dal, curry)))
     }
 
     @Test
@@ -69,5 +71,25 @@ class CookReminderTest {
         assertNull(CookReminder.content(true, today, listOf(PlannedRecipe(1, today.minusDays(1)), PlannedRecipe(2, today.plusDays(1))), listOf(dal, curry)))
         assertNull(CookReminder.content(false, today, listOf(PlannedRecipe(1, today)), listOf(dal)))
         assertNull(CookReminder.content(true, today, listOf(PlannedRecipe(9, today)), listOf(dal)))
+    }
+
+    @Test
+    fun nextDailyAt_isTheNextTimeTodayOrTomorrow() {
+        val morning = LocalTime.of(7, 0)
+
+        assertEquals(today.atTime(morning), CookReminder.nextDailyAt(today.atTime(6, 59), morning, enabled = true))
+        assertEquals(today.plusDays(1).atTime(morning), CookReminder.nextDailyAt(today.atTime(morning), morning, enabled = true))
+        assertEquals(today.plusDays(1).atTime(morning), CookReminder.nextDailyAt(today.atTime(23, 59), morning, enabled = true))
+        assertNull(CookReminder.nextDailyAt(today.atTime(6, 0), morning, enabled = false))
+    }
+
+    @Test
+    fun proposalWanted_onlyWhenOnAndNothingPlannedForToday() {
+        val laterOnly = listOf(PlannedRecipe(1, today.minusDays(1)), PlannedRecipe(2, today.plusDays(1)))
+
+        assertTrue(CookReminder.proposalWanted(true, today, emptyList()))
+        assertTrue(CookReminder.proposalWanted(true, today, laterOnly))
+        assertFalse(CookReminder.proposalWanted(true, today, laterOnly + PlannedRecipe(3, today)))
+        assertFalse(CookReminder.proposalWanted(false, today, emptyList()))
     }
 }

@@ -31,20 +31,35 @@ enum class ThemeMode(val storageValue: String) {
     }
 }
 
+/** The notifications the app sends; each has its own switch and time, off until the user turns it on. */
+enum class ReminderKind(val keyPrefix: String, val defaultTime: LocalTime) {
+    /** Proposes a recipe on a day with nothing planned. */
+    PROPOSAL("proposal", LocalTime.of(7, 0)),
+
+    /** Reminds to buy what a recipe planned for today needs. */
+    SHOPPING("shopping", LocalTime.of(12, 0)),
+
+    /** Asks in the evening whether the recipe planned for today was cooked. */
+    COOKED("reminder", LocalTime.of(19, 30)),
+}
+
+data class ReminderSetting(val enabled: Boolean, val time: LocalTime)
+
 /** What the UI may know about the settings: never the key itself, only its masked form. */
 data class Settings(
     val maskedApiKey: String?,
     val scanModel: ScanModel,
     /** Days after cooking before the planner suggests a recipe at full weight again. */
     val cooldownDays: Int,
-    /** The daily "Habt ihr heute … gekocht?" notification while Geplant isn't empty. */
-    val reminderEnabled: Boolean = true,
-    val reminderTime: LocalTime = SettingsRepository.DEFAULT_REMINDER_TIME,
+    val reminders: Map<ReminderKind, ReminderSetting> =
+        ReminderKind.entries.associateWith { ReminderSetting(enabled = false, time = it.defaultTime) },
     val themeMode: ThemeMode = ThemeMode.DEFAULT,
     /** Whether a Geplant card was swiped once, which retires the swipe hint for good. */
     val swipeHintSeen: Boolean = false,
 ) {
     val hasApiKey: Boolean get() = maskedApiKey != null
+
+    fun reminder(kind: ReminderKind): ReminderSetting = reminders.getValue(kind)
 }
 
 /** Plain string storage; backed by SharedPreferences in the app and by a map in tests. */
@@ -98,14 +113,14 @@ class SettingsRepository(
         return true
     }
 
-    fun setReminderEnabled(enabled: Boolean) {
-        storage.putString(KEY_REMINDER_ENABLED, enabled.toString())
+    fun setReminderEnabled(kind: ReminderKind, enabled: Boolean) {
+        storage.putString(kind.enabledKey, enabled.toString())
         _settings.value = load()
     }
 
     /** Stored to the minute. */
-    fun setReminderTime(time: LocalTime) {
-        storage.putString(KEY_REMINDER_TIME, time.withSecond(0).withNano(0).toString())
+    fun setReminderTime(kind: ReminderKind, time: LocalTime) {
+        storage.putString(kind.timeKey, time.withSecond(0).withNano(0).toString())
         _settings.value = load()
     }
 
@@ -121,8 +136,8 @@ class SettingsRepository(
     }
 
     /**
-     * True only the first time it is called: the notification permission is asked once, when the
-     * first recipe goes on Geplant.
+     * True only the first time it is called: the evening reminder is offered once, when the first
+     * recipe goes on Geplant.
      */
     fun takeNotificationPermissionRequest(): Boolean {
         if (storage.getString(KEY_NOTIFICATION_PERMISSION_ASKED) != null) return false
@@ -135,8 +150,12 @@ class SettingsRepository(
         scanModel = ScanModel.fromModelId(storage.getString(KEY_SCAN_MODEL)),
         cooldownDays = storage.getString(KEY_COOLDOWN_DAYS)?.toIntOrNull()?.takeIf { it in COOLDOWN_RANGE }
             ?: DEFAULT_COOLDOWN_DAYS,
-        reminderEnabled = storage.getString(KEY_REMINDER_ENABLED)?.toBooleanStrictOrNull() ?: true,
-        reminderTime = storage.getString(KEY_REMINDER_TIME)?.let(::parseTime) ?: DEFAULT_REMINDER_TIME,
+        reminders = ReminderKind.entries.associateWith { kind ->
+            ReminderSetting(
+                enabled = storage.getString(kind.enabledKey)?.toBooleanStrictOrNull() ?: false,
+                time = storage.getString(kind.timeKey)?.let(::parseTime) ?: kind.defaultTime,
+            )
+        },
         themeMode = ThemeMode.fromStorageValue(storage.getString(KEY_THEME_MODE)),
         swipeHintSeen = storage.getString(KEY_SWIPE_HINT_SEEN)?.toBooleanStrictOrNull() ?: false,
     )
@@ -148,19 +167,19 @@ class SettingsRepository(
             null
         }
 
+    private val ReminderKind.enabledKey get() = "${keyPrefix}_enabled"
+    private val ReminderKind.timeKey get() = "${keyPrefix}_time"
+
     companion object {
         const val KEY_API_KEY = "api_key"
         const val KEY_SCAN_MODEL = "scan_model"
         const val KEY_COOLDOWN_DAYS = "cooldown_days"
-        const val KEY_REMINDER_ENABLED = "reminder_enabled"
-        const val KEY_REMINDER_TIME = "reminder_time"
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_NOTIFICATION_PERMISSION_ASKED = "notification_permission_asked"
         const val KEY_SWIPE_HINT_SEEN = "swipe_hint_seen"
 
         const val DEFAULT_COOLDOWN_DAYS = 21
         val COOLDOWN_RANGE = 1..365
-        val DEFAULT_REMINDER_TIME: LocalTime = LocalTime.of(19, 30)
     }
 }
 

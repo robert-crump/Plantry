@@ -6,16 +6,16 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
-/** What the daily reminder asks. */
+/** What the reminders about today's planned recipes say. */
 sealed interface ReminderContent {
     /** "Habt ihr heute <Titel> gekocht?" with Ja / Nein. */
     data class Single(val recipeId: Long, val title: String) : ReminderContent
 
-    /** "Habt ihr heute etwas von Geplant gekocht?" with the titles in Geplant order. */
-    data class Several(val titles: List<String>) : ReminderContent
+    /** "Habt ihr heute etwas von Geplant gekocht?" with the titles in Geplant order; [firstRecipeId] is the first of them. */
+    data class Several(val firstRecipeId: Long, val titles: List<String>) : ReminderContent
 }
 
-/** The rules of the "did you cook it?" reminder; the alarm and the notification only carry them out. */
+/** The rules of the reminders; the alarms and the notifications only carry them out. */
 object CookReminder {
 
     /**
@@ -40,7 +40,18 @@ object CookReminder {
         return when (shown.size) {
             0 -> null
             1 -> ReminderContent.Single(shown.single().id, shown.single().title)
-            else -> ReminderContent.Several(shown.map { it.title })
+            else -> ReminderContent.Several(shown.first().id, shown.map { it.title })
         }
     }
+
+    /** The next [time] after [now], today or tomorrow; null when the reminder is off. Whether to show it is decided then. */
+    fun nextDailyAt(now: LocalDateTime, time: LocalTime, enabled: Boolean): LocalDateTime? {
+        if (!enabled) return null
+        val today = now.toLocalDate().atTime(time)
+        return if (today > now) today else today.plusDays(1)
+    }
+
+    /** Whether a recipe should be proposed on [today]: the reminder is on and nothing is planned for that day. */
+    fun proposalWanted(enabled: Boolean, today: LocalDate, planned: List<PlannedRecipe>): Boolean =
+        enabled && planned.none { it.plannedOn == today }
 }

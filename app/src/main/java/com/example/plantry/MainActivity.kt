@@ -19,7 +19,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val settingsRepository = (application as PlantryApplication).settingsRepository
+        // A notification's recipe opens once, not again after a rotation.
+        val openRecipeId = if (savedInstanceState == null) {
+            intent.getLongExtra(EXTRA_RECIPE_ID, -1).takeIf { it >= 0 }
+        } else {
+            null
+        }
+        val settingsRepository =(application as PlantryApplication).settingsRepository
         setContent {
             val settings by settingsRepository.settings.collectAsStateWithLifecycle()
             val darkTheme = when (settings.themeMode) {
@@ -35,14 +41,17 @@ class MainActivity : ComponentActivity() {
                 )
             }
             PlantryTheme(darkTheme = darkTheme) {
-                PlantryNavHost()
+                PlantryNavHost(openRecipeId)
             }
         }
     }
 
-    private companion object {
+    companion object {
+        /** The recipe a notification opens instead of Kochen. */
+        const val EXTRA_RECIPE_ID = "openRecipeId"
+
         // The scrims androidx.activity uses by default.
-        val LightScrim = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
-        val DarkScrim = Color.argb(0x80, 0x1b, 0x1b, 0x1b)
+        private val LightScrim = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
+        private val DarkScrim =Color.argb(0x80, 0x1b, 0x1b, 0x1b)
     }
 }

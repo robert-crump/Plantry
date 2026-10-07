@@ -1,5 +1,7 @@
 package com.example.plantry.ui.settings
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,10 +23,11 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,6 +42,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TimePicker
@@ -49,12 +53,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -67,11 +73,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
+import com.example.plantry.ui.rememberNotificationPermissionRequest
 import com.example.plantry.data.claude.ClaudeFailure
 import com.example.plantry.data.claude.ConnectionResult
 import com.example.plantry.data.claude.ConnectionTester
+import com.example.plantry.data.settings.ReminderKind
+import com.example.plantry.data.settings.ReminderSetting
 import com.example.plantry.data.settings.ScanModel
-import com.example.plantry.data.settings.Settings
+import com.example.plantry.data.settings.Settings as AppSettings
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.data.settings.ThemeMode
 import kotlinx.coroutines.Job
@@ -93,7 +102,7 @@ class SettingsViewModel(
     private val tester: ConnectionTester,
 ) : ViewModel() {
 
-    val settings: StateFlow<Settings> = repository.settings
+    val settings: StateFlow<AppSettings> = repository.settings
 
     private val _connectionTest = MutableStateFlow<ConnectionTestState>(ConnectionTestState.Idle)
     val connectionTest: StateFlow<ConnectionTestState> = _connectionTest.asStateFlow()
@@ -114,9 +123,9 @@ class SettingsViewModel(
 
     fun setCooldownDays(days: Int): Boolean = repository.setCooldownDays(days)
 
-    fun setReminderEnabled(enabled: Boolean) = repository.setReminderEnabled(enabled)
+    fun setReminderEnabled(kind: ReminderKind, enabled: Boolean) = repository.setReminderEnabled(kind, enabled)
 
-    fun setReminderTime(time: LocalTime) = repository.setReminderTime(time)
+    fun setReminderTime(kind: ReminderKind, time: LocalTime) = repository.setReminderTime(kind, time)
 
     fun setThemeMode(mode: ThemeMode) = repository.setThemeMode(mode)
 
@@ -145,9 +154,38 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
     var choosingModel by rememberSaveable { mutableStateOf(false) }
     var choosingTheme by rememberSaveable { mutableStateOf(false) }
     var editingCooldown by rememberSaveable { mutableStateOf(false) }
-    var editingReminderTime by rememberSaveable { mutableStateOf(false) }
+    // The reminder whose time is being picked, and whether picking it is part of turning it on.
+    var timeDialog by rememberSaveable { mutableStateOf<ReminderKind?>(null) }
+    var turningOn by rememberSaveable { mutableStateOf(false) }
+    // A reminder to turn on at a time once the notification permission is answered.
+    var awaitingKind by rememberSaveable { mutableStateOf<ReminderKind?>(null) }
+    var awaitingTime by rememberSaveable { mutableStateOf<LocalTime?>(null) }
     var showingKeyInfo by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val notificationsOff = stringResource(R.string.notifications_off)
+    val openSystemSettings = stringResource(R.string.notifications_open_settings)
+    val requestNotifications = rememberNotificationPermissionRequest { granted ->
+        val kind = awaitingKind
+        val time = awaitingTime
+        awaitingKind = null
+        awaitingTime = null
+        if (kind != null && time != null) {
+            if (granted) {
+                viewModel.setReminderTime(kind, time)
+                viewModel.setReminderEnabled(kind, true)
+            } else {
+                scope.launch {
+                    if (snackbar.showSnackbar(notificationsOff, openSystemSettings) == SnackbarResult.ActionPerformed) {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                        )
+                    }
+                }
+            }
+        }
+    }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         Column(
@@ -215,25 +253,31 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
                         onClick = { editingCooldown = true },
                     )
                 },
-                {
-                    SettingsRow(
-                        icon = Icons.Filled.Notifications,
-                        title = stringResource(R.string.settings_reminder),
-                        onClick = { viewModel.setReminderEnabled(!settings.reminderEnabled) },
-                        trailing = { Switch(checked = settings.reminderEnabled, onCheckedChange = null) },
-                    )
-                },
-                {
-                    SettingsRow(
-                        icon = Icons.Filled.Schedule,
-                        title = stringResource(R.string.settings_reminder_time),
-                        summary = settings.reminderTime.format(TimeFormat),
-                        enabled = settings.reminderEnabled,
-                        onClick = { editingReminderTime = true },
-                    )
-                },
             )
-            SectionHint(R.string.settings_reminder_hint)
+
+            SectionHeader(R.string.settings_notifications)
+            SettingsGroup(
+                *ReminderKind.entries.map { kind ->
+                    @Composable {
+                        ReminderRow(
+                            kind = kind,
+                            setting = settings.reminder(kind),
+                            onEditTime = {
+                                turningOn = false
+                                timeDialog = kind
+                            },
+                            onToggle = { on ->
+                                if (on) {
+                                    turningOn = true
+                                    timeDialog = kind
+                                } else {
+                                    viewModel.setReminderEnabled(kind, false)
+                                }
+                            },
+                        )
+                    }
+                }.toTypedArray(),
+            )
 
             SectionHeader(R.string.settings_backup)
             BackupSection(backupViewModel, snackbar)
@@ -286,14 +330,21 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
         )
     }
 
-    if (editingReminderTime) {
+    timeDialog?.let { kind ->
         ReminderTimeDialog(
-            initial = settings.reminderTime,
+            title = stringResource(kind.title),
+            initial = settings.reminder(kind).time,
             onSave = { time ->
-                viewModel.setReminderTime(time)
-                editingReminderTime = false
+                timeDialog = null
+                if (turningOn) {
+                    awaitingKind = kind
+                    awaitingTime = time
+                    requestNotifications()
+                } else {
+                    viewModel.setReminderTime(kind, time)
+                }
             },
-            onDismiss = { editingReminderTime = false },
+            onDismiss = { timeDialog = null },
         )
     }
 
@@ -580,15 +631,42 @@ private fun CooldownDialog(initialDays: Int, onSave: (Int) -> Boolean, onDismiss
     )
 }
 
+/** The time is the summary; tapping the row edits it, the switch at the far right turns the reminder on or off. */
+@Composable
+private fun ReminderRow(kind: ReminderKind, setting: ReminderSetting, onEditTime: () -> Unit, onToggle: (Boolean) -> Unit) {
+    SettingsRow(
+        icon = kind.icon,
+        title = stringResource(kind.title),
+        summary = setting.time.format(TimeFormat),
+        summaryColor = if (setting.enabled) Color.Unspecified else MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA),
+        onClick = onEditTime,
+        trailing = { Switch(checked = setting.enabled, onCheckedChange = onToggle) },
+    )
+}
+
+private val ReminderKind.title: Int
+    get() = when (this) {
+        ReminderKind.PROPOSAL -> R.string.settings_reminder_proposal
+        ReminderKind.SHOPPING -> R.string.settings_reminder_shopping
+        ReminderKind.COOKED -> R.string.settings_reminder
+    }
+
+private val ReminderKind.icon: ImageVector
+    get() = when (this) {
+        ReminderKind.PROPOSAL -> Icons.Filled.Lightbulb
+        ReminderKind.SHOPPING -> Icons.Filled.ShoppingCart
+        ReminderKind.COOKED -> Icons.Filled.Notifications
+    }
+
 private val TimeFormat = DateTimeFormatter.ofPattern("HH:mm")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReminderTimeDialog(initial: LocalTime, onSave: (LocalTime) -> Unit, onDismiss: () -> Unit) {
+private fun ReminderTimeDialog(title: String, initial: LocalTime, onSave: (LocalTime) -> Unit, onDismiss: () -> Unit) {
     val state = rememberTimePickerState(initialHour = initial.hour, initialMinute = initial.minute, is24Hour = true)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_reminder_time)) },
+        title = { Text(title) },
         text = { TimePicker(state) },
         confirmButton = {
             TextButton(onClick = { onSave(LocalTime.of(state.hour, state.minute)) }) {

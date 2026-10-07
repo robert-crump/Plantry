@@ -130,7 +130,7 @@ private enum class TopLevelDestination(
 }
 
 @Composable
-fun PlantryNavHost() {
+fun PlantryNavHost(openRecipeId: Long? = null) {
     val navController = rememberNavController()
     val app = LocalContext.current.applicationContext as PlantryApplication
     val recipeRepository = app.recipeRepository
@@ -138,7 +138,7 @@ fun PlantryNavHost() {
     val settingsRepository = app.settingsRepository
     val cookLogRepository = app.cookLogRepository
     // Hoisted here: the suggestions screen is left right after planning.
-    val askForNotifications = rememberNotificationPermissionRequest(settingsRepository)
+    val askForNotifications = rememberFirstPlanReminderOffer(settingsRepository)
 
     val currentEntry = navController.currentBackStackEntryAsState().value
     val currentDestination = currentEntry?.destination
@@ -158,6 +158,12 @@ fun PlantryNavHost() {
     val unreviewedCount by remember {
         ingredientRepository.observeIngredients().map { all -> all.count { !it.reviewed } }
     }.collectAsStateWithLifecycle(0)
+    // A notification's recipe, on top of Kochen; if it is gone by now, Kochen stays.
+    LaunchedEffect(openRecipeId) {
+        if (openRecipeId != null && recipeRepository.getRecipe(openRecipeId) != null) {
+            navController.navigate(RecipeDetailRoute(openRecipeId))
+        }
+    }
     LifecycleResumeEffect(Unit) {
         scope.launch { app.backupRepository.refreshReminder() }
         onPauseOrDispose {}

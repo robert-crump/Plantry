@@ -32,23 +32,34 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun reminder_defaultsToOnAt1930_andIsStored() {
-        assertTrue(repository.settings.value.reminderEnabled)
-        assertEquals(LocalTime.of(19, 30), repository.settings.value.reminderTime)
+    fun reminders_defaultToOffAtTheirOwnTimes() {
+        val settings = repository.settings.value
 
-        repository.setReminderEnabled(false)
-        repository.setReminderTime(LocalTime.of(18, 5, 42))
+        assertEquals(ReminderSetting(false, LocalTime.of(7, 0)), settings.reminder(ReminderKind.PROPOSAL))
+        assertEquals(ReminderSetting(false, LocalTime.of(12, 0)), settings.reminder(ReminderKind.SHOPPING))
+        assertEquals(ReminderSetting(false, LocalTime.of(19, 30)), settings.reminder(ReminderKind.COOKED))
+    }
+
+    @Test
+    fun reminders_areStoredIndependently() {
+        repository.setReminderEnabled(ReminderKind.SHOPPING, true)
+        repository.setReminderTime(ReminderKind.SHOPPING, LocalTime.of(17, 5, 42))
+        repository.setReminderEnabled(ReminderKind.COOKED, true)
+        repository.setReminderEnabled(ReminderKind.COOKED, false)
 
         val reloaded = SettingsRepository(storage, ReversingCipher).settings.value
-        assertFalse(reloaded.reminderEnabled)
-        assertEquals(LocalTime.of(18, 5), reloaded.reminderTime)
+        assertEquals(ReminderSetting(true, LocalTime.of(17, 5)), reloaded.reminder(ReminderKind.SHOPPING))
+        assertFalse(reloaded.reminder(ReminderKind.PROPOSAL).enabled)
+        assertFalse(reloaded.reminder(ReminderKind.COOKED).enabled)
+        assertEquals(LocalTime.of(7, 0), reloaded.reminder(ReminderKind.PROPOSAL).time)
     }
 
     @Test
     fun reminderTime_unreadable_fallsBackToDefault() {
-        storage.values[SettingsRepository.KEY_REMINDER_TIME] = "abends"
+        storage.values["reminder_time"] = "abends"
 
-        assertEquals(LocalTime.of(19, 30), SettingsRepository(storage, ReversingCipher).settings.value.reminderTime)
+        val reminder = SettingsRepository(storage, ReversingCipher).settings.value.reminder(ReminderKind.COOKED)
+        assertEquals(LocalTime.of(19, 30), reminder.time)
     }
 
     @Test
