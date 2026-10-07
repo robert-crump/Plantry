@@ -31,6 +31,9 @@ enum class ClaudeFailure {
     /** Claude found no recipe on the photo. */
     NOT_A_RECIPE;
 
+    /** The key itself won't work, as opposed to a passing problem like a missing connection. */
+    val isKeyProblem: Boolean get() = this == INVALID_KEY || this == NO_CREDIT || this == PERMISSION_DENIED
+
     companion object {
         /** Prefers the API's error type (e.g. "billing_error") and falls back to the HTTP status. */
         fun fromError(status: Int, type: String?): ClaudeFailure = when (type) {

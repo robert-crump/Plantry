@@ -96,6 +96,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapLatest
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.ui.settings.message
+import com.example.plantry.ui.settings.ApiKeyDialog
+import com.example.plantry.ui.settings.ApiKeyEntry
+import com.example.plantry.data.claude.ConnectionTester
 import com.example.plantry.data.nutritionLines
 import com.example.plantry.ui.ingredient.LabelNutritionDialog
 import com.example.plantry.ui.ingredient.LabelNutritionForm
@@ -136,7 +139,17 @@ data class RecipeEditUiState(
     val scanning: Boolean = false,
     /** Starting a scan waits for "Ersetzen", because the form already has input. */
     val confirmReplace: Boolean = false,
+    /** Null unless a Claude feature waits for the costs to be accepted or a key to be entered. */
+    val claudeGate: ClaudeGate? = null,
 )
+
+/** What uses Claude here; each waits until Claude is set up, see [RecipeEditViewModel.useClaude]. */
+enum class ClaudeAction { SCAN, PROPOSE_LINE }
+
+/** [action] waits for [step]: first accepting the costs, then entering a key. */
+data class ClaudeGate(val action: ClaudeAction, val step: Step) {
+    enum class Step { COSTS, KEY }
+}
 
 sealed interface ProposalState {
     data object Idle : ProposalState
@@ -182,10 +195,18 @@ class RecipeEditViewModel(
     private val settings: SettingsRepository,
     private val bookSession: BookSession,
     private val compressPhoto: suspend (Uri) -> ByteArray?,
+    tester: ConnectionTester,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RecipeEditUiState())
     val state: StateFlow<RecipeEditUiState> = _state.asStateFlow()
+
+    /** The key entered while a Claude feature waits; once it is stored, that feature runs. */
+    val keyEntry: ApiKeyEntry = ApiKeyEntry(settings, tester, viewModelScope) {
+        val action = _state.value.claudeGate?.action
+        keyEntry.reset()
+        action?.let(::useClaude)
+    }
 
     val isNew: Boolean get() = recipeId == null
 
@@ -268,6 +289,37 @@ class RecipeEditViewModel(
                 _state.update { it.copy(form = RecipeForm.from(recipe, lines), photo = it.photo ?: photo) }
             }
         }
+    }
+
+    /**
+     * Runs [action] once the costs of Claude are accepted and a key is stored; asks for what is
+     * missing first ([RecipeEditUiState.claudeGate]).
+     */
+    fun useClaude(action: ClaudeAction) {
+        val current = settings.settings.value
+        val step = when {
+            !current.claudeCostsAccepted -> ClaudeGate.Step.COSTS
+            !current.hasApiKey -> ClaudeGate.Step.KEY
+            else -> null
+        }
+        _state.update { it.copy(claudeGate = step?.let { ClaudeGate(action, it) }) }
+        if (step == null) {
+            when (action) {
+                ClaudeAction.SCAN -> startScan()
+                ClaudeAction.PROPOSE_LINE -> proposeForLine()
+            }
+        }
+    }
+
+    fun acceptClaudeCosts() {
+        val action = _state.value.claudeGate?.action ?: return
+        settings.acceptClaudeCosts()
+        useClaude(action)
+    }
+
+    fun dismissClaudeGate() {
+        keyEntry.reset()
+        _state.update { it.copy(claudeGate = null) }
     }
 
     /** Keeps the compressed photo; while scanning a new recipe, reads it right away. */
@@ -599,7 +651,7 @@ fun RecipeEditScreen(
         ) {
             if (viewModel.isNew && !isScan) {
                 Button(
-                    onClick = { viewModel.startScan() },
+                    onClick = { viewModel.useClaude(ClaudeAction.SCAN) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 16.dp, end = 16.dp, top = 8.dp)
@@ -711,7 +763,7 @@ fun RecipeEditScreen(
                 onChange = viewModel::onLineFormChange,
                 onApply = viewModel::applyLine,
                 onDismiss = viewModel::dismissLineEditor,
-                onProposeIngredient = viewModel::proposeForLine,
+                onProposeIngredient = { viewModel.useClaude(ClaudeAction.PROPOSE_LINE) },
                 onConfirmNew = viewModel::confirmNewIngredient,
                 onChangeNew = viewModel::openUsdaPicker,
                 onEnterLabelNew = viewModel::openLabelNutrition,
@@ -739,6 +791,33 @@ fun RecipeEditScreen(
                 onDismiss = viewModel::dismissLabelNutrition,
                 initial = (source as? NutritionSource.Label)?.let { LabelNutritionForm.from(it.nutrition) } ?: LabelNutritionForm(),
             )
+        }
+
+        // Last, so it opens on top of the line editor it may come from.
+        state.claudeGate?.let { gate ->
+            when (gate.step) {
+                ClaudeGate.Step.COSTS -> AlertDialog(
+                    onDismissRequest = viewModel::dismissClaudeGate,
+                    title = { Text(stringResource(R.string.claude_costs_title)) },
+                    text = { Text(stringResource(R.string.claude_costs_message)) },
+                    confirmButton = {
+                        TextButton(onClick = viewModel::acceptClaudeCosts) { Text(stringResource(R.string.claude_costs_accept)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = viewModel::dismissClaudeGate) { Text(stringResource(R.string.action_cancel)) }
+                    },
+                )
+                ClaudeGate.Step.KEY -> {
+                    val keyCheck by viewModel.keyEntry.check.collectAsStateWithLifecycle()
+                    ApiKeyDialog(
+                        check = keyCheck,
+                        onSave = viewModel.keyEntry::save,
+                        onEdit = viewModel.keyEntry::reset,
+                        onDismiss = viewModel::dismissClaudeGate,
+                        message = R.string.settings_api_key_claude_message,
+                    )
+                }
+            }
         }
     }
 }

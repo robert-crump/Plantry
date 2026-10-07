@@ -97,6 +97,18 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun claudeCostsAccepted_isPersistedAndSurvivesDeletingTheKey() {
+        assertFalse(repository.settings.value.claudeCostsAccepted)
+        repository.setApiKey("sk-ant-api03-abcdefghijklmnop")
+
+        repository.acceptClaudeCosts()
+        repository.deleteApiKey()
+
+        assertTrue(repository.settings.value.claudeCostsAccepted)
+        assertTrue(SettingsRepository(storage, ReversingCipher).settings.value.claudeCostsAccepted)
+    }
+
+    @Test
     fun setCooldownDays_rejectsOutOfRange() {
         assertFalse(repository.setCooldownDays(0))
         assertFalse(repository.setCooldownDays(366))

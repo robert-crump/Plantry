@@ -6,7 +6,6 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,7 +28,6 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -50,6 +48,7 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,7 +65,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -131,11 +129,10 @@ class SettingsViewModel(
 
     private var testJob: Job? = null
 
-    fun saveApiKey(key: String): Boolean = repository.setApiKey(key).also {
-        if (it) {
-            resetTest()
-            refreshModelNames()
-        }
+    /** Tests a typed key before it is stored. */
+    val keyEntry = ApiKeyEntry(repository, tester, viewModelScope) {
+        resetTest()
+        refreshModelNames()
     }
 
     fun deleteApiKey() {
@@ -177,6 +174,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val modelNames by viewModel.modelNames.collectAsStateWithLifecycle()
     val connectionTest by viewModel.connectionTest.collectAsStateWithLifecycle()
+    val keyCheck by viewModel.keyEntry.check.collectAsStateWithLifecycle()
     var editingKey by rememberSaveable { mutableStateOf(false) }
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
     var choosingModel by rememberSaveable { mutableStateOf(false) }
@@ -255,6 +253,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
                         icon = Icons.Filled.AutoAwesome,
                         title = stringResource(R.string.settings_scan_model),
                         summary = modelNames.getValue(settings.scanModel),
+                        enabled = settings.hasApiKey,
                         onClick = { choosingModel = true },
                     )
                 },
@@ -312,11 +311,21 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
         }
     }
 
+    LaunchedEffect(keyCheck) {
+        if (keyCheck == KeyCheck.Saved) {
+            editingKey = false
+            viewModel.keyEntry.reset()
+        }
+    }
     if (editingKey) {
         ApiKeyDialog(
-            onSave = { key -> viewModel.saveApiKey(key).also { saved -> if (saved) editingKey = false } },
-            onDismiss = { editingKey = false },
-            dismissLabel = R.string.action_cancel,
+            check = keyCheck,
+            onSave = viewModel.keyEntry::save,
+            onEdit = viewModel.keyEntry::reset,
+            onDismiss = {
+                editingKey = false
+                viewModel.keyEntry.reset()
+            },
             onDelete = if (settings.hasApiKey) ({ confirmingDelete = true }) else null,
         )
     }
@@ -553,66 +562,6 @@ internal fun <T> ChoiceDialog(
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-        },
-    )
-}
-
-/**
- * Asks for the Anthropic API key. Used on first launch (dismiss = "Später") and in Settings.
- * [onSave] returns false when the key was rejected, which keeps the dialog open with an error.
- * With [onDelete] (a key is stored) a red "Schlüssel löschen" button sits bottom left.
- */
-@Composable
-fun ApiKeyDialog(
-    onSave: (String) -> Boolean,
-    onDismiss: () -> Unit,
-    @StringRes dismissLabel: Int,
-    @StringRes message: Int = R.string.settings_api_key_dialog_message,
-    onDelete: (() -> Unit)? = null,
-) {
-    var key by rememberSaveable { mutableStateOf("") }
-    var error by rememberSaveable { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_api_key_dialog_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(message))
-                OutlinedTextField(
-                    value = key,
-                    onValueChange = {
-                        key = it
-                        error = false
-                    },
-                    label = { Text(stringResource(R.string.settings_api_key)) },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
-                    isError = error,
-                    supportingText = if (error) ({ Text(stringResource(R.string.settings_api_key_required)) }) else null,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-        // With a delete button all three share one full-width slot, so it can sit opposite the others.
-        // On narrow screens it wraps onto its own line above Abbrechen/Speichern.
-        confirmButton = {
-            FlowRow(if (onDelete != null) Modifier.fillMaxWidth() else Modifier) {
-                if (onDelete != null) {
-                    TextButton(
-                        onClick = onDelete,
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    ) { Text(stringResource(R.string.settings_api_key_delete)) }
-                }
-                Row(
-                    if (onDelete != null) Modifier.weight(1f) else Modifier,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                ) {
-                    TextButton(onClick = onDismiss) { Text(stringResource(dismissLabel)) }
-                    TextButton(onClick = { error = !onSave(key) }) { Text(stringResource(R.string.action_save)) }
-                }
-            }
         },
     )
 }

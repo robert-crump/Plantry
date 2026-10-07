@@ -62,6 +62,8 @@ data class Settings(
     val themeMode: ThemeMode = ThemeMode.DEFAULT,
     /** Whether a Geplant card was swiped once, which retires the swipe hint for good. */
     val swipeHintSeen: Boolean = false,
+    /** Whether the user accepted once that Claude costs credit; no Claude call happens before. */
+    val claudeCostsAccepted: Boolean = false,
 ) {
     val hasApiKey: Boolean get() = maskedApiKey != null
 
@@ -141,6 +143,12 @@ class SettingsRepository(
         _settings.value = load()
     }
 
+    /** Kept for good, independent of the key; not part of a backup. */
+    fun acceptClaudeCosts() {
+        storage.putString(KEY_CLAUDE_COSTS_ACCEPTED, true.toString())
+        _settings.value = load()
+    }
+
     /**
      * True only the first time it is called: the evening reminder is offered once, when the first
      * recipe goes on Geplant.
@@ -164,6 +172,7 @@ class SettingsRepository(
         },
         themeMode = ThemeMode.fromStorageValue(storage.getString(KEY_THEME_MODE)),
         swipeHintSeen = storage.getString(KEY_SWIPE_HINT_SEEN)?.toBooleanStrictOrNull() ?: false,
+        claudeCostsAccepted = storage.getString(KEY_CLAUDE_COSTS_ACCEPTED)?.toBooleanStrictOrNull() ?: false,
     )
 
     private fun parseTime(text: String): LocalTime? =
@@ -183,6 +192,7 @@ class SettingsRepository(
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_NOTIFICATION_PERMISSION_ASKED = "notification_permission_asked"
         const val KEY_SWIPE_HINT_SEEN = "swipe_hint_seen"
+        const val KEY_CLAUDE_COSTS_ACCEPTED = "claude_costs_accepted"
 
         const val DEFAULT_COOLDOWN_DAYS = 21
         val COOLDOWN_RANGE = 1..365

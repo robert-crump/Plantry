@@ -75,7 +75,6 @@ import com.example.plantry.ui.recipe.RecipeEditScreen
 import com.example.plantry.ui.recipe.RecipeEditViewModel
 import com.example.plantry.ui.recipe.RecipeListScreen
 import com.example.plantry.ui.recipe.RecipeListViewModel
-import com.example.plantry.ui.settings.ApiKeyDialog
 import com.example.plantry.ui.settings.BackupViewModel
 import com.example.plantry.ui.settings.SettingsScreen
 import com.example.plantry.ui.settings.SettingsViewModel
@@ -344,6 +343,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                                 settingsRepository,
                                 app.bookSession,
                                 app.photoCompressor::compress,
+                                app.connectionTester,
                             )
                         },
                         onBack = { navController.popBackStack() },
@@ -408,18 +408,6 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                 }
             }
         }
-    }
-
-    // Asked on every launch while no key is stored; "Später" skips it until the next launch.
-    val settings by settingsRepository.settings.collectAsStateWithLifecycle()
-    var keyPromptDismissed by rememberSaveable { mutableStateOf(false) }
-    if (!settings.hasApiKey && !keyPromptDismissed) {
-        ApiKeyDialog(
-            onSave = settingsRepository::setApiKey,
-            onDismiss = { keyPromptDismissed = true },
-            dismissLabel = R.string.settings_api_key_later,
-            message = R.string.settings_api_key_first_launch_message,
-        )
     }
 }
 

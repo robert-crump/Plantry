@@ -350,9 +350,13 @@
     <string name="settings_api_key_delete_message">Ohne Schlüssel können keine Rezepte gescannt werden.</string>
     <string name="settings_api_key_dialog_title">API-Schlüssel</string>
     <string name="settings_api_key_dialog_message">Füge deinen Anthropic-API-Schlüssel ein (console.anthropic.com). Er wird verschlüsselt auf diesem Gerät gespeichert.</string>
-    <string name="settings_api_key_first_launch_message">Zum Scannen von Rezepten braucht Plantry deinen Anthropic-API-Schlüssel (console.anthropic.com). Er wird verschlüsselt auf diesem Gerät gespeichert. Du kannst ihn auch später in den Einstellungen eingeben.</string>
+    <string name="settings_api_key_claude_message">Für Claude braucht Plantry deinen Anthropic-API-Schlüssel (console.anthropic.com). Er wird verschlüsselt auf diesem Gerät gespeichert.</string>
+    <string name="settings_api_key_testing">Schlüssel wird geprüft …</string>
+    <string name="settings_api_key_save_anyway">Trotzdem speichern</string>
+    <string name="claude_costs_title">Claude kostet Guthaben</string>
+    <string name="claude_costs_message">Rezepte mit Claude zu erkennen kostet Guthaben auf deinem Anthropic-Konto, etwa 0,05 € pro Scan. Das Modell kannst du in den Einstellungen wählen.</string>
+    <string name="claude_costs_accept">Akzeptieren</string>
     <string name="settings_api_key_required">Bitte einen Schlüssel einfügen</string>
-    <string name="settings_api_key_later">Später</string>
     <string name="settings_scan_model">Modell für Rezept-Scans</string>
     <string name="scan_model_opus_description">Am genauesten, etwas teurer</string>
     <string name="scan_model_sonnet_description">Schneller und günstiger</string>
