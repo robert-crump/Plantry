@@ -1,5 +1,6 @@
 package com.example.plantry.ui.ingredient
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -7,16 +8,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -24,7 +30,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -74,7 +82,10 @@ data class IngredientDetailUiState(
     val ingredient: Ingredient? = null,
     val form: IngredientForm = IngredientForm(),
     val showErrors: Boolean = false,
-    val saved: Boolean = false,
+    /** Edit mode; the screen opens in view mode. */
+    val editing: Boolean = false,
+    /** Set while the dialog asking whether to drop unsaved edits is open. */
+    val confirmDiscard: Boolean = false,
     /** Set while the delete dialog is open: the recipes that still use the ingredient, if any. */
     val deleteCheck: DeleteCheck? = null,
     val deleted: Boolean = false,
@@ -106,6 +117,35 @@ class IngredientDetailViewModel(
         _state.update { it.copy(form = it.form.transform()) }
     }
 
+    fun startEdit() {
+        _state.update { it.copy(editing = true) }
+    }
+
+    /** Leaves edit mode; with unsaved edits it asks first, see [discard]. */
+    fun cancelEdit() {
+        val current = _state.value
+        val unchanged = current.ingredient?.let { IngredientForm.from(it) == current.form } ?: true
+        if (unchanged) discard() else _state.update { it.copy(confirmDiscard = true) }
+    }
+
+    fun dismissDiscard() {
+        _state.update { it.copy(confirmDiscard = false) }
+    }
+
+    /** Drops the edits and returns to view mode. */
+    fun discard() {
+        _state.update {
+            it.copy(
+                form = it.ingredient?.let(IngredientForm::from) ?: it.form,
+                editing = false,
+                showErrors = false,
+                confirmDiscard = false,
+                barcode = null,
+            )
+        }
+    }
+
+    /** Saves the form and returns to view mode; invalid input stays in edit mode with its errors. */
     fun save() {
         val draft = _state.value.form.toDraft()
         if (draft == null) {
@@ -114,7 +154,15 @@ class IngredientDetailViewModel(
         }
         viewModelScope.launch {
             repository.update(ingredientId, draft)
-            _state.update { it.copy(saved = true) }
+            val saved = repository.getIngredient(ingredientId) ?: return@launch
+            _state.update { it.copy(ingredient = saved, form = IngredientForm.from(saved), editing = false, showErrors = false) }
+        }
+    }
+
+    fun setReviewed(reviewed: Boolean) {
+        viewModelScope.launch {
+            repository.setReviewed(ingredientId, reviewed)
+            _state.update { it.copy(ingredient = it.ingredient?.copy(reviewed = reviewed)) }
         }
     }
 
@@ -167,7 +215,8 @@ fun IngredientDetailScreen(
     onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    LaunchedEffect(state.saved, state.deleted) { if (state.saved || state.deleted) onBack() }
+    LaunchedEffect(state.deleted) { if (state.deleted) onBack() }
+    BackHandler(enabled = state.editing, onBack = viewModel::cancelEdit)
     val snackbar = remember { SnackbarHostState() }
     val scannerUnavailable = stringResource(R.string.barcode_unavailable)
     val scope = rememberCoroutineScope()
@@ -190,25 +239,60 @@ fun IngredientDetailScreen(
     val form = state.form
     val errors = if (state.showErrors) form.errors() else null
     val onChange = viewModel::onFormChange
+    val editing = state.editing
+    val reviewedMessage = stringResource(R.string.ingredient_marked_reviewed)
+    val undoLabel = stringResource(R.string.action_undo)
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(ingredient?.name.orEmpty()) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
+                    if (editing) {
+                        IconButton(onClick = viewModel::cancelEdit) {
+                            Icon(Icons.Filled.Close, stringResource(R.string.action_cancel))
+                        }
+                    } else {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
+                        }
                     }
                 },
                 actions = {
                     if (ingredient != null) {
-                        IconButton(onClick = viewModel::requestDelete) {
-                            Icon(Icons.Filled.Delete, stringResource(R.string.action_delete))
+                        if (editing) {
+                            IconButton(onClick = viewModel::requestDelete) {
+                                Icon(Icons.Filled.Delete, stringResource(R.string.action_delete))
+                            }
+                            IconButton(onClick = viewModel::save) {
+                                Icon(Icons.Filled.Check, stringResource(R.string.action_save))
+                            }
+                        } else {
+                            IconButton(onClick = viewModel::startEdit) {
+                                Icon(Icons.Filled.Edit, stringResource(R.string.action_edit))
+                            }
                         }
-                        TextButton(onClick = viewModel::save) { Text(stringResource(R.string.action_save)) }
                     }
                 },
             )
+        },
+        bottomBar = {
+            if (ingredient != null && !ingredient.reviewed && !editing) {
+                Button(
+                    onClick = {
+                        viewModel.setReviewed(true)
+                        scope.launch {
+                            snackbar.currentSnackbarData?.dismiss()
+                            val result = snackbar.showSnackbar(reviewedMessage, actionLabel = undoLabel, duration = SnackbarDuration.Short)
+                            if (result == SnackbarResult.ActionPerformed) viewModel.setReviewed(false)
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(16.dp),
+                ) { Text(stringResource(R.string.ingredient_mark_reviewed)) }
+            }
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
@@ -224,6 +308,15 @@ fun IngredientDetailScreen(
                 )
             }
             null -> Unit
+        }
+        if (state.confirmDiscard) {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissDiscard,
+                title = { Text(stringResource(R.string.ingredient_discard_title)) },
+                text = { Text(stringResource(R.string.ingredient_discard_message)) },
+                confirmButton = { TextButton(onClick = viewModel::discard) { Text(stringResource(R.string.action_discard)) } },
+                dismissButton = { TextButton(onClick = viewModel::dismissDiscard) { Text(stringResource(R.string.action_cancel)) } },
+            )
         }
         state.deleteCheck?.let { check ->
             DeleteDialog(
@@ -252,7 +345,8 @@ fun IngredientDetailScreen(
                     )
                 }
             }
-            FormField(
+            Field(
+                editing = editing,
                 value = form.name,
                 onValueChange = { onChange { copy(name = it) } },
                 label = R.string.ingredient_name,
@@ -277,6 +371,7 @@ fun IngredientDetailScreen(
                 onStoreSection = { onChange { copy(storeSection = it) } },
                 onPlantPoints = { onChange { copy(plantPoints = it) } },
                 onDrainedWeight = { onChange { copy(drainedWeight = it) } },
+                editable = editing,
             )
 
             SectionTitle(
@@ -285,7 +380,8 @@ fun IngredientDetailScreen(
             Nutrient.entries.chunked(2).forEach { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     pair.forEach { nutrient ->
-                        FormField(
+                        Field(
+                            editing = editing,
                             value = form.nutrition[nutrient].orEmpty(),
                             onValueChange = { onChange { withNutrient(nutrient, it) } },
                             label = nutrient.label,
@@ -299,9 +395,11 @@ fun IngredientDetailScreen(
                     }
                 }
             }
-            TextButton(onClick = scan) {
-                Icon(Icons.Filled.QrCodeScanner, contentDescription = null)
-                Text(stringResource(R.string.barcode_update), Modifier.padding(start = 8.dp))
+            if (editing) {
+                TextButton(onClick = scan) {
+                    Icon(Icons.Filled.QrCodeScanner, contentDescription = null)
+                    Text(stringResource(R.string.barcode_update), Modifier.padding(start = 8.dp))
+                }
             }
         }
     }
@@ -369,13 +467,14 @@ private fun DeleteDialog(name: String, usedIn: List<String>, onConfirm: () -> Un
 
 private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_INFO, DRAINED_WEIGHT }
 
-/** One line per property with its current value; tapping opens a radio dialog that applies on tap. */
+/** One line per property with its current value; when [editable], tapping opens a radio dialog that applies on tap. */
 @Composable
 private fun PropertiesGroup(
     form: IngredientForm,
     onStoreSection: (StoreSection) -> Unit,
     onPlantPoints: (PlantPoints) -> Unit,
     onDrainedWeight: (DrainedWeight?) -> Unit,
+    editable: Boolean,
 ) {
     var dialog by rememberSaveable { mutableStateOf<PropertyDialog?>(null) }
     SettingsGroup(
@@ -384,7 +483,7 @@ private fun PropertiesGroup(
                 icon = null,
                 title = stringResource(R.string.ingredient_section_store_section),
                 summary = stringResource(form.storeSection.label),
-                onClick = { dialog = PropertyDialog.STORE_SECTION },
+                onClick = if (editable) ({ dialog = PropertyDialog.STORE_SECTION }) else null,
             )
         },
         {
@@ -392,7 +491,7 @@ private fun PropertiesGroup(
                 icon = null,
                 title = stringResource(R.string.ingredient_section_plant_points),
                 summary = plantPointsLabel(form.plantPoints),
-                onClick = { dialog = PropertyDialog.PLANT_POINTS },
+                onClick = if (editable) ({ dialog = PropertyDialog.PLANT_POINTS }) else null,
                 trailing = {
                     IconButton(onClick = { dialog = PropertyDialog.PLANT_POINTS_INFO }) {
                         Icon(Icons.Filled.Info, stringResource(R.string.plant_points_info_description))
@@ -412,7 +511,7 @@ private fun PropertiesGroup(
                         formatDecimal(it.netWeightGrams, locale),
                     )
                 } ?: stringResource(R.string.ingredient_not_drained),
-                onClick = { dialog = PropertyDialog.DRAINED_WEIGHT },
+                onClick = if (editable) ({ dialog = PropertyDialog.DRAINED_WEIGHT }) else null,
             )
         },
         horizontalPadding = 0.dp,
@@ -525,6 +624,31 @@ private fun SectionTitle(@StringRes text: Int) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(top = 16.dp),
     )
+}
+
+/** An input in edit mode, the label with its value as plain text in view mode. */
+@Composable
+private fun Field(
+    editing: Boolean,
+    value: String,
+    onValueChange: (String) -> Unit,
+    @StringRes label: Int,
+    modifier: Modifier = Modifier.fillMaxWidth(),
+    @StringRes error: Int? = null,
+    numeric: Boolean = true,
+) {
+    if (editing) {
+        FormField(value, onValueChange, label, modifier, error, numeric)
+    } else {
+        Column(modifier.padding(vertical = 4.dp)) {
+            Text(
+                stringResource(label),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(value.ifBlank { "–" }, style = MaterialTheme.typography.bodyLarge)
+        }
+    }
 }
 
 @Composable

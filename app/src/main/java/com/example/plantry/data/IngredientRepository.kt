@@ -89,8 +89,8 @@ class IngredientRepository(private val dao: IngredientDao) {
     }
 
     /**
-     * Saves the user's edits and marks the ingredient reviewed. A [IngredientDraft.scannedLabel]
-     * becomes the source and clears the USDA reference.
+     * Saves the user's edits; reviewed stays as it is, see [setReviewed]. A
+     * [IngredientDraft.scannedLabel] becomes the source and clears the USDA reference.
      */
     suspend fun update(id: Long, draft: IngredientDraft) {
         val existing = dao.getById(id) ?: return
@@ -102,8 +102,12 @@ class IngredientRepository(private val dao: IngredientDao) {
                 storeSection = draft.storeSection,
                 plantPoints = draft.plantPoints,
                 drainedWeight = draft.drainedWeight,
-                reviewed = true,
             ),
         )
+    }
+
+    suspend fun setReviewed(id: Long, reviewed: Boolean) {
+        val existing = dao.getById(id) ?: return
+        if (existing.reviewed != reviewed) dao.update(existing.copy(reviewed = reviewed))
     }
 }

@@ -8,6 +8,7 @@
     <string name="action_delete">Löschen</string>
     <string name="action_more">Weitere Optionen</string>
     <string name="action_cancel">Abbrechen</string>
+    <string name="action_discard">Verwerfen</string>
     <string name="action_ok">OK</string>
     <string name="action_replace">Ersetzen</string>
 
@@ -262,7 +263,11 @@
     <string name="ingredient_usda_source">USDA: %1$s (FDC %2$d)</string>
     <string name="ingredient_no_usda_source">Keine USDA-Quelle</string>
     <string name="ingredient_label_source">Etikett: %1$s (Barcode %2$s)</string>
-    <string name="ingredient_reviewed_hint">Speichern markiert die Zutat als geprüft.</string>
+    <string name="ingredient_reviewed_hint">Mit „Geprüft“ unten bestätigst du die Zutat.</string>
+    <string name="ingredient_mark_reviewed">Geprüft</string>
+    <string name="ingredient_marked_reviewed">Als geprüft markiert</string>
+    <string name="ingredient_discard_title">Änderungen verwerfen?</string>
+    <string name="ingredient_discard_message">Deine Änderungen an dieser Zutat gehen verloren.</string>
     <string name="ingredient_section_nutrition">Nährwerte je 100 g</string>
     <string name="ingredient_section_nutrition_drained">Nährwerte je 100 g (abgetropft)</string>
     <string name="ingredient_section_properties">Eigenschaften</string>

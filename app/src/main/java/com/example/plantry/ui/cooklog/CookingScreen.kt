@@ -268,6 +268,7 @@ fun CookingScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    FabScrim(fabMenuOpen, onDismiss = { fabMenuOpen = false })
                 }
             } else {
                 val layoutDirection = LocalLayoutDirection.current
@@ -354,6 +355,7 @@ fun CookingScreen(
                         // Ends above the FAB.
                         modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight().padding(bottom = listPadding.calculateBottomPadding()),
                     )
+                    FabScrim(fabMenuOpen, onDismiss = { fabMenuOpen = false })
                 }
             }
         }

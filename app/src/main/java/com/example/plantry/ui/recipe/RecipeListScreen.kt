@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -40,7 +41,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -152,6 +155,11 @@ fun RecipeListScreen(
     onBack: (() -> Unit)? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    // Picking a sort, even the current one, jumps to the top; keyed on the sort too so it
+    // runs after the list has been reordered (the keyed rows would otherwise keep their place).
+    var sortPicks by remember { mutableIntStateOf(0) }
+    LaunchedEffect(sortPicks, state?.sort) { listState.scrollToItem(0) }
 
     Scaffold(
         topBar = {
@@ -165,7 +173,7 @@ fun RecipeListScreen(
                     }
                 },
                 actions = {
-                    state?.takeIf { it.recipeCount > 0 }?.let { SortMenu(it.sort, viewModel::setSort) }
+                    state?.takeIf { it.recipeCount > 0 }?.let { SortMenu(it.sort) { option -> viewModel.setSort(option); sortPicks++ } }
                 },
             )
         },
@@ -189,7 +197,7 @@ fun RecipeListScreen(
             } else {
                 val today = remember { LocalDate.now() }
                 val ingredientCount = current.filter.ingredientIds.size
-                LazyColumn(Modifier.fillMaxSize()) {
+                LazyColumn(Modifier.fillMaxSize(), state = listState) {
                     items(current.items, key = { it.recipe.id }) { item ->
                         RecipeRow(item, current.sort, ingredientCount, today, onClick = { onRecipeClick(item.recipe.id) })
                         HorizontalDivider()

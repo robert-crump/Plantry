@@ -9,8 +9,8 @@ enum class UsageFilter { ALL, USED, UNUSED }
 object IngredientFilters {
 
     /** The list opens with these each time the Zutaten tab is opened. */
-    val DEFAULT_REVIEW = ReviewFilter.REVIEWED
-    val DEFAULT_USAGE = UsageFilter.USED
+    val DEFAULT_REVIEW = ReviewFilter.ALL
+    val DEFAULT_USAGE = UsageFilter.ALL
 
     /**
      * The [ingredients] matching both filters, in their order; [recipeCounts] as from

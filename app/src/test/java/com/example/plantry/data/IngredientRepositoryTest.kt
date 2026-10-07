@@ -108,18 +108,29 @@ class IngredientRepositoryTest {
     }
 
     @Test
-    fun update_savesEditsAndMarksReviewed() = runTest {
+    fun update_savesEditsAndKeepsReviewed() = runTest {
         val id = repository.createFromUsda(riceCooked, "Reis, gekocht")
 
         repository.update(id, draft(repository.getIngredient(id)!!))
 
         val updated = repository.getIngredient(id)!!
-        assertTrue(updated.reviewed)
+        assertFalse(updated.reviewed)
         assertEquals("Reis, gekocht", updated.name)
         assertEquals(3.0, updated.nutrition.protein, 0.0)
         assertEquals(StoreSection.DRY_GOODS, updated.storeSection)
         assertEquals(PlantPoints.QUARTER, updated.plantPoints)
         assertEquals(168878L, updated.fdcId)
+    }
+
+    @Test
+    fun setReviewed_marksAndUnmarks() = runTest {
+        val id = repository.createFromUsda(riceCooked, "Reis, gekocht")
+
+        repository.setReviewed(id, true)
+        assertTrue(repository.getIngredient(id)!!.reviewed)
+
+        repository.setReviewed(id, false)
+        assertFalse(repository.getIngredient(id)!!.reviewed)
     }
 
     private fun proposal(food: UsdaFood, name: String) = IngredientProposal(

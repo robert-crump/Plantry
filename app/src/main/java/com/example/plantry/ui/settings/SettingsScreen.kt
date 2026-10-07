@@ -374,7 +374,8 @@ internal fun SettingsGroup(vararg rows: @Composable () -> Unit, horizontalPaddin
 internal fun SettingsRow(
     icon: ImageVector?,
     title: String,
-    onClick: () -> Unit,
+    /** Null for a row that only shows its value. */
+    onClick: (() -> Unit)?,
     summary: String? = null,
     enabled: Boolean = true,
     summaryColor: Color = Color.Unspecified,
@@ -395,7 +396,7 @@ internal fun SettingsRow(
                 leadingIconColor = disabled,
             )
         },
-        modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
+        modifier = if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier,
     )
 }
 

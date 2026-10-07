@@ -45,8 +45,8 @@ class IngredientFiltersTest {
     fun unreviewedUnused() = assertEquals(listOf("Spinat"), names(ReviewFilter.UNREVIEWED, UsageFilter.UNUSED))
 
     @Test
-    fun defaults_areReviewedAndUsed() {
-        assertEquals(ReviewFilter.REVIEWED, IngredientFilters.DEFAULT_REVIEW)
-        assertEquals(UsageFilter.USED, IngredientFilters.DEFAULT_USAGE)
+    fun defaults_showEverything() {
+        assertEquals(ReviewFilter.ALL, IngredientFilters.DEFAULT_REVIEW)
+        assertEquals(UsageFilter.ALL, IngredientFilters.DEFAULT_USAGE)
     }
 }
