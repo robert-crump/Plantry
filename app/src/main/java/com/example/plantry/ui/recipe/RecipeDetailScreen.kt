@@ -25,6 +25,8 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.UnfoldLess
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -62,6 +64,7 @@ import com.example.plantry.R
 import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.CookingStats
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeHighlight
@@ -161,6 +164,8 @@ fun RecipeDetailScreen(
     val recipe = state?.recipe
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var pickPlanDate by rememberSaveable { mutableStateOf(false) }
+    // Opening state of the Nährwerte rows; closed whenever the screen opens.
+    var openNutrients by remember { mutableStateOf(emptySet<Nutrient>()) }
 
     Scaffold(
         topBar = {
@@ -236,8 +241,21 @@ fun RecipeDetailScreen(
 
             if (detail.lines.isNotEmpty()) {
                 DetailCard {
-                    SectionTitle(R.string.recipe_section_nutrition)
-                    NutrientList(detail.nutrition)
+                    val allOpen = openNutrients.size == Nutrient.entries.size
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        SectionTitle(R.string.recipe_section_nutrition, Modifier.weight(1f))
+                        IconButton(onClick = { openNutrients = if (allOpen) emptySet() else Nutrient.entries.toSet() }) {
+                            Icon(
+                                if (allOpen) Icons.Filled.UnfoldLess else Icons.Filled.UnfoldMore,
+                                stringResource(if (allOpen) R.string.nutrition_collapse_all else R.string.nutrition_expand_all),
+                            )
+                        }
+                    }
+                    NutrientList(
+                        detail.nutrition,
+                        expanded = openNutrients,
+                        onToggle = { openNutrients = if (it in openNutrients) openNutrients - it else openNutrients + it },
+                    )
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -482,11 +500,11 @@ private fun CookedSection(
 }
 
 @Composable
-private fun SectionTitle(@StringRes text: Int) {
+private fun SectionTitle(@StringRes text: Int, modifier: Modifier = Modifier) {
     Text(
         stringResource(text),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp),
+        modifier = modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp),
     )
 }

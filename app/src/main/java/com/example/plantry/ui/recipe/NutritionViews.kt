@@ -1,22 +1,26 @@
 package com.example.plantry.ui.recipe
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BakeryDining
 import androidx.compose.material.icons.filled.Cookie
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Grass
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -69,37 +73,63 @@ fun ProteinIndicator(proteinPerPortion: Double, modifier: Modifier = Modifier) {
     }
 }
 
-/** Every nutrient per portion, each with its icon and the ingredients contributing most to it. */
+/**
+ * Every nutrient per portion, each with its icon. A row opens on tap to show the ingredients
+ * contributing most to it; [expanded] holds the open ones.
+ */
 @Composable
-fun NutrientList(nutrition: RecipeNutrition) {
+fun NutrientList(nutrition: RecipeNutrition, expanded: Set<Nutrient>, onToggle: (Nutrient) -> Unit) {
     val locale = currentLocale()
-    Column {
+    Column(Modifier.padding(vertical = 4.dp)) {
         Nutrient.entries.forEach { nutrient ->
             val contributors = nutrition.topContributors[nutrient].orEmpty()
-            ListItem(
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                leadingContent = { Icon(nutrient.icon, contentDescription = null) },
-                headlineContent = { Text(stringResource(nutrient.displayName)) },
-                supportingContent = if (contributors.isEmpty()) {
-                    null
-                } else {
-                    {
-                        // Each entry is one unbreakable unit; a wide one moves to the next line as a whole.
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            contributors.forEachIndexed { index, contributor ->
-                                val separator = if (index < contributors.lastIndex) "$NBSP·" else ""
-                                Text("${contributor.name}$NBSP${formatRounded(contributor.amount, nutrient, locale)}$separator")
-                            }
-                        }
-                    }
-                },
-                trailingContent = {
+            val open = nutrient in expanded && contributors.isNotEmpty()
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .then(if (contributors.isEmpty()) Modifier else Modifier.clickable { onToggle(nutrient) })
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Icon(nutrient.icon, contentDescription = null)
+                    Text(
+                        stringResource(nutrient.displayName),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
+                    )
                     Text(
                         formatRounded(nutrition.perPortion[nutrient], nutrient, locale),
                         style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 2.dp),
                     )
-                },
-            )
+                    // Always takes its space, so the amounts line up in rows without contributors.
+                    Box(Modifier.size(24.dp)) {
+                        if (contributors.isNotEmpty()) {
+                            Icon(
+                                if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                contentDescription = stringResource(if (open) R.string.nutrition_collapse else R.string.nutrition_expand),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                AnimatedVisibility(open) {
+                    // Each entry is one unbreakable unit; a wide one moves to the next line as a whole.
+                    FlowRow(
+                        Modifier.padding(start = 40.dp, top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        contributors.forEachIndexed { index, contributor ->
+                            val separator = if (index < contributors.lastIndex) "$NBSP·" else ""
+                            Text(
+                                "${contributor.name}$NBSP${formatRounded(contributor.amount, nutrient, locale)}$separator",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
