@@ -64,7 +64,7 @@ class BackupRepository(
     suspend fun import(file: BackupFile) {
         store.replaceAll(file.toSnapshot())
         withContext(Dispatchers.IO) { photos.replaceAll(file.photos()) }
-        settings.setScanModel(ScanModel.fromModelId(file.settings.scanModel))
+        settings.setScanModel(ScanModel.fromStored(file.settings.scanModel))
         settings.setCooldownDays(file.settings.cooldownDays)
         setBaseline(currentJson())
     }
@@ -86,7 +86,7 @@ class BackupRepository(
     private suspend fun currentJson(): String {
         val snapshot = store.snapshot()
         val photos = withContext(Dispatchers.IO) { photos.all() }
-        val settings = settings.settings.value.let { BackupSettings(it.scanModel.modelId, it.cooldownDays) }
+        val settings = settings.settings.value.let { BackupSettings(it.scanModel.storageValue, it.cooldownDays) }
         return withContext(Dispatchers.Default) { BackupFile.encode(snapshot.toFile(photos, settings)) }
     }
 

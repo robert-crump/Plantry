@@ -66,14 +66,14 @@ fun interface ConnectionTester {
 }
 
 /** Makes the smallest possible Messages call with the given key and model. */
-class AnthropicConnectionTester : ConnectionTester {
+class AnthropicConnectionTester(private val models: ModelCatalog = ModelCatalog.shared) : ConnectionTester {
 
     override suspend fun test(apiKey: String, model: ScanModel): ConnectionResult = withContext(Dispatchers.IO) {
         val client = AnthropicOkHttpClient.builder().apiKey(apiKey).maxRetries(0).build()
         try {
             client.messages().create(
                 MessageCreateParams.builder()
-                    .model(model.modelId)
+                    .model(models.resolve(apiKey, model).id)
                     .maxTokens(16L)
                     .outputConfig(OutputConfig.builder().effort(OutputConfig.Effort.LOW).build())
                     .addUserMessage("Ping")

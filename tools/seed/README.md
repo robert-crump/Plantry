@@ -29,5 +29,5 @@ input/
    refine [`matching-rules.md`](matching-rules.md).
 3. **Apply** the rules to all ingredients; only low-confidence matches are flagged for review.
 4. **Review** the full table (name, USDA entry, plant points, store section).
-5. **Generate** `output/YYMMDD-plantry.json` in the backup format (`BackupFile`, format version 1)
+5. **Generate** `output/YYMMDD-plantry.json` in the backup format (`BackupFile`, current format version; every ingredient gets `"origin": "SEED"`)
    and import it in the app. This replaces all app data; the API key is kept.

@@ -4,6 +4,7 @@ import com.example.plantry.data.CookLog
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
+import com.example.plantry.data.IngredientOrigin
 import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
@@ -13,6 +14,8 @@ import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeSnapshot
 import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.StoreSection
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -47,9 +50,9 @@ data class BackupFile(
          * belong to a deleted recipe. 6: Geplant. 7: cooking log entries may carry kcal and fibre.
          * 8: ingredients without unit weights, buy unit, pack size, staple flag and buy-as link.
          * 9: ingredients may carry net and drained weight. 10: ingredients may carry the scanned
-         * package their nutrition came from.
+         * package their nutrition came from. 11: ingredients carry their origin.
          */
-        const val FORMAT_VERSION = 10
+        const val FORMAT_VERSION = 11
 
         /**
          * Unknown keys are skipped, so older files with `weekPlan` and `shoppingTicks`, or with the
@@ -96,6 +99,7 @@ data class BackupNutrition(
     val fibre: Double,
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class BackupIngredient(
     val id: Long,
@@ -112,6 +116,8 @@ data class BackupIngredient(
     /** Since version 10; both null unless the nutrition came from a scanned package. */
     val labelProduct: String? = null,
     val labelBarcode: String? = null,
+    /** Since version 11; older files hold the seed. Always written, so a file says where each ingredient came from. */
+    @EncodeDefault val origin: IngredientOrigin = IngredientOrigin.SEED,
 )
 
 @Serializable
@@ -267,6 +273,7 @@ private fun Ingredient.toBackup() = BackupIngredient(
     drainedWeightGrams = drainedWeight?.drainedWeightGrams,
     labelProduct = labelSource?.labelProduct,
     labelBarcode = labelSource?.labelBarcode,
+    origin = origin,
 )
 
 private fun BackupIngredient.toEntity() = Ingredient(
@@ -280,6 +287,7 @@ private fun BackupIngredient.toEntity() = Ingredient(
     reviewed = reviewed,
     drainedWeight = DrainedWeight.of(netWeightGrams, drainedWeightGrams),
     labelSource = if (labelProduct != null && labelBarcode != null) LabelSource(labelProduct, labelBarcode) else null,
+    origin = origin,
 )
 
 private fun Recipe.toBackup(photo: String?, lines: List<RecipeIngredient>) = BackupRecipe(

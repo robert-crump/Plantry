@@ -3,6 +3,7 @@ package com.example.plantry.data.backup
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.IngredientOrigin
 import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrition
@@ -71,7 +72,8 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 10"))
+        assertTrue(json.contains("\"formatVersion\": 11"))
+        assertTrue(json.contains("\"origin\": \"SEED\""))
         assertFalse(json.contains("\"staple\""))
         assertFalse(json.contains("\"buyAsIngredientId\""))
     }
@@ -107,7 +109,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 10", "\"formatVersion\": 11")
+        val newer = source.export().replace("\"formatVersion\": 11", "\"formatVersion\": 12")
 
         val error = readError(newer)
 
@@ -148,6 +150,29 @@ class BackupRepositoryTest {
         target.repository.import(target.repository.read(v7))
 
         assertEquals(source.store.data, target.store.data)
+    }
+
+    @Test
+    fun version10File_importsIngredientsAsSeed() = runTest {
+        val v11 = Json.parseToJsonElement(source.export()).jsonObject
+        val v10Ingredients = JsonArray(v11.getValue("ingredients").jsonArray.map { JsonObject(it.jsonObject - "origin") })
+        val v10 = JsonObject(v11 + ("formatVersion" to JsonPrimitive(10)) + ("ingredients" to v10Ingredients)).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(v10))
+
+        assertTrue(target.store.data.ingredients.all { it.origin == IngredientOrigin.SEED })
+    }
+
+    @Test
+    fun origin_survivesExportAndImport() = runTest {
+        val added = source.store.data.ingredients.map { it.copy(origin = IngredientOrigin.BARCODE) }
+        source.store.data = source.store.data.copy(ingredients = added)
+        val target = Device()
+
+        target.repository.import(target.repository.read(source.export()))
+
+        assertTrue(target.store.data.ingredients.all { it.origin == IngredientOrigin.BARCODE })
     }
 
     @Test

@@ -15,6 +15,7 @@
     <!-- Recipe list -->
     <string name="recipes_title">Rezepte</string>
     <string name="recipes_empty">Noch keine Rezepte. Fotografiere eine Rezeptseite oder lege eins von Hand an.</string>
+    <string name="recipe_fab">Rezept</string>
     <string name="recipe_add">Neues Rezept</string>
     <string name="recipe_scan_start">Rezept aus Foto erkennen</string>
     <string name="recipe_scan_replace">Bisherige Eingaben werden durch das Foto ersetzt.</string>
@@ -212,11 +213,15 @@
     </plurals>
     <string name="ingredients_filter_review">Prüfstatus</string>
     <string name="ingredients_filter_usage">Verwendung</string>
+    <string name="ingredients_filter_origin">Herkunft</string>
+    <string name="filter_seed">Seed</string>
+    <string name="filter_added">Eigene</string>
     <string name="filter_all">Alle</string>
     <string name="filter_reviewed">Geprüft</string>
     <string name="filter_unreviewed">Ungeprüft</string>
     <string name="filter_used">Verwendet</string>
     <string name="filter_unused">Nicht verwendet</string>
+    <string name="ingredient_fab">Zutat</string>
     <string name="ingredient_add">Zutat hinzufügen</string>
     <string name="ingredient_unreviewed">Ungeprüft</string>
     <plurals name="ingredient_recipe_count">
@@ -345,9 +350,7 @@
     <string name="settings_api_key_required">Bitte einen Schlüssel einfügen</string>
     <string name="settings_api_key_later">Später</string>
     <string name="settings_scan_model">Modell für Rezept-Scans</string>
-    <string name="scan_model_opus">Claude Opus 5.5</string>
     <string name="scan_model_opus_description">Am genauesten, etwas teurer</string>
-    <string name="scan_model_sonnet">Claude Sonnet 5.5</string>
     <string name="scan_model_sonnet_description">Schneller und günstiger</string>
     <string name="settings_suggestions">Rezeptvorschläge</string>
     <string name="settings_cooldown">Cooldown-Zeit</string>

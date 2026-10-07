@@ -10,6 +10,7 @@ import com.anthropic.models.messages.OutputConfig
 import com.anthropic.models.messages.StopReason
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.IngredientOrigin
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
@@ -78,6 +79,7 @@ data class IngredientProposal(
             plantPoints = plantPoints,
             reviewed = false,
             drainedWeight = drainedWeight,
+            origin = IngredientOrigin.CLAUDE,
         )
     }
 }
@@ -99,7 +101,10 @@ interface IngredientProposer {
     ): ClaudeResult<Map<Long, IngredientProposal>>
 }
 
-class AnthropicIngredientProposer : IngredientProposer {
+class AnthropicIngredientProposer(private val models: ModelCatalog = ModelCatalog.shared) : IngredientProposer {
+
+    private suspend fun modelId(apiKey: String, model: ScanModel): String =
+        withContext(Dispatchers.IO) { models.resolve(apiKey, model).id }
 
     override suspend fun searchTerms(
         apiKey: String,
@@ -107,7 +112,7 @@ class AnthropicIngredientProposer : IngredientProposer {
         foods: List<NewFood>,
     ): ClaudeResult<Map<Long, List<String>>> {
         val params = request(
-            model,
+            modelId(apiKey, model),
             OutputConfig.Effort.LOW,
             ProposalPrompt.SEARCH_TERMS_SYSTEM,
             ProposalPrompt.searchTermsSchema(),
@@ -125,7 +130,7 @@ class AnthropicIngredientProposer : IngredientProposer {
         foods: List<FoodCandidates>,
     ): ClaudeResult<Map<Long, IngredientProposal>> {
         val params = request(
-            model,
+            modelId(apiKey, model),
             OutputConfig.Effort.MEDIUM,
             ProposalPrompt.PROPOSE_SYSTEM,
             ProposalPrompt.proposeSchema(),
@@ -138,13 +143,13 @@ class AnthropicIngredientProposer : IngredientProposer {
     }
 
     private fun request(
-        model: ScanModel,
+        modelId: String,
         effort: OutputConfig.Effort,
         system: String,
         schema: JsonOutputFormat.Schema,
         message: String,
     ) = MessageCreateParams.builder()
-        .model(model.modelId)
+        .model(modelId)
         .maxTokens(8_000L)
         .system(system)
         .outputConfig(

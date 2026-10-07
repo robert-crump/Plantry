@@ -156,7 +156,7 @@ class SettingsRepositoryTest {
         repository.setScanModel(ScanModel.SONNET)
 
         assertEquals(ScanModel.SONNET, repository.settings.value.scanModel)
-        assertEquals("claude-sonnet-5-5", storage.values[SettingsRepository.KEY_SCAN_MODEL])
+        assertEquals("sonnet", storage.values[SettingsRepository.KEY_SCAN_MODEL])
         assertEquals(ScanModel.SONNET, SettingsRepository(storage, ReversingCipher).settings.value.scanModel)
     }
 

@@ -26,7 +26,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,6 +62,7 @@ import com.example.plantry.data.IngredientSorting
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
+import com.example.plantry.data.OriginFilter
 import com.example.plantry.data.ReviewFilter
 import com.example.plantry.data.SortView
 import com.example.plantry.data.UsageFilter
@@ -80,8 +81,9 @@ data class IngredientListUiState(
     val recipeCounts: Map<Long, Int>,
     val review: ReviewFilter,
     val usage: UsageFilter,
+    val origin: OriginFilter,
 ) {
-    val filtered: Boolean get() = review != ReviewFilter.ALL || usage != UsageFilter.ALL
+    val filtered: Boolean get() = review != ReviewFilter.ALL || usage != UsageFilter.ALL || origin != OriginFilter.ALL
 }
 
 class IngredientListViewModel(
@@ -91,6 +93,7 @@ class IngredientListViewModel(
 
     private val review = MutableStateFlow(IngredientFilters.DEFAULT_REVIEW)
     private val usage = MutableStateFlow(IngredientFilters.DEFAULT_USAGE)
+    private val origin = MutableStateFlow(IngredientFilters.DEFAULT_ORIGIN)
 
     /** Null until the first emission, so the empty state doesn't flash on launch. */
     val state: StateFlow<IngredientListUiState?> =
@@ -99,17 +102,19 @@ class IngredientListViewModel(
             recipeRepository.observeAllLines(),
             review,
             usage,
-        ) { all, lines, review, usage ->
+            origin,
+        ) { all, lines, review, usage, origin ->
             val recipeCounts = RecipeQuery.recipeCounts(lines, all.associateBy { it.id })
             IngredientListUiState(
                 ingredients = IngredientSorting.sortedByName(
-                    IngredientFilters.apply(all, recipeCounts, review, usage),
+                    IngredientFilters.apply(all, recipeCounts, review, usage, origin),
                     Locale.getDefault(),
                 ),
                 totalCount = all.size,
                 recipeCounts = recipeCounts,
                 review = review,
                 usage = usage,
+                origin = origin,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -121,10 +126,15 @@ class IngredientListViewModel(
         usage.value = filter
     }
 
+    fun setOrigin(filter: OriginFilter) {
+        origin.value = filter
+    }
+
     /** Back to the defaults; called each time the Zutaten tab is opened. */
     fun resetFilters() {
         review.value = IngredientFilters.DEFAULT_REVIEW
         usage.value = IngredientFilters.DEFAULT_USAGE
+        origin.value = IngredientFilters.DEFAULT_ORIGIN
     }
 }
 
@@ -149,14 +159,22 @@ fun IngredientListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddIngredient) {
-                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.ingredient_add))
-            }
+            ExtendedFloatingActionButton(
+                onClick = onAddIngredient,
+                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                text = { Text(stringResource(R.string.ingredient_fab)) },
+            )
         },
     ) { padding ->
         val current = state ?: return@Scaffold
         Column(Modifier.fillMaxSize().padding(padding)) {
-            FilterRow(current, onReviewChange = viewModel::setReview, onUsageChange = viewModel::setUsage)
+            FilterRow(
+                current,
+                onReviewChange = viewModel::setReview,
+                onUsageChange = viewModel::setUsage,
+                onOriginChange = viewModel::setOrigin,
+            )
+            CountRow(current)
             if (current.ingredients.isEmpty()) {
                 Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                     Text(
@@ -210,38 +228,26 @@ fun IngredientListScreen(
 }
 
 private val FabClearance = 88.dp
-private val FilterButtonWidth = 140.dp
 
-/** The count ("212 Zutaten" or "90/213 Zutaten") and the Prüfstatus and Verwendung dropdowns. */
+/** The Prüfstatus, Verwendung and Herkunft dropdowns. */
 @Composable
 private fun FilterRow(
     state: IngredientListUiState,
     onReviewChange: (ReviewFilter) -> Unit,
     onUsageChange: (UsageFilter) -> Unit,
+    onOriginChange: (OriginFilter) -> Unit,
 ) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     ) {
-        Text(
-            if (state.filtered) {
-                pluralStringResource(R.plurals.ingredients_count_filtered, state.totalCount, state.ingredients.size, state.totalCount)
-            } else {
-                pluralStringResource(R.plurals.ingredients_count, state.totalCount, state.totalCount)
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            // Wraps rather than ellipsizes on narrow phones with three-digit counts.
-            maxLines = 2,
-            modifier = Modifier.weight(1f),
-        )
         FilterDropdown(
             name = stringResource(R.string.ingredients_filter_review),
             selected = state.review,
             options = ReviewFilter.entries,
             label = { stringResource(it.label) },
             onSelect = onReviewChange,
+            modifier = Modifier.weight(1f),
         )
         FilterDropdown(
             name = stringResource(R.string.ingredients_filter_usage),
@@ -249,8 +255,32 @@ private fun FilterRow(
             options = UsageFilter.entries,
             label = { stringResource(it.label) },
             onSelect = onUsageChange,
+            modifier = Modifier.weight(1f),
+        )
+        FilterDropdown(
+            name = stringResource(R.string.ingredients_filter_origin),
+            selected = state.origin,
+            options = OriginFilter.entries,
+            label = { stringResource(it.label) },
+            onSelect = onOriginChange,
+            modifier = Modifier.weight(1f),
         )
     }
+}
+
+/** "212 Zutaten" or "90/213 Zutaten". */
+@Composable
+private fun CountRow(state: IngredientListUiState) {
+    Text(
+        if (state.filtered) {
+            pluralStringResource(R.plurals.ingredients_count_filtered, state.totalCount, state.ingredients.size, state.totalCount)
+        } else {
+            pluralStringResource(R.plurals.ingredients_count, state.totalCount, state.totalCount)
+        },
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+    )
 }
 
 private val ReviewFilter.label: Int
@@ -258,6 +288,13 @@ private val ReviewFilter.label: Int
         ReviewFilter.ALL -> R.string.filter_all
         ReviewFilter.REVIEWED -> R.string.filter_reviewed
         ReviewFilter.UNREVIEWED -> R.string.filter_unreviewed
+    }
+
+private val OriginFilter.label: Int
+    get() = when (this) {
+        OriginFilter.ALL -> R.string.filter_all
+        OriginFilter.SEED -> R.string.filter_seed
+        OriginFilter.ADDED -> R.string.filter_added
     }
 
 private val UsageFilter.label: Int
@@ -278,15 +315,16 @@ private fun <T> FilterDropdown(
     options: List<T>,
     label: @Composable (T) -> String,
     onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedLabel = label(selected)
-    Box {
+    Box(modifier) {
         OutlinedButton(
             onClick = { expanded = true },
             contentPadding = PaddingValues(start = 12.dp, end = 0.dp),
             modifier = Modifier
-                .width(FilterButtonWidth)
+                .fillMaxWidth()
                 .semantics(mergeDescendants = true) { contentDescription = "$name: $selectedLabel" },
         ) {
             Text(

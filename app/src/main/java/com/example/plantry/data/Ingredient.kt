@@ -1,5 +1,6 @@
 package com.example.plantry.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -21,7 +22,12 @@ data class Ingredient(
     @Embedded val drainedWeight: DrainedWeight? = null,
     /** The scanned package the nutrition was taken from, instead of USDA; see [LabelSource]. */
     @Embedded val labelSource: LabelSource? = null,
+    /** How the ingredient got into the app; the default is what the seed import and old rows are. */
+    @ColumnInfo(defaultValue = "'SEED'") val origin: IngredientOrigin = IngredientOrigin.SEED,
 )
+
+/** Where an [Ingredient] came from: the seed import, or added later by Claude, a barcode scan or by hand. */
+enum class IngredientOrigin { SEED, CLAUDE, BARCODE, MANUAL }
 
 /**
  * A package whose barcode was looked up in Open Food Facts for the nutrition. Only shown as the

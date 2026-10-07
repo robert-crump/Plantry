@@ -43,6 +43,7 @@ class IngredientRepositoryTest {
         assertEquals(riceCooked.description, ingredient.usdaDescription)
         assertEquals(riceCooked.nutrition, ingredient.nutrition)
         assertFalse(ingredient.reviewed)
+        assertEquals(IngredientOrigin.MANUAL, ingredient.origin)
     }
 
     @Test
@@ -67,6 +68,14 @@ class IngredientRepositoryTest {
 
         assertEquals(source, ingredient.labelSource)
         assertNull(ingredient.fdcId)
+        assertEquals(IngredientOrigin.BARCODE, ingredient.origin)
+    }
+
+    @Test
+    fun createFromLabel_withoutScannedPackageIsManual() = runTest {
+        val id = repository.createFromLabel("Haferdrink", Nutrition(52.0, 1.0, 9.0, 4.0, 1.5, 0.0))
+
+        assertEquals(IngredientOrigin.MANUAL, repository.getIngredient(id)!!.origin)
     }
 
     @Test

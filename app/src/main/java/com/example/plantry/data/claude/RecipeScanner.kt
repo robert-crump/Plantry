@@ -54,7 +54,7 @@ fun interface RecipeScanner {
     suspend fun scan(apiKey: String, model: ScanModel, photo: ByteArray, ingredients: List<Ingredient>): ScanResult
 }
 
-class AnthropicRecipeScanner : RecipeScanner {
+class AnthropicRecipeScanner(private val models: ModelCatalog = ModelCatalog.shared) : RecipeScanner {
 
     override suspend fun scan(
         apiKey: String,
@@ -64,7 +64,7 @@ class AnthropicRecipeScanner : RecipeScanner {
     ): ScanResult = withContext(Dispatchers.IO) {
         val client = AnthropicOkHttpClient.builder().apiKey(apiKey).build()
         try {
-            val response = client.messages().create(request(model, photo, ingredients))
+            val response = client.messages().create(request(models.resolve(apiKey, model).id, photo, ingredients))
             when (response.stopReason().orElse(null)) {
                 StopReason.REFUSAL -> return@withContext ScanResult.Failure(ClaudeFailure.REFUSED)
                 StopReason.MAX_TOKENS -> return@withContext ScanResult.Failure(ClaudeFailure.TRUNCATED)
@@ -82,9 +82,9 @@ class AnthropicRecipeScanner : RecipeScanner {
         }
     }
 
-    private fun request(model: ScanModel, photo: ByteArray, ingredients: List<Ingredient>) =
+    private fun request(modelId: String, photo: ByteArray, ingredients: List<Ingredient>) =
         MessageCreateParams.builder()
-            .model(model.modelId)
+            .model(modelId)
             .maxTokens(16_000L)
             .system(ScanPrompt.system(ingredients))
             .outputConfig(

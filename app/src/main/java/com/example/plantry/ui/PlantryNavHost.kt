@@ -1,6 +1,8 @@
 package com.example.plantry.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -222,6 +224,10 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
             NavHost(
                 navController,
                 startDestination = CookingRoute,
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { ExitTransition.None },
                 // The banner already took the status bar.
                 modifier = if (showBackupReminder) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier,
             ) {

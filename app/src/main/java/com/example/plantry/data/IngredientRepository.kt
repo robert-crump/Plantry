@@ -28,7 +28,7 @@ class IngredientRepository(private val dao: IngredientDao) {
      * remaining attributes get neutral defaults until the user reviews it.
      */
     suspend fun createFromUsda(food: UsdaFood, name: String): Long =
-        insertUnreviewed(name, food.nutrition, food.fdcId, food.description)
+        insertUnreviewed(name, food.nutrition, food.fdcId, food.description, origin = IngredientOrigin.MANUAL)
 
     /**
      * Creates an unreviewed ingredient without a USDA reference, with the [nutrition] per 100 g
@@ -36,7 +36,10 @@ class IngredientRepository(private val dao: IngredientDao) {
      * [createFromUsda].
      */
     suspend fun createFromLabel(name: String, nutrition: Nutrition, labelSource: LabelSource? = null): Long =
-        insertUnreviewed(name, nutrition, fdcId = null, usdaDescription = null, labelSource = labelSource)
+        insertUnreviewed(
+            name, nutrition, fdcId = null, usdaDescription = null, labelSource = labelSource,
+            origin = if (labelSource != null) IngredientOrigin.BARCODE else IngredientOrigin.MANUAL,
+        )
 
     private suspend fun insertUnreviewed(
         name: String,
@@ -44,6 +47,7 @@ class IngredientRepository(private val dao: IngredientDao) {
         fdcId: Long?,
         usdaDescription: String?,
         labelSource: LabelSource? = null,
+        origin: IngredientOrigin,
     ): Long = dao.insert(
         Ingredient(
             name = name.trim(),
@@ -54,6 +58,7 @@ class IngredientRepository(private val dao: IngredientDao) {
             plantPoints = PlantPoints.ZERO,
             reviewed = false,
             labelSource = labelSource,
+            origin = origin,
         ),
     )
 

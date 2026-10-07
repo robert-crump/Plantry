@@ -77,17 +77,20 @@ import com.example.plantry.ui.rememberNotificationPermissionRequest
 import com.example.plantry.data.claude.ClaudeFailure
 import com.example.plantry.data.claude.ConnectionResult
 import com.example.plantry.data.claude.ConnectionTester
+import com.example.plantry.data.claude.ModelCatalog
 import com.example.plantry.data.settings.ReminderKind
 import com.example.plantry.data.settings.ReminderSetting
 import com.example.plantry.data.settings.ScanModel
 import com.example.plantry.data.settings.Settings as AppSettings
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.data.settings.ThemeMode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -100,16 +103,40 @@ sealed interface ConnectionTestState {
 class SettingsViewModel(
     private val repository: SettingsRepository,
     private val tester: ConnectionTester,
+    private val models: ModelCatalog = ModelCatalog.shared,
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = repository.settings
+
+    /** The model each tier currently stands for, e.g. "Opus 5.5"; the built-in one until the API list is known. */
+    private val _modelNames = MutableStateFlow(currentModelNames())
+    val modelNames: StateFlow<Map<ScanModel, String>> = _modelNames.asStateFlow()
+
+    init {
+        refreshModelNames()
+    }
+
+    private fun currentModelNames() = ScanModel.entries.associateWith { models.peek(it).name }
+
+    private fun refreshModelNames() {
+        val key = repository.apiKey() ?: return
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { ScanModel.entries.forEach { models.resolve(key, it) } }
+            _modelNames.value = currentModelNames()
+        }
+    }
 
     private val _connectionTest = MutableStateFlow<ConnectionTestState>(ConnectionTestState.Idle)
     val connectionTest: StateFlow<ConnectionTestState> = _connectionTest.asStateFlow()
 
     private var testJob: Job? = null
 
-    fun saveApiKey(key: String): Boolean = repository.setApiKey(key).also { if (it) resetTest() }
+    fun saveApiKey(key: String): Boolean = repository.setApiKey(key).also {
+        if (it) {
+            resetTest()
+            refreshModelNames()
+        }
+    }
 
     fun deleteApiKey() {
         repository.deleteApiKey()
@@ -148,6 +175,7 @@ class SettingsViewModel(
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewModel) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val modelNames by viewModel.modelNames.collectAsStateWithLifecycle()
     val connectionTest by viewModel.connectionTest.collectAsStateWithLifecycle()
     var editingKey by rememberSaveable { mutableStateOf(false) }
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
@@ -226,7 +254,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
                     SettingsRow(
                         icon = Icons.Filled.AutoAwesome,
                         title = stringResource(R.string.settings_scan_model),
-                        summary = stringResource(settings.scanModel.label),
+                        summary = modelNames.getValue(settings.scanModel),
                         onClick = { choosingModel = true },
                     )
                 },
@@ -298,7 +326,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
             title = stringResource(R.string.settings_scan_model),
             options = ScanModel.entries,
             selected = settings.scanModel,
-            label = { stringResource(it.label) },
+            label = { modelNames.getValue(it) },
             description = { stringResource(it.description) },
             onSelect = {
                 viewModel.setScanModel(it)
@@ -684,12 +712,6 @@ private val ThemeMode.label: Int
         ThemeMode.SYSTEM -> R.string.theme_system
         ThemeMode.LIGHT -> R.string.theme_light
         ThemeMode.DARK -> R.string.theme_dark
-    }
-
-private val ScanModel.label: Int
-    get() = when (this) {
-        ScanModel.OPUS -> R.string.scan_model_opus
-        ScanModel.SONNET -> R.string.scan_model_sonnet
     }
 
 private val ScanModel.description: Int

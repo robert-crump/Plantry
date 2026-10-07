@@ -45,7 +45,25 @@ class IngredientFiltersTest {
     fun unreviewedUnused() = assertEquals(listOf("Spinat"), names(ReviewFilter.UNREVIEWED, UsageFilter.UNUSED))
 
     @Test
+    fun origin_seedKeepsOnlySeedIngredients() {
+        val mixed = listOf(
+            ingredient(1, "Knoblauch"),
+            ingredient(2, "Haferdrink").copy(origin = IngredientOrigin.BARCODE),
+            ingredient(3, "Seitan").copy(origin = IngredientOrigin.CLAUDE),
+            ingredient(4, "Miso").copy(origin = IngredientOrigin.MANUAL),
+        )
+
+        fun names(origin: OriginFilter) =
+            IngredientFilters.apply(mixed, emptyMap(), ReviewFilter.ALL, UsageFilter.ALL, origin).map { it.name }
+
+        assertEquals(listOf("Knoblauch", "Haferdrink", "Seitan", "Miso"), names(OriginFilter.ALL))
+        assertEquals(listOf("Knoblauch"), names(OriginFilter.SEED))
+        assertEquals(listOf("Haferdrink", "Seitan", "Miso"), names(OriginFilter.ADDED))
+    }
+
+    @Test
     fun defaults_showEverything() {
+        assertEquals(OriginFilter.ALL, IngredientFilters.DEFAULT_ORIGIN)
         assertEquals(ReviewFilter.ALL, IngredientFilters.DEFAULT_REVIEW)
         assertEquals(UsageFilter.ALL, IngredientFilters.DEFAULT_USAGE)
     }

@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.example.plantry.R
 import com.example.plantry.data.openfoodfacts.OffLookup
 import com.example.plantry.data.openfoodfacts.OffProduct
+import com.google.mlkit.common.MlKitException
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
@@ -42,7 +43,10 @@ fun rememberBarcodeScanner(onScanned: (String) -> Unit, onUnavailable: () -> Uni
                 .build()
             GmsBarcodeScanning.getClient(context, options).startScan()
                 .addOnSuccessListener { barcode -> barcode.rawValue?.let { scanned(it) } }
-                .addOnFailureListener { unavailable() }
+                .addOnFailureListener { e ->
+                    // Leaving the scanner with back is reported as a failure, but it is no error.
+                    if ((e as? MlKitException)?.errorCode != MlKitException.CANCELLED) unavailable()
+                }
         }
     }
 }

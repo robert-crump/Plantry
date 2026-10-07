@@ -1,20 +1,26 @@
 package com.example.plantry.data.settings
 
+import com.example.plantry.data.claude.ResolvedModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.time.LocalTime
 import java.time.format.DateTimeParseException
 
-/** The Claude model used to read recipe photos. */
-enum class ScanModel(val modelId: String) {
-    OPUS("claude-opus-5-5"),
-    SONNET("claude-sonnet-5-5");
+/**
+ * The Claude tier used to read recipe photos. The concrete model is the newest of its [family] the
+ * API lists, see `ModelCatalog`; [fallback] is used while that is unknown.
+ */
+enum class ScanModel(val storageValue: String, val family: String, val fallback: ResolvedModel) {
+    OPUS("opus", "opus", ResolvedModel("claude-opus-5-5", "Opus 5.5")),
+    SONNET("sonnet", "sonnet", ResolvedModel("claude-sonnet-5-5", "Sonnet 5.5"));
 
     companion object {
         val DEFAULT = OPUS
 
-        fun fromModelId(id: String?): ScanModel = entries.firstOrNull { it.modelId == id } ?: DEFAULT
+        /** Reads the tier name, and also the model id older versions stored (e.g. "claude-opus-5-5"). */
+        fun fromStored(value: String?): ScanModel =
+            entries.firstOrNull { value != null && it.family in value.lowercase() } ?: DEFAULT
     }
 }
 
@@ -101,7 +107,7 @@ class SettingsRepository(
     }
 
     fun setScanModel(model: ScanModel) {
-        storage.putString(KEY_SCAN_MODEL, model.modelId)
+        storage.putString(KEY_SCAN_MODEL, model.storageValue)
         _settings.value = load()
     }
 
@@ -147,7 +153,7 @@ class SettingsRepository(
 
     private fun load() = Settings(
         maskedApiKey = apiKey()?.let(::maskApiKey),
-        scanModel = ScanModel.fromModelId(storage.getString(KEY_SCAN_MODEL)),
+        scanModel = ScanModel.fromStored(storage.getString(KEY_SCAN_MODEL)),
         cooldownDays = storage.getString(KEY_COOLDOWN_DAYS)?.toIntOrNull()?.takeIf { it in COOLDOWN_RANGE }
             ?: DEFAULT_COOLDOWN_DAYS,
         reminders = ReminderKind.entries.associateWith { kind ->
