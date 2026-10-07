@@ -1,13 +1,9 @@
 package com.example.plantry.ui.cooklog
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -17,7 +13,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
@@ -31,7 +26,7 @@ import com.example.plantry.R
 /**
  * The Kochen FAB: the Material 3 FAB menu, a "+" that turns into an X when tapped and shows
  * "Vorschlag" and "Kocheintrag" above it. Hidden while [visible] is false (scrolling down) unless
- * open; back closes it. The dimming behind it is [FabScrim].
+ * open; back closes it. Taps outside it land on [FabScrim].
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -83,14 +78,16 @@ fun CookingFabMenu(
     }
 }
 
-/** Dims the content while the FAB menu is open; tapping it closes the menu. */
+/**
+ * Covers the content while the FAB menu is open, invisibly: tapping it closes the menu and the tap
+ * goes no further. Not dimmed, since it can't reach the app bar and status bar.
+ */
 @Composable
 fun FabScrim(visible: Boolean, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
-    AnimatedVisibility(visible = visible, modifier = modifier, enter = fadeIn(), exit = fadeOut()) {
+    if (visible) {
         Box(
-            Modifier
+            modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f))
                 .clickable(interactionSource = null, indication = null, onClick = onDismiss),
         )
     }
