@@ -24,6 +24,9 @@
     <!-- Recipe fields -->
     <string name="recipe_title">Titel</string>
     <string name="recipe_source">Quelle</string>
+    <string name="recipe_dish">Art</string>
+    <string name="dish_main">Hauptgericht</string>
+    <string name="dish_snack">Snack</string>
     <string name="recipe_page">Seite</string>
     <string name="recipe_book_servings">Portionen laut Buch</string>
     <string name="recipe_our_servings">Unsere Portionen</string>

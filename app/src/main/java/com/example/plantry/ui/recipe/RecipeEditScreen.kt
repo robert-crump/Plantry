@@ -78,6 +78,7 @@ import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientAliases
 import com.example.plantry.data.IngredientSuggestions
+import com.example.plantry.data.Dish
 import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.NewIngredientFinder
 import com.example.plantry.data.Nutrition
@@ -99,6 +100,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapLatest
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.ui.settings.message
+import com.example.plantry.ui.settings.ChoiceDialog
+import com.example.plantry.ui.settings.SettingsGroup
+import com.example.plantry.ui.settings.SettingsRow
 import com.example.plantry.ui.settings.ApiKeyDialog
 import com.example.plantry.ui.settings.ApiKeyEntry
 import com.example.plantry.data.claude.ConnectionTester
@@ -1022,6 +1026,28 @@ private fun RecipeFields(
         imeAction = if (onDone != null) ImeAction.Next else ImeAction.Done,
         onImeAction = onDone,
     )
+    DishRow(form.dish, onSelect = { onFormChange { copy(dish = it) } })
+}
+
+/** "Art" with the recipe's dish; tapping opens a radio dialog that applies on tap. */
+@Composable
+private fun DishRow(dish: Dish, onSelect: (Dish) -> Unit) {
+    var choosing by rememberSaveable { mutableStateOf(false) }
+    val title = stringResource(R.string.recipe_dish)
+    SettingsGroup(
+        { SettingsRow(icon = null, title = title, summary = stringResource(dish.label), onClick = { choosing = true }) },
+        horizontalPadding = 0.dp,
+    )
+    if (choosing) {
+        ChoiceDialog(
+            title = title,
+            options = Dish.entries,
+            selected = dish,
+            label = { stringResource(it.label) },
+            onSelect = { onSelect(it); choosing = false },
+            onDismiss = { choosing = false },
+        )
+    }
 }
 
 /** The source field, suggesting the sources of other recipes while typing. */

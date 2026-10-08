@@ -16,7 +16,12 @@ data class Recipe(
     val cookingTimeMinutes: Int?,
     /** Set once the ingredient lines were edited after the recipe was first saved. */
     @ColumnInfo(defaultValue = "0") val modified: Boolean = false,
+    /** Only main dishes are suggested; existing recipes became main dishes. */
+    @ColumnInfo(defaultValue = "MAIN") val dish: Dish = Dish.MAIN,
 )
+
+/** What a recipe is eaten as: "Hauptgericht" or "Snack". */
+enum class Dish { MAIN, SNACK }
 
 /** User input for creating or updating a [Recipe]; [ourServings] falls back to [bookServings]. */
 data class RecipeDraft(
@@ -27,4 +32,5 @@ data class RecipeDraft(
     val ourServings: Int?,
     val cookingTimeMinutes: Int?,
     val lines: List<RecipeIngredientDraft>,
+    val dish: Dish = Dish.MAIN,
 )

@@ -1,5 +1,6 @@
 package com.example.plantry.data.reminder
 
+import com.example.plantry.data.Dish
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.Recipe
 import org.junit.Assert.assertEquals
@@ -87,9 +88,20 @@ class CookReminderTest {
     fun proposalWanted_onlyWhenOnAndNothingPlannedForToday() {
         val laterOnly = listOf(PlannedRecipe(1, today.minusDays(1)), PlannedRecipe(2, today.plusDays(1)))
 
-        assertTrue(CookReminder.proposalWanted(true, today, emptyList()))
-        assertTrue(CookReminder.proposalWanted(true, today, laterOnly))
-        assertFalse(CookReminder.proposalWanted(true, today, laterOnly + PlannedRecipe(3, today)))
-        assertFalse(CookReminder.proposalWanted(false, today, emptyList()))
+        val recipes = listOf(recipe(1, "Dal"), recipe(2, "Curry"), recipe(3, "Chili"))
+
+        assertTrue(CookReminder.proposalWanted(true, today, emptyList(), recipes))
+        assertTrue(CookReminder.proposalWanted(true, today, laterOnly, recipes))
+        assertFalse(CookReminder.proposalWanted(true, today, laterOnly + PlannedRecipe(3, today), recipes))
+        assertFalse(CookReminder.proposalWanted(false, today, emptyList(), recipes))
+    }
+
+    @Test
+    fun proposalWanted_aPlannedSnackLeavesTheDinnerOpen() {
+        val snack = recipe(4, "Skyr mit Banane").copy(dish = Dish.SNACK)
+        val recipes = listOf(recipe(1, "Dal"), snack)
+
+        assertTrue(CookReminder.proposalWanted(true, today, listOf(PlannedRecipe(4, today)), recipes))
+        assertFalse(CookReminder.proposalWanted(true, today, listOf(PlannedRecipe(4, today), PlannedRecipe(1, today)), recipes))
     }
 }

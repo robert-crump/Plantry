@@ -1,5 +1,6 @@
 package com.example.plantry.data.reminder
 
+import com.example.plantry.data.Dish
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.Recipe
 import java.time.LocalDate
@@ -51,7 +52,13 @@ object CookReminder {
         return if (today > now) today else today.plusDays(1)
     }
 
-    /** Whether a recipe should be proposed on [today]: the reminder is on and nothing is planned for that day. */
-    fun proposalWanted(enabled: Boolean, today: LocalDate, planned: List<PlannedRecipe>): Boolean =
-        enabled && planned.none { it.plannedOn == today }
+    /**
+     * Whether a recipe should be proposed on [today]: the reminder is on and no main dish is planned
+     * for that day. A planned snack leaves the dinner open.
+     */
+    fun proposalWanted(enabled: Boolean, today: LocalDate, planned: List<PlannedRecipe>, recipes: List<Recipe>): Boolean {
+        if (!enabled) return false
+        val snacks = recipes.filter { it.dish == Dish.SNACK }.mapTo(mutableSetOf()) { it.id }
+        return planned.none { it.plannedOn == today && it.recipeId !in snacks }
+    }
 }

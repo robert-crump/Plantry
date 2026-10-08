@@ -1,6 +1,7 @@
 package com.example.plantry.data.backup
 
 import com.example.plantry.data.CookLog
+import com.example.plantry.data.Dish
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
@@ -51,9 +52,10 @@ data class BackupFile(
          * 8: ingredients without unit weights, buy unit, pack size, staple flag and buy-as link.
          * 9: ingredients may carry net and drained weight. 10: ingredients may carry the scanned
          * package their nutrition came from. 11: ingredients carry their origin.
-         * 12: ingredients may have an undecided store section or plant points.
+         * 12: ingredients may have an undecided store section or plant points. 13: recipes carry
+         * their dish, main dish or snack.
          */
-        const val FORMAT_VERSION = 12
+        const val FORMAT_VERSION = 13
 
         /**
          * Unknown keys are skipped, so older files with `weekPlan` and `shoppingTicks`, or with the
@@ -125,6 +127,7 @@ data class BackupIngredient(
     val plantPointsUndecided: Boolean = false,
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class BackupRecipe(
     val id: Long,
@@ -140,6 +143,8 @@ data class BackupRecipe(
     val photo: String?,
     /** In recipe order. */
     val lines: List<BackupLine>,
+    /** Since version 13; older files hold main dishes. Always written, like [BackupIngredient.origin]. */
+    @EncodeDefault val dish: Dish = Dish.MAIN,
 )
 
 @Serializable
@@ -310,6 +315,7 @@ private fun Recipe.toBackup(photo: String?, lines: List<RecipeIngredient>) = Bac
     modified = modified,
     photo = photo,
     lines = lines.map { BackupLine(it.id, it.originalText, it.grams, it.ingredientId) },
+    dish = dish,
 )
 
 private fun BackupRecipe.toEntity() = Recipe(
@@ -321,4 +327,5 @@ private fun BackupRecipe.toEntity() = Recipe(
     ourServings = ourServings,
     cookingTimeMinutes = cookingTimeMinutes,
     modified = modified,
+    dish = dish,
 )

@@ -2,6 +2,7 @@ package com.example.plantry.data.planner
 
 import com.example.plantry.data.CookLogDao
 import com.example.plantry.data.CookingStats
+import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientDao
 import com.example.plantry.data.Recipe
@@ -14,7 +15,7 @@ import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import kotlin.random.Random
 
-/** Suggests recipes from the whole collection with [MealPlanner], scored by cooldown and protein. */
+/** Suggests main dishes from the collection with [MealPlanner], scored by cooldown and protein; never snacks. */
 class RecipeSuggester(
     private val recipeDao: RecipeDao,
     private val ingredientDao: IngredientDao,
@@ -45,7 +46,7 @@ class RecipeSuggester(
         ): List<Candidate> {
             val ingredientsById = ingredients.associateBy { it.id }
             val linesByRecipe = lines.groupBy { it.recipeId }
-            return recipes.map { recipe ->
+            return recipes.filter { it.dish == Dish.MAIN }.map { recipe ->
                 val recipeLines = linesByRecipe[recipe.id].orEmpty().sortedBy { it.position }.map { it.toDraft() }
                 val nutrition = RecipeNutrition.calculate(nutritionLines(recipeLines, ingredientsById), recipe.ourServings)
                 Candidate(

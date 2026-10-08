@@ -61,6 +61,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
+import com.example.plantry.data.Dish
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PlannedRepository
@@ -311,7 +312,7 @@ private fun DetailCard(content: @Composable () -> Unit) {
     }
 }
 
-/** Quelle | Kochzeit, Portionen laut Buch | Unsere Portionen. */
+/** Quelle | Kochzeit, Portionen laut Buch | Unsere Portionen, and Art for a snack only. */
 @Composable
 private fun MetadataCard(recipe: Recipe) {
     DetailCard {
@@ -336,6 +337,12 @@ private fun MetadataCard(recipe: Recipe) {
                 }
                 MetadataCell(R.string.recipe_our_servings, Modifier.weight(1f)) {
                     MetadataValue(recipe.ourServings.toString())
+                }
+            }
+            if (recipe.dish == Dish.SNACK) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    MetadataCell(R.string.recipe_dish, Modifier.weight(1f)) { MetadataValue(stringResource(recipe.dish.label)) }
+                    Spacer(Modifier.weight(1f))
                 }
             }
         }

@@ -1,6 +1,7 @@
 package com.example.plantry.ui.recipe
 
 import com.example.plantry.data.BookPage
+import com.example.plantry.data.Dish
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.Recipe
@@ -45,6 +46,14 @@ class RecipeFormTest {
         val form = RecipeForm.from(recipe, emptyList()).withBookServings("6")
 
         assertEquals("2", form.ourServings)
+    }
+
+    @Test
+    fun dish_newFormIsMainDish_andAnExistingSnackStaysOne() {
+        val snack = Recipe(1, "Porridge", "", null, bookServings = 1, ourServings = 1, cookingTimeMinutes = 10, dish = Dish.SNACK)
+
+        assertEquals(Dish.MAIN, valid.withLine(null, tofu).toDraft()?.dish)
+        assertEquals(Dish.SNACK, RecipeForm.from(snack, emptyList()).withLine(null, tofu).toDraft()?.dish)
     }
 
     @Test

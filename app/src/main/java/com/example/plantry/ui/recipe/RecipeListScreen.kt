@@ -56,6 +56,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.ChipSelection
 import com.example.plantry.data.CookLogRepository
+import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientSuggestions
@@ -82,8 +83,10 @@ data class RecipeListUiState(
     /** All recipes, unfiltered; 0 shows the empty state instead of the filters. */
     val recipeCount: Int,
     val filter: RecipeFilter,
-    /** The chips that are on, in the order they were switched on; deleted ingredients left out. */
+    /** The chips that are on, in the order they were switched on; deleted ingredients and gone dish chips left out. */
     val activeChips: List<RecipeChip>,
+    /** "Hauptgericht" and "Snack", or none while not both exist. */
+    val dishChips: List<RecipeChip.OfDish>,
     val sort: RecipeSort,
     /** The ingredients the filter offers: all of them, A–Z. */
     val choosableIngredients: List<Ingredient>,
@@ -112,12 +115,22 @@ class RecipeListViewModel(
         combine(chips, sort, ::Pair),
     ) { recipes, lines, ingredients, lastCooked, (chips, sort) ->
         val byId = ingredients.associateBy { it.id }
-        val filter = RecipeFilter.of(chips.active)
+        val dishChips = RecipeChip.dishes(recipes)
+        // A dish chip that is no longer offered is off, so it can't filter what can't be unfiltered.
+        val active = chips.active.filter {
+            when (it) {
+                is RecipeChip.WithIngredient -> it.ingredientId in byId
+                is RecipeChip.OfDish -> it in dishChips
+                is RecipeChip.MaxCookingTime -> true
+            }
+        }
+        val filter = RecipeFilter.of(active)
         RecipeListUiState(
             items = RecipeQuery.run(recipes, lines, byId, lastCooked, filter, sort),
             recipeCount = recipes.size,
             filter = filter,
-            activeChips = chips.active.filter { it !is RecipeChip.WithIngredient || it.ingredientId in byId },
+            activeChips = active,
+            dishChips = dishChips,
             sort = sort,
             choosableIngredients = ingredients.sortedBy { it.name.lowercase() },
             ingredientNames = ingredients.associate { it.id to it.name },
@@ -224,17 +237,18 @@ private fun SortMenu(sort: RecipeSort, onSort: (RecipeSort) -> Unit) {
     }
 }
 
-/** Ingredient and Kochzeit chips, with "+ Zutat" first among the ones that are off. */
+/** Ingredient, Kochzeit and dish chips, with "+ Zutat" first among the ones that are off. */
 @Composable
 private fun FilterBar(state: RecipeListUiState, viewModel: RecipeListViewModel) {
     var pickIngredients by rememberSaveable { mutableStateOf(false) }
     FilterChipFlow(
         active = state.activeChips,
-        inactive = RecipeChip.COOKING_TIMES - state.activeChips.toSet(),
+        inactive = RecipeChip.COOKING_TIMES + state.dishChips - state.activeChips.toSet(),
         label = { chip ->
             when (chip) {
                 is RecipeChip.WithIngredient -> state.ingredientNames[chip.ingredientId].orEmpty()
                 is RecipeChip.MaxCookingTime -> stringResource(R.string.recipe_filter_cooking_time_max, chip.minutes)
+                is RecipeChip.OfDish -> stringResource(chip.dish.label)
             }
         },
         onToggle = viewModel::toggleChip,
@@ -305,11 +319,13 @@ private fun IngredientFilterDialog(
 
 /**
  * The name on up to two lines, then the stats with the cooking time on the right. A third line
- * shows how many of the filter's ingredients the recipe uses and, sorted by last cooked, when.
+ * marks a snack and shows how many of the filter's ingredients the recipe uses and, sorted by
+ * last cooked, when.
  */
 @Composable
 private fun RecipeRow(item: RecipeListItem, sort: RecipeSort, ingredientCount: Int, today: LocalDate, onClick: () -> Unit) {
     val details = listOfNotNull(
+        if (item.recipe.dish == Dish.SNACK) stringResource(R.string.dish_snack) else null,
         if (ingredientCount > 0) pluralStringResource(R.plurals.recipe_list_matched, ingredientCount, item.matchedIngredients, ingredientCount) else null,
         if (sort == RecipeSort.LAST_COOKED) lastCookedLabel(item.lastCookedOn, today) else null,
     )
@@ -357,6 +373,12 @@ private val RecipeSort.label: Int
         RecipeSort.COOKING_TIME -> R.string.recipe_sort_cooking_time
         RecipeSort.PLANT_POINTS -> R.string.recipe_sort_plant_points
         RecipeSort.LAST_COOKED -> R.string.recipe_sort_last_cooked
+    }
+
+internal val Dish.label: Int
+    get() = when (this) {
+        Dish.MAIN -> R.string.dish_main
+        Dish.SNACK -> R.string.dish_snack
     }
 
 @Composable

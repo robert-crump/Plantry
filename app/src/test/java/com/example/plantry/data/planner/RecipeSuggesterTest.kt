@@ -1,5 +1,6 @@
 package com.example.plantry.data.planner
 
+import com.example.plantry.data.Dish
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
@@ -39,5 +40,18 @@ class RecipeSuggesterTest {
             ),
             candidates,
         )
+    }
+
+    @Test
+    fun candidates_leaveOutSnacks() {
+        val candidates = RecipeSuggester.candidates(
+            recipes = listOf(recipe(1), recipe(2).copy(dish = Dish.SNACK)),
+            lines = emptyList(),
+            ingredients = listOf(tofu),
+            lastCooked = emptyMap(),
+            today = today,
+        )
+
+        assertEquals(listOf(1L), candidates.map { it.recipeId })
     }
 }

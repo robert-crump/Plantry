@@ -21,7 +21,7 @@ enum class RecipeSort {
     LAST_COOKED,
 }
 
-/** The recipe list's filter chips: any number of ingredients, at most one cooking time. */
+/** The recipe list's filter chips: any number of ingredients, at most one cooking time and one dish. */
 sealed interface RecipeChip : FilterChoice {
 
     data class WithIngredient(val ingredientId: Long) : RecipeChip {
@@ -32,8 +32,18 @@ sealed interface RecipeChip : FilterChoice {
         override val group: Any get() = MaxCookingTime::class
     }
 
+    data class OfDish(val dish: Dish) : RecipeChip {
+        override val group: Any get() = OfDish::class
+    }
+
     companion object {
         val COOKING_TIMES = listOf(MaxCookingTime(20), MaxCookingTime(45))
+
+        /** "Hauptgericht" and "Snack", only when [recipes] hold both; else either chip would match them all. */
+        fun dishes(recipes: List<Recipe>): List<OfDish> {
+            val present = recipes.mapTo(mutableSetOf()) { it.dish }
+            return if (present.size == Dish.entries.size) Dish.entries.map(::OfDish) else emptyList()
+        }
     }
 }
 
@@ -42,12 +52,14 @@ data class RecipeFilter(
     /** Recipes using at least one of these are shown, ranked by how many of them they use. */
     val ingredientIds: Set<Long> = emptySet(),
     val maxCookingMinutes: Int? = null,
+    val dish: Dish? = null,
 ) {
     companion object {
         /** The filter the [chips] stand for; the ingredients keep the chips' order. */
         fun of(chips: List<RecipeChip>) = RecipeFilter(
             ingredientIds = chips.filterIsInstance<RecipeChip.WithIngredient>().mapTo(LinkedHashSet()) { it.ingredientId },
             maxCookingMinutes = chips.filterIsInstance<RecipeChip.MaxCookingTime>().firstOrNull()?.minutes,
+            dish = chips.filterIsInstance<RecipeChip.OfDish>().firstOrNull()?.dish,
         )
     }
 }
@@ -89,6 +101,7 @@ object RecipeQuery {
         return recipes
             // A recipe without a time is never filtered out: it may well be quick.
             .filter { recipe -> filter.maxCookingMinutes?.let { max -> recipe.cookingTimeMinutes?.let { it <= max } } ?: true }
+            .filter { recipe -> filter.dish == null || recipe.dish == filter.dish }
             .map { recipe -> item(recipe, linesByRecipe[recipe.id].orEmpty(), ingredients, lastCooked, wanted) }
             .filter { wanted.isEmpty() || it.matchedIngredients > 0 }
             .sortedWith(

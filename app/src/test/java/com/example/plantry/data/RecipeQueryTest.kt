@@ -224,6 +224,34 @@ class RecipeQueryTest {
     }
 
     @Test
+    fun filterOfChips_oneDishAtATime() {
+        val chips = ChipSelection<RecipeChip>()
+            .toggle(RecipeChip.OfDish(Dish.MAIN))
+            .toggle(RecipeChip.OfDish(Dish.SNACK))
+
+        assertEquals(listOf(RecipeChip.OfDish(Dish.SNACK)), chips.active)
+        assertEquals(Dish.SNACK, RecipeFilter.of(chips.active).dish)
+    }
+
+    @Test
+    fun dishFilter_showsOnlyThatDish() {
+        val recipes = listOf(recipe(1, "Dal"), recipe(2, "Skyr mit Banane").copy(dish = Dish.SNACK))
+
+        assertEquals(listOf("Skyr mit Banane"), run(recipes, filter = RecipeFilter(dish = Dish.SNACK)).titles())
+        assertEquals(listOf("Dal"), run(recipes, filter = RecipeFilter(dish = Dish.MAIN)).titles())
+    }
+
+    @Test
+    fun dishChips_onlyWhenBothDishesExist() {
+        val main = recipe(1, "Dal")
+        val snack = recipe(2, "Porridge").copy(dish = Dish.SNACK)
+
+        assertEquals(emptyList<RecipeChip>(), RecipeChip.dishes(listOf(main)))
+        assertEquals(emptyList<RecipeChip>(), RecipeChip.dishes(listOf(snack)))
+        assertEquals(listOf(RecipeChip.OfDish(Dish.MAIN), RecipeChip.OfDish(Dish.SNACK)), RecipeChip.dishes(listOf(main, snack)))
+    }
+
+    @Test
     fun noIngredientFilter_showsAllWithZeroMatches() {
         val result = run(listOf(recipe(1, "A")), listOf(line(1, salt)))
 

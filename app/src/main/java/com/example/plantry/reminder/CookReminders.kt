@@ -57,7 +57,7 @@ class CookReminders(
                         notifications.cancel(kind.notificationId)
                     }
                 }
-                if (!CookReminder.proposalWanted(settings.reminder(ReminderKind.PROPOSAL).enabled, today, planned)) {
+                if (!CookReminder.proposalWanted(settings.reminder(ReminderKind.PROPOSAL).enabled, today, planned, all)) {
                     notifications.cancel(ReminderKind.PROPOSAL.notificationId)
                 }
             }
@@ -99,7 +99,7 @@ class CookReminders(
 
     /** The recipe to propose, picked now; null when none is wanted or none is left to propose. */
     private suspend fun proposal(enabled: Boolean, today: LocalDate, planned: List<PlannedRecipe>): Recipe? {
-        if (!CookReminder.proposalWanted(enabled, today, planned)) return null
+        if (!CookReminder.proposalWanted(enabled, today, planned, recipes.observeRecipes().first())) return null
         val id = suggester.suggest(today, 1, planned.mapTo(mutableSetOf()) { it.recipeId }).firstOrNull() ?: return null
         return recipes.getRecipe(id)
     }

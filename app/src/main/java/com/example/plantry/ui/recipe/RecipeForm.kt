@@ -2,6 +2,7 @@ package com.example.plantry.ui.recipe
 
 import com.example.plantry.data.BookPage
 import com.example.plantry.data.BookSession
+import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAliases
 import com.example.plantry.data.Nutrition
@@ -28,6 +29,7 @@ data class RecipeForm(
     val bookServings: String = "",
     val ourServings: String = "",
     val cookingTime: String = "",
+    val dish: Dish = Dish.MAIN,
     val ourServingsEdited: Boolean = false,
     /** Ingredient lines are validated in the line editor, so they are kept parsed. */
     val lines: List<RecipeFormLine> = emptyList(),
@@ -211,6 +213,7 @@ data class RecipeForm(
             ourServings = ourServings.toPositiveIntOrNull(),
             cookingTimeMinutes = cookingTime.toPositiveIntOrNull(),
             lines = completeLines(),
+            dish = dish,
         )
     }
 
@@ -222,6 +225,7 @@ data class RecipeForm(
             bookServings = recipe.bookServings.toString(),
             ourServings = recipe.ourServings.toString(),
             cookingTime = recipe.cookingTimeMinutes?.toString().orEmpty(),
+            dish = recipe.dish,
             ourServingsEdited = true,
             lines = lines.map { RecipeFormLine.from(it.toDraft()) },
         )
