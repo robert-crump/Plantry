@@ -37,8 +37,8 @@ sealed interface RecipeChip : FilterChoice {
     }
 
     companion object {
-        /** "≤ 20 Min.", the one cooking time chip. */
-        val QUICK = MaxCookingTime(20)
+        /** "≤ 25 Min.", the one cooking time chip. */
+        val QUICK = MaxCookingTime(25)
 
         /** "Hauptgericht" and "Snack", only when [recipes] hold both; else either chip would match them all. */
         fun dishes(recipes: List<Recipe>): List<OfDish> {

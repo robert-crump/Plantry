@@ -218,7 +218,7 @@ class RecipeQueryTest {
         val filter = RecipeFilter.of(chips.active)
 
         assertEquals(listOf(tofu.id, lentils.id), filter.ingredientIds.toList())
-        assertEquals(20, filter.maxCookingMinutes)
+        assertEquals(25, filter.maxCookingMinutes)
         assertEquals(RecipeFilter(), RecipeFilter.of(emptyList()))
     }
 
