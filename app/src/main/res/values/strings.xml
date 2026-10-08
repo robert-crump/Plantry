@@ -99,6 +99,7 @@
     </plurals>
     <string name="recipe_line_no_ingredient">keine Zutat</string>
     <string name="recipe_line_new_ingredient">Neue Zutat – Nährwerte bestätigen</string>
+    <string name="recipe_line_create_ingredient">Neue Zutat anlegen</string>
     <string name="recipe_line_propose_ingredient">„%1$s“ mit Claude neu anlegen</string>
     <string name="new_ingredient_match">%1$s → %2$s (USDA)</string>
     <string name="new_ingredient_no_usda">%1$s → kein passender USDA-Eintrag gefunden</string>

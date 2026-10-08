@@ -432,6 +432,16 @@ class RecipeEditViewModel(
         }
     }
 
+    /** Selects the ingredient just created from the open line editor; keeps the rest of the line. */
+    fun useCreatedIngredient(id: Long) {
+        viewModelScope.launch {
+            val ingredient = ingredientRepository.getIngredient(id) ?: return@launch
+            _state.update { state ->
+                state.copy(lineEditor = state.lineEditor?.let { it.copy(form = it.form.withIngredient(ingredient)) })
+            }
+        }
+    }
+
     fun confirmNewIngredient(id: Long) {
         _state.update { it.copy(form = it.form.confirmNewIngredient(id)) }
     }
@@ -587,6 +597,8 @@ class RecipeEditViewModel(
 fun RecipeEditScreen(
     viewModel: RecipeEditViewModel,
     onBack: () -> Unit,
+    /** Opens the ways to a new ingredient, named as typed into the line editor. */
+    onCreateIngredient: (String) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val preview by viewModel.preview.collectAsStateWithLifecycle()
@@ -811,6 +823,7 @@ fun RecipeEditScreen(
                 onChange = viewModel::onLineFormChange,
                 onApply = viewModel::applyLine,
                 onDismiss = viewModel::dismissLineEditor,
+                onCreateIngredient = { onCreateIngredient(editor.form.ingredientQuery.trim()) },
                 onProposeIngredient = { viewModel.useClaude(ClaudeAction.PROPOSE_LINE) },
                 onConfirmNew = viewModel::confirmNewIngredient,
                 onChangeNew = viewModel::openUsdaPicker,
@@ -1160,6 +1173,7 @@ private fun LineEditorDialog(
     onChange: (RecipeLineForm.() -> RecipeLineForm) -> Unit,
     onApply: () -> Unit,
     onDismiss: () -> Unit,
+    onCreateIngredient: () -> Unit,
     onProposeIngredient: () -> Unit,
     onConfirmNew: (Long) -> Unit,
     onChangeNew: (Long) -> Unit,
@@ -1234,6 +1248,10 @@ private fun LineEditorDialog(
                         LinearProgressIndicator(Modifier.fillMaxWidth())
                         Text(stringResource(R.string.new_ingredient_proposing_one), style = MaterialTheme.typography.bodySmall)
                     } else if (form.ingredientQuery.isNotBlank()) {
+                        TextButton(onClick = onCreateIngredient) {
+                            Icon(Icons.Filled.Add, contentDescription = null)
+                            Text(stringResource(R.string.recipe_line_create_ingredient), Modifier.padding(start = 8.dp))
+                        }
                         TextButton(onClick = onProposeIngredient) {
                             Icon(Icons.Filled.AutoAwesome, contentDescription = null)
                             Text(

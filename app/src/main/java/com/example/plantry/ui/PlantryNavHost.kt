@@ -97,6 +97,9 @@ private const val JUST_PLANNED_TITLE = "justPlannedTitle"
 /** Saved-state key set on the ingredient list when its tab is opened: back to the default filters. */
 private const val RESET_INGREDIENT_FILTERS = "resetIngredientFilters"
 
+/** The id of the ingredient just created from a recipe's line editor, handed back to it. */
+private const val CREATED_INGREDIENT = "createdIngredient"
+
 /** With [ingredientId], the list opens filtered by that ingredient. */
 @Serializable
 data class RecipeListRoute(val ingredientId: Long? = null)
@@ -114,8 +117,12 @@ object IngredientListRoute
 @Serializable
 data class IngredientSortRoute(val view: SortView)
 
+/**
+ * The three ways to a new ingredient. From a recipe's line editor, [recipeLineName] is the typed
+ * name, and the created ingredient goes back to that editor.
+ */
 @Serializable
-object UsdaSearchRoute
+data class UsdaSearchRoute(val recipeLineName: String? = null)
 
 @Serializable
 data class IngredientDetailRoute(val ingredientId: Long)
@@ -129,14 +136,17 @@ data class IngredientCreateRoute(
     val usdaDescription: String? = null,
     val labelProduct: String? = null,
     val labelBarcode: String? = null,
+    /** Saving returns the new ingredient's id to the recipe's line editor instead of showing it. */
+    val forRecipe: Boolean = false,
 ) {
-    constructor(seed: NewIngredientSeed) : this(
+    constructor(seed: NewIngredientSeed, forRecipe: Boolean) : this(
         name = seed.name,
         nutrition = Nutrient.entries.map { seed.nutrition[it] },
         fdcId = seed.fdcId,
         usdaDescription = seed.usdaDescription,
         labelProduct = seed.labelSource?.labelProduct,
         labelBarcode = seed.labelSource?.labelBarcode,
+        forRecipe = forRecipe,
     )
 
     fun toSeed() = NewIngredientSeed(
@@ -330,23 +340,33 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                 }
                 composable<RecipeEditRoute> { entry ->
                     val route = entry.toRoute<RecipeEditRoute>()
+                    val viewModel = viewModel {
+                        RecipeEditViewModel(
+                            route.recipeId,
+                            recipeRepository,
+                            ingredientRepository,
+                            app.recipePhotoRepository,
+                            app.recipeScanner,
+                            app.newIngredientFinder,
+                            app.loadUsdaCatalog,
+                            settingsRepository,
+                            app.bookSession,
+                            app.photoCompressor::compress,
+                            app.connectionTester,
+                        )
+                    }
+                    val handle = entry.savedStateHandle
+                    val created by handle.getStateFlow<Long?>(CREATED_INGREDIENT, null).collectAsStateWithLifecycle()
+                    LaunchedEffect(created) {
+                        created?.let {
+                            viewModel.useCreatedIngredient(it)
+                            handle[CREATED_INGREDIENT] = null
+                        }
+                    }
                     RecipeEditScreen(
-                        viewModel = viewModel {
-                            RecipeEditViewModel(
-                                route.recipeId,
-                                recipeRepository,
-                                ingredientRepository,
-                                app.recipePhotoRepository,
-                                app.recipeScanner,
-                                app.newIngredientFinder,
-                                app.loadUsdaCatalog,
-                                settingsRepository,
-                                app.bookSession,
-                                app.photoCompressor::compress,
-                                app.connectionTester,
-                            )
-                        },
+                        viewModel = viewModel,
                         onBack = { navController.popBackStack() },
+                        onCreateIngredient = { name -> navController.navigate(UsdaSearchRoute(recipeLineName = name)) },
                     )
                 }
                 composable<IngredientListRoute> { entry ->
@@ -363,7 +383,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         viewModel = viewModel,
                         onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
                         onRecipesClick = { navController.navigate(RecipeListRoute(ingredientId = it)) },
-                        onAddIngredient = { navController.navigate(UsdaSearchRoute) },
+                        onAddIngredient = { navController.navigate(UsdaSearchRoute()) },
                         onOpenSort = { navController.navigate(IngredientSortRoute(it)) },
                     )
                 }
@@ -374,21 +394,29 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         onBack = { navController.popBackStack() },
                     )
                 }
-                composable<UsdaSearchRoute> {
+                composable<UsdaSearchRoute> { entry ->
+                    val recipeLineName = entry.toRoute<UsdaSearchRoute>().recipeLineName
                     UsdaSearchScreen(
                         viewModel = viewModel { UsdaSearchViewModel({ app.usdaCatalog }, app.productLookup) },
                         onBack = { navController.popBackStack() },
-                        onNew = { seed -> navController.navigate(IngredientCreateRoute(seed)) },
+                        onNew = { seed -> navController.navigate(IngredientCreateRoute(seed, forRecipe = recipeLineName != null)) },
+                        initialName = recipeLineName.orEmpty(),
                     )
                 }
                 composable<IngredientCreateRoute> { entry ->
-                    val seed = entry.toRoute<IngredientCreateRoute>().toSeed()
+                    val route = entry.toRoute<IngredientCreateRoute>()
+                    val seed = route.toSeed()
                     IngredientDetailScreen(
                         viewModel = viewModel { IngredientDetailViewModel(0, ingredientRepository, app.productLookup, seed) },
                         onBack = { navController.popBackStack() },
                         onCreated = { id ->
-                            navController.navigate(IngredientDetailRoute(id)) {
-                                popUpTo<UsdaSearchRoute> { inclusive = true }
+                            if (route.forRecipe) {
+                                navController.popBackStack<UsdaSearchRoute>(inclusive = true)
+                                navController.currentBackStackEntry?.savedStateHandle?.set(CREATED_INGREDIENT, id)
+                            } else {
+                                navController.navigate(IngredientDetailRoute(id)) {
+                                    popUpTo<UsdaSearchRoute> { inclusive = true }
+                                }
                             }
                         },
                     )

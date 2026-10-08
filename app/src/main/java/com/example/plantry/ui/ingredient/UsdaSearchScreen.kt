@@ -120,6 +120,8 @@ fun UsdaSearchScreen(
     onBack: () -> Unit,
     /** The start of a new ingredient, which the user finishes (and saves) on its own screen. */
     onNew: (NewIngredientSeed) -> Unit,
+    /** The name every way starts the new ingredient with, e.g. the one typed into a recipe line. */
+    initialName: String = "",
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val barcode by viewModel.barcode.collectAsStateWithLifecycle()
@@ -218,6 +220,7 @@ fun UsdaSearchScreen(
         if (pickedFood != null) {
             CreateIngredientDialog(
                 food = pickedFood,
+                initialName = initialName,
                 onDismiss = { picked = null },
                 onCreate = { name ->
                     picked = null
@@ -233,7 +236,7 @@ fun UsdaSearchScreen(
                     onNew(NewIngredientSeed(name, nutrition))
                 },
                 onDismiss = { withoutUsda = false },
-                initial = LabelNutritionForm(name = query.trim()),
+                initial = LabelNutritionForm(name = query.trim().ifEmpty { initialName }),
                 askName = true,
             )
         }
@@ -249,7 +252,8 @@ fun UsdaSearchScreen(
                         onNew(NewIngredientSeed(name, nutrition, labelSource = product?.labelSource))
                     },
                     onDismiss = viewModel::dismissBarcode,
-                    initial = product?.let { LabelNutritionForm.from(it) } ?: LabelNutritionForm(),
+                    initial = (product?.let { LabelNutritionForm.from(it) } ?: LabelNutritionForm())
+                        .let { if (initialName.isBlank()) it else it.copy(name = initialName) },
                     askName = true,
                     message = product?.let { foundText(it) } ?: failureText(lookup.result),
                     missing = product?.missing.orEmpty(),
@@ -276,8 +280,8 @@ private fun ChoiceCard(icon: ImageVector, @StringRes title: Int, @StringRes desc
 }
 
 @Composable
-private fun CreateIngredientDialog(food: UsdaFood, onDismiss: () -> Unit, onCreate: (String) -> Unit) {
-    var name by rememberSaveable { mutableStateOf("") }
+private fun CreateIngredientDialog(food: UsdaFood, initialName: String, onDismiss: () -> Unit, onCreate: (String) -> Unit) {
+    var name by rememberSaveable { mutableStateOf(initialName) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.usda_create_title)) },
