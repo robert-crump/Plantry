@@ -35,12 +35,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,6 +53,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.ui.FastScrollbar
 import com.example.plantry.ui.FilterChipFlow
+import com.example.plantry.ui.HideOnScrollFab
+import com.example.plantry.ui.rememberFabVisibility
 import com.example.plantry.ui.ToggleChip
 import com.example.plantry.ui.currentLocale
 import com.example.plantry.data.ChipSelection
@@ -126,6 +130,8 @@ fun IngredientListScreen(
     onOpenSort: (SortView) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val fab = rememberFabVisibility()
+    LaunchedEffect(state?.chips) { fab.visible = true }
 
     Scaffold(
         topBar = {
@@ -137,15 +143,17 @@ fun IngredientListScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onAddIngredient,
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text(stringResource(R.string.ingredient_fab)) },
-            )
+            HideOnScrollFab(fab) {
+                ExtendedFloatingActionButton(
+                    onClick = onAddIngredient,
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    text = { Text(stringResource(R.string.ingredient_fab)) },
+                )
+            }
         },
     ) { padding ->
         val current = state ?: return@Scaffold
-        Column(Modifier.fillMaxSize().padding(padding)) {
+        Column(Modifier.fillMaxSize().padding(padding).nestedScroll(fab.connection)) {
             FilterChipFlow {
                 IngredientChip.entries.forEach { chip ->
                     ToggleChip(stringResource(chip.label), selected = chip in current.chips.active) { viewModel.toggleChip(chip) }

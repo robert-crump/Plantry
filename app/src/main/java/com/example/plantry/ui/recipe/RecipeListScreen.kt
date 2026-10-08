@@ -45,6 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -68,6 +69,8 @@ import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeSort
 import com.example.plantry.ui.FilterChipFlow
+import com.example.plantry.ui.HideOnScrollFab
+import com.example.plantry.ui.rememberFabVisibility
 import com.example.plantry.ui.ToggleChip
 import com.example.plantry.ui.cooklog.RecipeStatsRow
 import com.example.plantry.ui.cooklog.lastCookedLabel
@@ -164,6 +167,8 @@ fun RecipeListScreen(
     // runs after the list has been reordered (the keyed rows would otherwise keep their place).
     var sortPicks by remember { mutableIntStateOf(0) }
     LaunchedEffect(sortPicks, state?.sort) { listState.scrollToItem(0) }
+    val fab = rememberFabVisibility()
+    LaunchedEffect(sortPicks, state?.filter) { fab.visible = true }
 
     Scaffold(
         topBar = {
@@ -182,11 +187,13 @@ fun RecipeListScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onAddRecipe,
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text(stringResource(R.string.recipe_fab)) },
-            )
+            HideOnScrollFab(fab) {
+                ExtendedFloatingActionButton(
+                    onClick = onAddRecipe,
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    text = { Text(stringResource(R.string.recipe_fab)) },
+                )
+            }
         },
     ) { padding ->
         val current = state ?: return@Scaffold
@@ -194,7 +201,7 @@ fun RecipeListScreen(
             CenteredMessage(stringResource(R.string.recipes_empty), Modifier.padding(padding))
             return@Scaffold
         }
-        Column(Modifier.fillMaxSize().padding(padding)) {
+        Column(Modifier.fillMaxSize().padding(padding).nestedScroll(fab.connection)) {
             FilterBar(current, viewModel)
             if (current.items.isEmpty()) {
                 CenteredMessage(stringResource(R.string.recipe_filter_no_match)) {
