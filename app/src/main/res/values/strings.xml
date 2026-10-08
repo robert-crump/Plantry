@@ -208,13 +208,9 @@
         <item quantity="one">%1$d/%2$d Zutat</item>
         <item quantity="other">%1$d/%2$d Zutaten</item>
     </plurals>
-    <string name="filter_clear">Alle Filter entfernen</string>
-    <string name="filter_seed">Mitgeliefert</string>
     <string name="filter_added">Selbst hinzugefügt</string>
-    <string name="filter_reviewed">Geprüft</string>
     <string name="filter_unreviewed">Ungeprüft</string>
     <string name="filter_used">Verwendet</string>
-    <string name="filter_unused">Nicht verwendet</string>
     <string name="ingredient_fab">Zutat</string>
     <string name="ingredient_add">Zutat hinzufügen</string>
     <string name="ingredient_unreviewed">Ungeprüft</string>

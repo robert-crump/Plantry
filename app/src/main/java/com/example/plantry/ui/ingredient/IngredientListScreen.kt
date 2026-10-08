@@ -51,6 +51,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.ui.FastScrollbar
 import com.example.plantry.ui.FilterChipFlow
+import com.example.plantry.ui.ToggleChip
 import com.example.plantry.ui.currentLocale
 import com.example.plantry.data.ChipSelection
 import com.example.plantry.data.Ingredient
@@ -145,13 +146,11 @@ fun IngredientListScreen(
     ) { padding ->
         val current = state ?: return@Scaffold
         Column(Modifier.fillMaxSize().padding(padding)) {
-            FilterChipFlow(
-                active = current.chips.active,
-                inactive = IngredientChip.entries - current.chips.active.toSet(),
-                label = { stringResource(it.label) },
-                onToggle = viewModel::toggleChip,
-                onClear = viewModel::resetFilters,
-            )
+            FilterChipFlow {
+                IngredientChip.entries.forEach { chip ->
+                    ToggleChip(stringResource(chip.label), selected = chip in current.chips.active) { viewModel.toggleChip(chip) }
+                }
+            }
             CountRow(current)
             if (current.ingredients.isEmpty()) {
                 Column(
@@ -231,11 +230,8 @@ private fun CountRow(state: IngredientListUiState) {
 
 private val IngredientChip.label: Int
     get() = when (this) {
-        IngredientChip.REVIEWED -> R.string.filter_reviewed
         IngredientChip.UNREVIEWED -> R.string.filter_unreviewed
         IngredientChip.USED -> R.string.filter_used
-        IngredientChip.UNUSED -> R.string.filter_unused
-        IngredientChip.SEED -> R.string.filter_seed
         IngredientChip.ADDED -> R.string.filter_added
     }
 

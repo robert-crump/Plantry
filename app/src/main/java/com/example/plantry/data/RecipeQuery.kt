@@ -21,7 +21,7 @@ enum class RecipeSort {
     LAST_COOKED,
 }
 
-/** The recipe list's filter chips: any number of ingredients, at most one cooking time and one dish. */
+/** The recipe list's filter chips: any number of ingredients, the cooking time and at most one dish. */
 sealed interface RecipeChip : FilterChoice {
 
     data class WithIngredient(val ingredientId: Long) : RecipeChip {
@@ -37,7 +37,8 @@ sealed interface RecipeChip : FilterChoice {
     }
 
     companion object {
-        val COOKING_TIMES = listOf(MaxCookingTime(20), MaxCookingTime(45))
+        /** "≤ 20 Min.", the one cooking time chip. */
+        val QUICK = MaxCookingTime(20)
 
         /** "Hauptgericht" and "Snack", only when [recipes] hold both; else either chip would match them all. */
         fun dishes(recipes: List<Recipe>): List<OfDish> {

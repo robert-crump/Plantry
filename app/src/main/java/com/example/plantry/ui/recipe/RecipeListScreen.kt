@@ -68,6 +68,7 @@ import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeSort
 import com.example.plantry.ui.FilterChipFlow
+import com.example.plantry.ui.ToggleChip
 import com.example.plantry.ui.cooklog.RecipeStatsRow
 import com.example.plantry.ui.cooklog.lastCookedLabel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -237,31 +238,28 @@ private fun SortMenu(sort: RecipeSort, onSort: (RecipeSort) -> Unit) {
     }
 }
 
-/** Ingredient, Kochzeit and dish chips, with "+ Zutat" first among the ones that are off. */
+/** The picked ingredients' chips, "+ Zutat", then the Kochzeit and dish chips, each in a fixed place. */
 @Composable
 private fun FilterBar(state: RecipeListUiState, viewModel: RecipeListViewModel) {
     var pickIngredients by rememberSaveable { mutableStateOf(false) }
-    FilterChipFlow(
-        active = state.activeChips,
-        inactive = RecipeChip.COOKING_TIMES + state.dishChips - state.activeChips.toSet(),
-        label = { chip ->
-            when (chip) {
-                is RecipeChip.WithIngredient -> state.ingredientNames[chip.ingredientId].orEmpty()
-                is RecipeChip.MaxCookingTime -> stringResource(R.string.recipe_filter_cooking_time_max, chip.minutes)
-                is RecipeChip.OfDish -> stringResource(chip.dish.label)
-            }
-        },
-        onToggle = viewModel::toggleChip,
-        onClear = viewModel::resetFilter,
-        extra = {
-            FilterChip(
-                selected = false,
-                onClick = { pickIngredients = true },
-                label = { Text(stringResource(R.string.recipe_filter_add_ingredient)) },
-                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null, Modifier.size(FilterChipDefaults.IconSize)) },
-            )
-        },
-    )
+    FilterChipFlow {
+        state.activeChips.filterIsInstance<RecipeChip.WithIngredient>().forEach { chip ->
+            ToggleChip(state.ingredientNames[chip.ingredientId].orEmpty(), selected = true) { viewModel.toggleChip(chip) }
+        }
+        FilterChip(
+            selected = false,
+            onClick = { pickIngredients = true },
+            label = { Text(stringResource(R.string.recipe_filter_add_ingredient)) },
+            leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null, Modifier.size(FilterChipDefaults.IconSize)) },
+        )
+        val quick = RecipeChip.QUICK
+        ToggleChip(stringResource(R.string.recipe_filter_cooking_time_max, quick.minutes), selected = quick in state.activeChips) {
+            viewModel.toggleChip(quick)
+        }
+        state.dishChips.forEach { chip ->
+            ToggleChip(stringResource(chip.dish.label), selected = chip in state.activeChips) { viewModel.toggleChip(chip) }
+        }
+    }
     if (pickIngredients) {
         IngredientFilterDialog(
             ingredients = state.choosableIngredients,

@@ -17,7 +17,4 @@ data class ChipSelection<T : FilterChoice>(val active: List<T> = emptyList()) {
         val rival = chip.group?.let { group -> active.indexOfFirst { it.group == group } } ?: -1
         return ChipSelection(if (rival >= 0) active.toMutableList().apply { set(rival, chip) } else active + chip)
     }
-
-    /** The active chips first, then the rest of [all] in their home order. */
-    fun arranged(all: List<T>): List<T> = active + all.filterNot { it in active }
 }

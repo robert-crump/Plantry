@@ -212,14 +212,13 @@ class RecipeQueryTest {
     fun filterOfChips_ingredientsInPickOrder_andTheCookingTime() {
         val chips = ChipSelection<RecipeChip>()
             .toggle(RecipeChip.WithIngredient(tofu.id))
-            .toggle(RecipeChip.MaxCookingTime(20))
+            .toggle(RecipeChip.QUICK)
             .toggle(RecipeChip.WithIngredient(lentils.id))
-            .toggle(RecipeChip.MaxCookingTime(45))
 
         val filter = RecipeFilter.of(chips.active)
 
         assertEquals(listOf(tofu.id, lentils.id), filter.ingredientIds.toList())
-        assertEquals(45, filter.maxCookingMinutes)
+        assertEquals(20, filter.maxCookingMinutes)
         assertEquals(RecipeFilter(), RecipeFilter.of(emptyList()))
     }
 
