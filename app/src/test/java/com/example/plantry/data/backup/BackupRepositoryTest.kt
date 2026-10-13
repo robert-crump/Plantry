@@ -8,6 +8,8 @@ import com.example.plantry.data.IngredientOrigin
 import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.PieceUnit
+import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.Recipe
@@ -73,7 +75,7 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 13"))
+        assertTrue(json.contains("\"formatVersion\": 14"))
         assertTrue(json.contains("\"dish\": \"MAIN\""))
         assertTrue(json.contains("\"origin\": \"SEED\""))
         assertFalse(json.contains("\"staple\""))
@@ -111,7 +113,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 13", "\"formatVersion\": 14")
+        val newer = source.export().replace("\"formatVersion\": 14", "\"formatVersion\": 15")
 
         val error = readError(newer)
 
@@ -176,6 +178,30 @@ class BackupRepositoryTest {
         target.repository.import(target.repository.read(v12))
 
         assertTrue(target.store.data.recipes.all { it.dish == Dish.MAIN })
+    }
+
+    @Test
+    fun version13File_importsIngredientsWithoutPieceWeight() = runTest {
+        val v14 = Json.parseToJsonElement(source.export()).jsonObject
+        val v13Ingredients = JsonArray(
+            v14.getValue("ingredients").jsonArray.map { JsonObject(it.jsonObject - "pieceUnit" - "pieceGroupGrams" - "pieceGroupCount") },
+        )
+        val v13 = JsonObject(v14 + ("formatVersion" to JsonPrimitive(13)) + ("ingredients" to v13Ingredients)).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(v13))
+
+        val expected = source.store.data.ingredients.map { it.copy(pieceWeight = null) }
+        assertEquals(expected, target.store.data.ingredients)
+    }
+
+    @Test
+    fun pieceWeight_isWrittenAsEntered() = runTest {
+        val json = source.export()
+
+        assertTrue(json.contains("\"pieceUnit\": \"PACKET\""))
+        assertTrue(json.contains("\"pieceGroupGrams\": 500.0"))
+        assertTrue(json.contains("\"pieceGroupCount\": 4"))
     }
 
     @Test
@@ -382,10 +408,12 @@ class BackupRepositoryTest {
                     fdcId = 168482,
                     usdaDescription = "Sweet potato, raw",
                     plantPoints = PlantPoints.ONE,
+                    pieceWeight = PieceWeight(PieceUnit.PIECE, 250.0, 1),
                 ),
                 ingredient(id = 5, name = "Reis, trocken").copy(
                     storeSection = StoreSection.DRY_GOODS,
                     reviewed = false,
+                    pieceWeight = PieceWeight(PieceUnit.PACKET, 500.0, 4),
                 ),
                 ingredient(id = 6, name = "Kichererbsen (Dose)").copy(
                     drainedWeight = DrainedWeight(400.0, 240.0),

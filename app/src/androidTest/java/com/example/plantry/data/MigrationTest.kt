@@ -286,6 +286,28 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate18To19_keepsIngredientsWithoutPieceWeight() {
+        helper.createDatabase(DB_NAME, 18).use { db ->
+            db.execSQL(
+                "INSERT INTO ingredients (id, name, fdcId, usdaDescription, kcal, protein, carbs, sugar, fat, fibre, " +
+                    "storeSection, plantPoints, reviewed, netWeightGrams, drainedWeightGrams) " +
+                    "VALUES (1, 'Kichererbsen (Dose)', NULL, NULL, 139, 7.05, 22.5, 0, 2.77, 7.6, " +
+                    "'DRY_GOODS', 'ONE', 1, 400, 240)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 19, true).use { db ->
+            db.query("SELECT netWeightGrams, pieceUnit, pieceGroupGrams, pieceGroupCount FROM ingredients").use { c ->
+                c.moveToFirst()
+                assertEquals(400.0, c.getDouble(0), 0.0)
+                assertTrue(c.isNull(1))
+                assertTrue(c.isNull(2))
+                assertTrue(c.isNull(3))
+            }
+        }
+    }
+
     private fun ingredientSql(id: Long, name: String, points: String, protein: Double, carbs: Double, buyAs: Long? = null) =
         "INSERT INTO ingredients (id, name, fdcId, usdaDescription, kcal, protein, carbs, sugar, fat, fibre, " +
             "unitWeights, buyUnit, packSizeGrams, storeSection, staple, plantPoints, buyAsIngredientId, " +

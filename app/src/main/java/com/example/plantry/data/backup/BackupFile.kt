@@ -8,6 +8,8 @@ import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.IngredientOrigin
 import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.PieceUnit
+import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.Recipe
@@ -53,9 +55,9 @@ data class BackupFile(
          * 9: ingredients may carry net and drained weight. 10: ingredients may carry the scanned
          * package their nutrition came from. 11: ingredients carry their origin.
          * 12: ingredients may have an undecided store section or plant points. 13: recipes carry
-         * their dish, main dish or snack.
+         * their dish, main dish or snack. 14: ingredients may carry a piece weight.
          */
-        const val FORMAT_VERSION = 13
+        const val FORMAT_VERSION = 14
 
         /**
          * Unknown keys are skipped, so older files with `weekPlan` and `shoppingTicks`, or with the
@@ -125,6 +127,10 @@ data class BackupIngredient(
     val storeSectionUndecided: Boolean = false,
     /** Since version 12; like [storeSectionUndecided], for [plantPoints]. */
     val plantPointsUndecided: Boolean = false,
+    /** Since version 14; all null unless the ingredient has a piece weight. */
+    val pieceUnit: PieceUnit? = null,
+    val pieceGroupGrams: Double? = null,
+    val pieceGroupCount: Int? = null,
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -286,6 +292,9 @@ private fun Ingredient.toBackup() = BackupIngredient(
     origin = origin,
     storeSectionUndecided = storeSectionUndecided,
     plantPointsUndecided = plantPointsUndecided,
+    pieceUnit = pieceWeight?.pieceUnit,
+    pieceGroupGrams = pieceWeight?.pieceGroupGrams,
+    pieceGroupCount = pieceWeight?.pieceGroupCount,
 )
 
 private fun BackupIngredient.toEntity() = Ingredient(
@@ -302,6 +311,7 @@ private fun BackupIngredient.toEntity() = Ingredient(
     origin = origin,
     storeSectionUndecided = storeSectionUndecided,
     plantPointsUndecided = plantPointsUndecided,
+    pieceWeight = PieceWeight.of(pieceUnit, pieceGroupGrams, pieceGroupCount),
 )
 
 private fun Recipe.toBackup(photo: String?, lines: List<RecipeIngredient>) = BackupRecipe(

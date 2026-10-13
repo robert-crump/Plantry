@@ -6,6 +6,8 @@ import com.example.plantry.data.IngredientDraft
 import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.PieceUnit
+import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.openfoodfacts.OffProduct
@@ -25,6 +27,8 @@ data class IngredientForm(
     val drainedWeight: DrainedWeight? = null,
     /** False until the user said whether the product is drained, as null means "no" as well. */
     val drainedAnswered: Boolean = true,
+    /** Already validated by [PieceWeightForm] in its dialog. */
+    val pieceWeight: PieceWeight? = null,
     /** The package applied from a barcode scan; replaces the USDA reference on save. */
     val scannedLabel: LabelSource? = null,
 ) {
@@ -58,6 +62,7 @@ data class IngredientForm(
             storeSection = storeSection!!,
             plantPoints = plantPoints!!,
             drainedWeight = drainedWeight,
+            pieceWeight = pieceWeight,
             scannedLabel = scannedLabel,
         )
     }
@@ -71,6 +76,7 @@ data class IngredientForm(
             plantPoints = ingredient.plantPoints.takeUnless { ingredient.plantPointsUndecided },
             drainedWeight = ingredient.drainedWeight,
             drainedAnswered = drainedAnswered,
+            pieceWeight = ingredient.pieceWeight,
         )
     }
 }
@@ -105,6 +111,43 @@ data class DrainedWeightForm(val net: String = "", val drained: String = "") {
 
 enum class DrainedWeightError { INVALID, EXCEEDS_NET }
 
+/**
+ * Raw input of the Stückgewicht dialog. No [unit] means no piece weight; otherwise [grams] is the
+ * package weight with [count] pieces when [inPackage], else the weight of one piece.
+ */
+data class PieceWeightForm(
+    val unit: PieceUnit? = null,
+    val inPackage: Boolean = false,
+    val grams: String = "",
+    val count: String = "",
+) {
+    val gramsInvalid: Boolean get() = unit != null && grams.toPositiveDecimalOrNull() == null
+
+    val countInvalid: Boolean get() = unit != null && inPackage && count.toPositiveWholeOrNull() == null
+
+    val isValid: Boolean get() = !gramsInvalid && !countInvalid
+
+    /** Picks [unit]; a can of a drained product starts from its [netWeightGrams] if no weight was typed yet. */
+    fun withUnit(unit: PieceUnit?, netWeightGrams: Double?) = copy(
+        unit = unit,
+        grams = if (unit == PieceUnit.CAN && grams.isBlank() && netWeightGrams != null) formatDecimal(netWeightGrams) else grams,
+    )
+
+    /** The piece weight, or null without a unit or when invalid. */
+    fun toPieceWeight(): PieceWeight? =
+        if (isValid) PieceWeight.of(unit, grams.toPositiveDecimalOrNull(), if (inPackage) count.toPositiveWholeOrNull() else 1) else null
+
+    companion object {
+        /** Reopens in the mode it was saved in: more than one piece means a package. */
+        fun from(weight: PieceWeight?) = PieceWeightForm(
+            unit = weight?.pieceUnit,
+            inPackage = weight != null && weight.pieceGroupCount > 1,
+            grams = weight?.let { formatDecimal(it.pieceGroupGrams) }.orEmpty(),
+            count = weight?.takeIf { it.pieceGroupCount > 1 }?.pieceGroupCount?.toString().orEmpty(),
+        )
+    }
+}
+
 data class IngredientFormErrors(
     val name: Boolean,
     val nutrients: Set<Nutrient>,
@@ -124,3 +167,5 @@ fun formatDecimal(value: Double, locale: Locale = Locale.getDefault()): String =
 internal fun String.toDecimalOrNull(): Double? = trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() }
 
 internal fun String.toPositiveDecimalOrNull(): Double? = toDecimalOrNull()?.takeIf { it > 0 }
+
+private fun String.toPositiveWholeOrNull(): Int? = trim().toIntOrNull()?.takeIf { it > 0 }

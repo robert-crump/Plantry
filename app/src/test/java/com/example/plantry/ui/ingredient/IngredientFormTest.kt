@@ -6,6 +6,8 @@ import com.example.plantry.data.IngredientDraft
 import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.PieceUnit
+import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.openfoodfacts.OffProduct
@@ -159,5 +161,69 @@ class IngredientFormTest {
     @Test
     fun loadedForm_hasNoScannedLabel() {
         assertNull(valid.toDraft()!!.scannedLabel)
+    }
+
+    @Test
+    fun pieceWeightForm_withoutUnit_clearsThePieceWeight() {
+        val form = PieceWeightForm(unit = null, grams = "abc")
+
+        assertTrue(form.isValid)
+        assertNull(form.toPieceWeight())
+    }
+
+    @Test
+    fun pieceWeightForm_package_keepsWeightAndCountAsEntered() {
+        val form = PieceWeightForm(PieceUnit.SLICE, inPackage = true, grams = "750", count = "20")
+
+        assertEquals(PieceWeight(PieceUnit.SLICE, 750.0, 20), form.toPieceWeight())
+        assertEquals(37.5, form.toPieceWeight()!!.gramsPerPiece, 0.0)
+    }
+
+    @Test
+    fun pieceWeightForm_singlePiece_isCountOne_andIgnoresTheCountField() {
+        val form = PieceWeightForm(PieceUnit.PIECE, inPackage = false, grams = "60,5", count = "abc")
+
+        assertEquals(PieceWeight(PieceUnit.PIECE, 60.5, 1), form.toPieceWeight())
+    }
+
+    @Test
+    fun pieceWeightForm_rejectsMissingWeightAndNonWholeCount() {
+        assertTrue(PieceWeightForm(PieceUnit.PIECE, grams = "").let { !it.isValid && it.gramsInvalid })
+        assertTrue(PieceWeightForm(PieceUnit.PIECE, grams = "0").gramsInvalid)
+        listOf("", "0", "-2", "2,5", "zwei").forEach { count ->
+            val form = PieceWeightForm(PieceUnit.SLICE, inPackage = true, grams = "750", count = count)
+            assertTrue(count, !form.isValid && form.countInvalid)
+            assertNull(form.toPieceWeight())
+        }
+    }
+
+    @Test
+    fun pieceWeightForm_reopensInTheSavedMode() {
+        assertEquals(
+            PieceWeightForm(PieceUnit.SLICE, inPackage = true, grams = "750", count = "20"),
+            PieceWeightForm.from(PieceWeight(PieceUnit.SLICE, 750.0, 20)),
+        )
+        assertEquals(
+            PieceWeightForm(PieceUnit.PIECE, inPackage = false, grams = "60", count = ""),
+            PieceWeightForm.from(PieceWeight(PieceUnit.PIECE, 60.0, 1)),
+        )
+        assertEquals(PieceWeightForm(), PieceWeightForm.from(null))
+    }
+
+    @Test
+    fun pieceWeightForm_canStartsFromTheNetWeight() {
+        assertEquals("400", PieceWeightForm().withUnit(PieceUnit.CAN, netWeightGrams = 400.0).grams)
+        assertEquals("", PieceWeightForm().withUnit(PieceUnit.JAR, netWeightGrams = 400.0).grams)
+        assertEquals("", PieceWeightForm().withUnit(PieceUnit.CAN, netWeightGrams = null).grams)
+        assertEquals("425", PieceWeightForm(grams = "425").withUnit(PieceUnit.CAN, netWeightGrams = 400.0).grams)
+    }
+
+    @Test
+    fun pieceWeight_goesFromIngredientThroughTheFormIntoTheDraft() {
+        val weight = PieceWeight(PieceUnit.CLOVE, 5.0, 1)
+        val form = IngredientForm.from(ingredient.copy(pieceWeight = weight))
+
+        assertEquals(weight, form.pieceWeight)
+        assertEquals(weight, form.toDraft()!!.pieceWeight)
     }
 }

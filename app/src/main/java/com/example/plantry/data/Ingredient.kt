@@ -20,6 +20,8 @@ data class Ingredient(
     val reviewed: Boolean,
     /** Set for canned or jarred goods that are drained; [nutrition] is then per 100 g drained. */
     @Embedded val drainedWeight: DrainedWeight? = null,
+    /** Lets recipes give the amount in pieces, e.g. "4 Scheiben"; see [PieceWeight]. */
+    @Embedded val pieceWeight: PieceWeight? = null,
     /** The scanned package the nutrition was taken from, instead of USDA; see [LabelSource]. */
     @Embedded val labelSource: LabelSource? = null,
     /** How the ingredient got into the app; the default is what the seed import and old rows are. */
@@ -63,6 +65,23 @@ data class DrainedWeight(val netWeightGrams: Double, val drainedWeightGrams: Dou
 /** The share of a recipe line's grams that counts for nutrition: 1 unless the ingredient is drained. */
 val Ingredient.drainedShare: Double get() = drainedWeight?.share ?: 1.0
 
+/**
+ * The weight of an ingredient's piece unit, stored as entered: a package of [pieceGroupCount]
+ * pieces weighing [pieceGroupGrams] (750 g, 20 Scheiben), or a single piece with count 1.
+ */
+data class PieceWeight(val pieceUnit: PieceUnit, val pieceGroupGrams: Double, val pieceGroupCount: Int) {
+    val gramsPerPiece: Double get() = pieceGroupGrams / pieceGroupCount
+
+    companion object {
+        /** Null unless [unit] is set, [grams] > 0 and [count] ≥ 1. */
+        fun of(unit: PieceUnit?, grams: Double?, count: Int?): PieceWeight? =
+            if (unit != null && grams != null && grams > 0 && count != null && count >= 1) PieceWeight(unit, grams, count) else null
+    }
+}
+
+/** The units an ingredient can be counted in. */
+enum class PieceUnit { PIECE, SLICE, CLOVE, LEAF, SPRIG, STALK, BULB, HEAD, BUNCH, CAN, JAR, TUB, PACKET }
+
 enum class StoreSection { PRODUCE, DAIRY_CHILLED, DRY_GOODS, FROZEN, OTHER }
 
 enum class PlantPoints(val value: Double) { ONE(1.0), QUARTER(0.25), ZERO(0.0) }
@@ -101,6 +120,7 @@ data class IngredientDraft(
     val storeSection: StoreSection,
     val plantPoints: PlantPoints,
     val drainedWeight: DrainedWeight? = null,
+    val pieceWeight: PieceWeight? = null,
     /** Set after nutrition was taken from a scanned package: replaces the USDA reference on save. */
     val scannedLabel: LabelSource? = null,
 )
