@@ -75,7 +75,7 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 14"))
+        assertTrue(json.contains("\"formatVersion\": 15"))
         assertTrue(json.contains("\"dish\": \"MAIN\""))
         assertTrue(json.contains("\"origin\": \"SEED\""))
         assertFalse(json.contains("\"staple\""))
@@ -113,7 +113,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 14", "\"formatVersion\": 15")
+        val newer = source.export().replace("\"formatVersion\": 15", "\"formatVersion\": 16")
 
         val error = readError(newer)
 
@@ -193,6 +193,19 @@ class BackupRepositoryTest {
 
         val expected = source.store.data.ingredients.map { it.copy(pieceWeight = null) }
         assertEquals(expected, target.store.data.ingredients)
+    }
+
+    @Test
+    fun version14File_importsRecipesWithoutArbeitszeit() = runTest {
+        val v15 = Json.parseToJsonElement(source.export()).jsonObject
+        val v14Recipes = JsonArray(v15.getValue("recipes").jsonArray.map { JsonObject(it.jsonObject - "activeTimeMinutes") })
+        val v14 = JsonObject(v15 + ("formatVersion" to JsonPrimitive(14)) + ("recipes" to v14Recipes)).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(v14))
+
+        val expected = source.store.data.recipes.map { it.copy(activeTimeMinutes = null) }
+        assertEquals(expected, target.store.data.recipes)
     }
 
     @Test
@@ -421,9 +434,9 @@ class BackupRepositoryTest {
                 ),
             ),
             recipes = listOf(
-                Recipe(2, "Curry", "Kochbuch", 42, 4, 2, 30, modified = true),
-                Recipe(7, "Chili", "", null, 2, 2, cookingTimeMinutes = null),
-                Recipe(8, "Skyr mit Banane", "", null, 1, 1, cookingTimeMinutes = 2, dish = Dish.SNACK),
+                Recipe(2, "Curry", "Kochbuch", 42, 4, 2, 30, modified = true, activeTimeMinutes = 15),
+                Recipe(7, "Chili", "", null, 2, 2, totalTimeMinutes = null),
+                Recipe(8, "Skyr mit Banane", "", null, 1, 1, totalTimeMinutes = 2, dish = Dish.SNACK),
             ),
             lines = listOf(
                 RecipeIngredient(10, 2, 0, "300 g Süßkartoffel", 300.0, 3),

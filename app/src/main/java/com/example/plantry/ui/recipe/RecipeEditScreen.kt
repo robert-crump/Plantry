@@ -1034,16 +1034,33 @@ private fun RecipeFields(
         numeric = true,
         imeAction = ImeAction.Next,
     )
-    FormField(
-        value = form.cookingTime,
-        onValueChange = { onFormChange { copy(cookingTime = it) } },
-        label = R.string.recipe_cooking_time_minutes,
-        error = if (errors?.cookingTime == true) R.string.error_positive_number else null,
-        hint = R.string.recipe_cooking_time_hint,
-        numeric = true,
-        imeAction = if (onDone != null) ImeAction.Next else ImeAction.Done,
-        onImeAction = onDone,
-    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FormField(
+            value = form.activeTime,
+            onValueChange = { onFormChange { copy(activeTime = it) } },
+            label = R.string.recipe_active_time_minutes,
+            error = when {
+                errors?.activeTime != true -> null
+                form.activeTime.trim().toIntOrNull()?.takeIf { it > 0 } != null -> R.string.error_active_time_exceeds_total
+                else -> R.string.error_positive_number
+            },
+            hint = R.string.recipe_cooking_time_hint,
+            numeric = true,
+            imeAction = ImeAction.Next,
+            modifier = Modifier.weight(1f),
+        )
+        FormField(
+            value = form.totalTime,
+            onValueChange = { onFormChange { copy(totalTime = it) } },
+            label = R.string.recipe_total_time_minutes,
+            error = if (errors?.totalTime == true) R.string.error_positive_number else null,
+            hint = R.string.recipe_cooking_time_hint,
+            numeric = true,
+            imeAction = if (onDone != null) ImeAction.Next else ImeAction.Done,
+            onImeAction = onDone,
+            modifier = Modifier.weight(1f),
+        )
+    }
     DishRow(form.dish, onSelect = { onFormChange { copy(dish = it) } })
 }
 

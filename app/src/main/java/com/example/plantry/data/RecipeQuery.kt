@@ -11,8 +11,11 @@ enum class RecipeSort {
     /** Most protein per portion first. */
     PROTEIN,
 
-    /** Quickest first. */
-    COOKING_TIME,
+    /** Shortest Gesamtzeit first. */
+    TOTAL_TIME,
+
+    /** Shortest Arbeitszeit first. */
+    ACTIVE_TIME,
 
     /** Most plant points first. */
     PLANT_POINTS,
@@ -21,15 +24,21 @@ enum class RecipeSort {
     LAST_COOKED,
 }
 
-/** The recipe list's filter chips: any number of ingredients, the cooking time and at most one dish. */
+/** The recipe list's filter chips: any number of ingredients, the two times and at most one dish. */
 sealed interface RecipeChip : FilterChoice {
 
     data class WithIngredient(val ingredientId: Long) : RecipeChip {
         override val group: Any? get() = null
     }
 
-    data class MaxCookingTime(val minutes: Int) : RecipeChip {
-        override val group: Any get() = MaxCookingTime::class
+    /** At most this Gesamtzeit: ready soon. */
+    data class MaxTotalTime(val minutes: Int) : RecipeChip {
+        override val group: Any get() = MaxTotalTime::class
+    }
+
+    /** At most this Arbeitszeit: little hands-on work, however long it then cooks. */
+    data class MaxActiveTime(val minutes: Int) : RecipeChip {
+        override val group: Any get() = MaxActiveTime::class
     }
 
     data class OfDish(val dish: Dish) : RecipeChip {
@@ -37,8 +46,11 @@ sealed interface RecipeChip : FilterChoice {
     }
 
     companion object {
-        /** "≤ 25 Min.", the one cooking time chip. */
-        val QUICK = MaxCookingTime(25)
+        /** "Schnell fertig". */
+        val QUICK = MaxTotalTime(30)
+
+        /** "Wenig Arbeit". */
+        val EASY = MaxActiveTime(20)
 
         /** "Hauptgericht" and "Snack", only when [recipes] hold both; else either chip would match them all. */
         fun dishes(recipes: List<Recipe>): List<OfDish> {
@@ -52,14 +64,16 @@ sealed interface RecipeChip : FilterChoice {
 data class RecipeFilter(
     /** Recipes using at least one of these are shown, ranked by how many of them they use. */
     val ingredientIds: Set<Long> = emptySet(),
-    val maxCookingMinutes: Int? = null,
+    val maxTotalMinutes: Int? = null,
+    val maxActiveMinutes: Int? = null,
     val dish: Dish? = null,
 ) {
     companion object {
         /** The filter the [chips] stand for; the ingredients keep the chips' order. */
         fun of(chips: List<RecipeChip>) = RecipeFilter(
             ingredientIds = chips.filterIsInstance<RecipeChip.WithIngredient>().mapTo(LinkedHashSet()) { it.ingredientId },
-            maxCookingMinutes = chips.filterIsInstance<RecipeChip.MaxCookingTime>().firstOrNull()?.minutes,
+            maxTotalMinutes = chips.filterIsInstance<RecipeChip.MaxTotalTime>().firstOrNull()?.minutes,
+            maxActiveMinutes = chips.filterIsInstance<RecipeChip.MaxActiveTime>().firstOrNull()?.minutes,
             dish = chips.filterIsInstance<RecipeChip.OfDish>().firstOrNull()?.dish,
         )
     }
@@ -101,7 +115,8 @@ object RecipeQuery {
         val wanted = filter.ingredientIds.filter { it in ingredients }
         return recipes
             // A recipe without a time is never filtered out: it may well be quick.
-            .filter { recipe -> filter.maxCookingMinutes?.let { max -> recipe.cookingTimeMinutes?.let { it <= max } } ?: true }
+            .filter { recipe -> atMost(recipe.totalTimeMinutes, filter.maxTotalMinutes) }
+            .filter { recipe -> atMost(recipe.activeTimeMinutes, filter.maxActiveMinutes) }
             .filter { recipe -> filter.dish == null || recipe.dish == filter.dish }
             .map { recipe -> item(recipe, linesByRecipe[recipe.id].orEmpty(), ingredients, lastCooked, wanted) }
             .filter { wanted.isEmpty() || it.matchedIngredients > 0 }
@@ -111,6 +126,8 @@ object RecipeQuery {
                     .thenBy(titleCollator) { it.recipe.title },
             )
     }
+
+    private fun atMost(minutes: Int?, max: Int?) = max == null || minutes == null || minutes <= max
 
     /** The recipes whose title contains [query] (ignoring case and surrounding blanks), A–Z; for "Kocheintrag". */
     fun byTitle(recipes: List<Recipe>, query: String): List<Recipe> {
@@ -146,7 +163,8 @@ object RecipeQuery {
         RecipeSort.TITLE -> compareBy(titleCollator) { it.recipe.title }
         RecipeSort.PROTEIN -> compareByDescending { it.proteinPerPortion }
         // nullsLast: recipes without a time can't claim to be quick.
-        RecipeSort.COOKING_TIME -> compareBy(nullsLast()) { it.recipe.cookingTimeMinutes }
+        RecipeSort.TOTAL_TIME -> compareBy(nullsLast()) { it.recipe.totalTimeMinutes }
+        RecipeSort.ACTIVE_TIME -> compareBy(nullsLast()) { it.recipe.activeTimeMinutes }
         RecipeSort.PLANT_POINTS -> compareByDescending { it.plantPoints }
         // nullsFirst: never cooked comes before any date.
         RecipeSort.LAST_COOKED -> compareBy(nullsFirst()) { it.lastCookedOn }

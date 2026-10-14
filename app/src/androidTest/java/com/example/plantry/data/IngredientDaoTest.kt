@@ -46,7 +46,7 @@ class IngredientDaoTest {
         page = null,
         bookServings = 2,
         ourServings = 2,
-        cookingTimeMinutes = null,
+        totalTimeMinutes = null,
     )
 
     private fun line(ingredientId: Long) = RecipeIngredientDraft("100 g", 100.0, ingredientId)

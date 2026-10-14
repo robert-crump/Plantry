@@ -312,7 +312,7 @@ private fun DetailCard(content: @Composable () -> Unit) {
     }
 }
 
-/** Quelle | Kochzeit, Portionen laut Buch | Unsere Portionen, and Art for a snack only. */
+/** Arbeitszeit | Gesamtzeit, Portionen laut Buch | Unsere Portionen, Quelle | Art (for a snack only). */
 @Composable
 private fun MetadataCard(recipe: Recipe) {
     DetailCard {
@@ -321,15 +321,8 @@ private fun MetadataCard(recipe: Recipe) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                MetadataCell(R.string.recipe_source, Modifier.weight(1f)) { MetadataValue(sourceLabel(recipe)) }
-                MetadataCell(R.string.recipe_cooking_time, Modifier.weight(1f)) {
-                    val minutes = recipe.cookingTimeMinutes
-                    if (minutes != null) {
-                        MetadataValue(stringResource(R.string.recipe_minutes, minutes))
-                    } else {
-                        MissingCookingTimeChip()
-                    }
-                }
+                MetadataCell(R.string.recipe_active_time, Modifier.weight(1f)) { MinutesValue(recipe.activeTimeMinutes) }
+                MetadataCell(R.string.recipe_total_time, Modifier.weight(1f)) { MinutesValue(recipe.totalTimeMinutes) }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 MetadataCell(R.string.recipe_book_servings, Modifier.weight(1f)) {
@@ -339,9 +332,11 @@ private fun MetadataCard(recipe: Recipe) {
                     MetadataValue(recipe.ourServings.toString())
                 }
             }
-            if (recipe.dish == Dish.SNACK) {
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                MetadataCell(R.string.recipe_source, Modifier.weight(1f)) { MetadataValue(sourceLabel(recipe)) }
+                if (recipe.dish == Dish.SNACK) {
                     MetadataCell(R.string.recipe_dish, Modifier.weight(1f)) { MetadataValue(stringResource(recipe.dish.label)) }
+                } else {
                     Spacer(Modifier.weight(1f))
                 }
             }
@@ -366,15 +361,32 @@ private fun MetadataValue(text: String) {
     Text(text, style = MaterialTheme.typography.bodyLarge)
 }
 
+/** E.g. "25 Min.", or [MissingCookingTimeChip] without a time. */
+@Composable
+private fun MinutesValue(minutes: Int?) {
+    if (minutes != null) MetadataValue(stringResource(R.string.recipe_minutes, minutes)) else MissingCookingTimeChip()
+}
+
 /** Timer icon and "Unbekannt", shaped like a chip but not tappable. */
 @Composable
 internal fun MissingCookingTimeChip(modifier: Modifier = Modifier) =
     TimerChip(stringResource(R.string.recipe_cooking_time_missing), modifier)
 
-/** Timer icon and e.g. "25 Min.", or [MissingCookingTimeChip] without a time. */
+/** Timer icon and the [cookingTimeLabel], or [MissingCookingTimeChip] without any time. */
 @Composable
-internal fun CookingTimeChip(minutes: Int?, modifier: Modifier = Modifier) =
-    if (minutes != null) TimerChip(stringResource(R.string.recipe_minutes, minutes), modifier) else MissingCookingTimeChip(modifier)
+internal fun CookingTimeChip(activeMinutes: Int?, totalMinutes: Int?, modifier: Modifier = Modifier) {
+    val label = cookingTimeLabel(activeMinutes, totalMinutes)
+    if (label != null) TimerChip(label, modifier) else MissingCookingTimeChip(modifier)
+}
+
+/** "20 / 65 Min." (Arbeitszeit / Gesamtzeit), "65 Min." with only the total, null without any time. */
+@Composable
+internal fun cookingTimeLabel(activeMinutes: Int?, totalMinutes: Int?): String? = when {
+    activeMinutes != null && totalMinutes != null -> stringResource(R.string.recipe_minutes_active_total, activeMinutes, totalMinutes)
+    activeMinutes != null -> stringResource(R.string.recipe_minutes_active_only, activeMinutes)
+    totalMinutes != null -> stringResource(R.string.recipe_minutes, totalMinutes)
+    else -> null
+}
 
 @Composable
 private fun TimerChip(text: String, modifier: Modifier) {

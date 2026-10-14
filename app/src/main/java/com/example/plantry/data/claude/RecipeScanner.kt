@@ -41,9 +41,12 @@ data class ScannedLine(
 data class ScannedRecipe(
     val title: String,
     val servings: Int?,
-    val cookingTimeMinutes: Int?,
+    /** "Gesamtzeit". */
+    val totalTimeMinutes: Int?,
     val page: Int?,
     val lines: List<ScannedLine>,
+    /** "Arbeitszeit". */
+    val activeTimeMinutes: Int? = null,
 )
 
 sealed interface ScanResult {
@@ -128,7 +131,13 @@ object ScanPrompt {
             - title: the recipe title as printed.
             - servings: the number of servings stated; for a range such as "2-4" the higher number;
               0 if none is stated.
-            - cookingTimeMinutes: the total time stated, in minutes; 0 if none is stated.
+            - activeMinutes: the hands-on time stated, in minutes: "Arbeitszeit", "aktive Zeit", or
+              "Zubereitung(szeit)" when printed next to a cooking, baking, resting or marinating
+              time. 0 if none is stated. Never estimate it from the method.
+            - totalMinutes: the time until the food is ready, in minutes: "Gesamtzeit" if printed,
+              else the sum of all times printed (e.g. "Zubereitung 20 Min., Backzeit 45 Min." is
+              65). A single unqualified time, also a lone "Zubereitungszeit", is the total time.
+              0 if no time is stated.
             - page: the printed page number if visible; 0 otherwise.
             - lines: one entry per ingredient line, in order. Section headings such as
               "Für den Teig:" are not lines. If a line offers alternatives, use the first.
@@ -189,7 +198,8 @@ object ScanPrompt {
         val properties = mapOf(
             "title" to mapOf("type" to "string"),
             "servings" to mapOf("type" to "integer"),
-            "cookingTimeMinutes" to mapOf("type" to "integer"),
+            "activeMinutes" to mapOf("type" to "integer"),
+            "totalMinutes" to mapOf("type" to "integer"),
             "page" to mapOf("type" to "integer"),
             "lines" to mapOf("type" to "array", "items" to line),
         )
@@ -209,7 +219,8 @@ object ScanParser {
     private data class ScanJson(
         val title: String,
         val servings: Int,
-        val cookingTimeMinutes: Int,
+        val activeMinutes: Int,
+        val totalMinutes: Int,
         val page: Int,
         val lines: List<LineJson>,
     )
@@ -243,7 +254,8 @@ object ScanParser {
             ScannedRecipe(
                 title = parsed.title.trim(),
                 servings = parsed.servings.takeIf { it > 0 },
-                cookingTimeMinutes = parsed.cookingTimeMinutes.takeIf { it > 0 },
+                totalTimeMinutes = parsed.totalMinutes.takeIf { it > 0 },
+                activeTimeMinutes = parsed.activeMinutes.takeIf { it > 0 },
                 page = parsed.page.takeIf { it > 0 },
                 lines = parsed.lines.filter { it.originalText.isNotBlank() }.map { line ->
                     val ingredientId = line.ingredientId.takeIf { it in knownIngredientIds }

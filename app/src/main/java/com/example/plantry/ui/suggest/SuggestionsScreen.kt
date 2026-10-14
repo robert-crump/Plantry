@@ -50,6 +50,7 @@ import com.example.plantry.data.planner.RecipeSuggester
 import com.example.plantry.data.planner.SuggestionRounds
 import com.example.plantry.ui.cooklog.PlanDatePickerDialog
 import com.example.plantry.ui.cooklog.RecipeStatsRow
+import com.example.plantry.ui.recipe.cookingTimeLabel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,7 +63,8 @@ import java.time.LocalDate
 data class SuggestionCard(
     val recipeId: Long,
     val snapshot: RecipeSnapshot,
-    val cookingTimeMinutes: Int?,
+    val activeTimeMinutes: Int?,
+    val totalTimeMinutes: Int?,
     /** The lines' original wording in recipe order, e.g. "1 Dose Kichererbsen, 2 TL Zucker". */
     val ingredients: String,
 ) {
@@ -73,7 +75,8 @@ data class SuggestionCard(
             return SuggestionCard(
                 recipeId = recipe.id,
                 snapshot = RecipeSnapshot.of(recipe, recipeLines, ingredients),
-                cookingTimeMinutes = recipe.cookingTimeMinutes,
+                activeTimeMinutes = recipe.activeTimeMinutes,
+                totalTimeMinutes = recipe.totalTimeMinutes,
                 ingredients = recipeLines.sortedBy { it.position }.joinToString(", ") { it.originalText },
             )
         }
@@ -199,7 +202,7 @@ private fun SuggestionCardView(card: SuggestionCard, onClick: () -> Unit) {
             Text(card.snapshot.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 RecipeStatsRow(card.snapshot.stats)
-                card.cookingTimeMinutes?.let { minutes ->
+                cookingTimeLabel(card.activeTimeMinutes, card.totalTimeMinutes)?.let { time ->
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Filled.Schedule,
@@ -207,7 +210,7 @@ private fun SuggestionCardView(card: SuggestionCard, onClick: () -> Unit) {
                             Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text(stringResource(R.string.recipe_minutes, minutes), style = MaterialTheme.typography.bodySmall)
+                        Text(time, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

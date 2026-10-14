@@ -57,7 +57,7 @@ data class BackupFile(
          * 12: ingredients may have an undecided store section or plant points. 13: recipes carry
          * their dish, main dish or snack. 14: ingredients may carry a piece weight.
          */
-        const val FORMAT_VERSION = 14
+        const val FORMAT_VERSION = 15
 
         /**
          * Unknown keys are skipped, so older files with `weekPlan` and `shoppingTicks`, or with the
@@ -142,7 +142,7 @@ data class BackupRecipe(
     val page: Int?,
     val bookServings: Int,
     val ourServings: Int,
-    /** Null since version 3. */
+    /** The Gesamtzeit; null since version 3. */
     val cookingTimeMinutes: Int?,
     val modified: Boolean,
     /** The recipe photo, Base64-encoded; null when the recipe has none. */
@@ -151,6 +151,8 @@ data class BackupRecipe(
     val lines: List<BackupLine>,
     /** Since version 13; older files hold main dishes. Always written, like [BackupIngredient.origin]. */
     @EncodeDefault val dish: Dish = Dish.MAIN,
+    /** The Arbeitszeit; since version 15, null when unknown. */
+    val activeTimeMinutes: Int? = null,
 )
 
 @Serializable
@@ -321,11 +323,12 @@ private fun Recipe.toBackup(photo: String?, lines: List<RecipeIngredient>) = Bac
     page = page,
     bookServings = bookServings,
     ourServings = ourServings,
-    cookingTimeMinutes = cookingTimeMinutes,
+    cookingTimeMinutes = totalTimeMinutes,
     modified = modified,
     photo = photo,
     lines = lines.map { BackupLine(it.id, it.originalText, it.grams, it.ingredientId) },
     dish = dish,
+    activeTimeMinutes = activeTimeMinutes,
 )
 
 private fun BackupRecipe.toEntity() = Recipe(
@@ -335,7 +338,8 @@ private fun BackupRecipe.toEntity() = Recipe(
     page = page,
     bookServings = bookServings,
     ourServings = ourServings,
-    cookingTimeMinutes = cookingTimeMinutes,
+    totalTimeMinutes = cookingTimeMinutes,
     modified = modified,
     dish = dish,
+    activeTimeMinutes = activeTimeMinutes,
 )

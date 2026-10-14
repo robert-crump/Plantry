@@ -308,6 +308,24 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate19To20_keepsTheTimeAsGesamtzeitWithoutArbeitszeit() {
+        helper.createDatabase(DB_NAME, 19).use { db ->
+            db.execSQL(
+                "INSERT INTO recipes (id, title, source, page, bookServings, ourServings, cookingTimeMinutes, modified, dish) " +
+                    "VALUES (1, 'Lasagne', 'Buch', 12, 4, 4, 65, 0, 'MAIN')",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 20, true).use { db ->
+            db.query("SELECT cookingTimeMinutes, activeTimeMinutes FROM recipes").use { c ->
+                c.moveToFirst()
+                assertEquals(65, c.getInt(0))
+                assertTrue(c.isNull(1))
+            }
+        }
+    }
+
     private fun ingredientSql(id: Long, name: String, points: String, protein: Double, carbs: Double, buyAs: Long? = null) =
         "INSERT INTO ingredients (id, name, fdcId, usdaDescription, kcal, protein, carbs, sugar, fat, fibre, " +
             "unitWeights, buyUnit, packSizeGrams, storeSection, staple, plantPoints, buyAsIngredientId, " +

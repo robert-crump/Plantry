@@ -25,7 +25,7 @@ import org.junit.Test
 
 class RecipeFormTest {
 
-    private val valid = RecipeForm(title = "Chili", bookServings = "4", cookingTime = "45")
+    private val valid = RecipeForm(title = "Chili", bookServings = "4", totalTime = "45")
 
     @Test
     fun newForm_ourServingsFollowsBookServings() {
@@ -43,7 +43,7 @@ class RecipeFormTest {
 
     @Test
     fun formFromExistingRecipe_keepsOurServingsWhenBookServingsChange() {
-        val recipe = Recipe(1, "Chili", "Buch", null, bookServings = 4, ourServings = 2, cookingTimeMinutes = 45)
+        val recipe = Recipe(1, "Chili", "Buch", null, bookServings = 4, ourServings = 2, totalTimeMinutes = 45)
 
         val form = RecipeForm.from(recipe, emptyList()).withBookServings("6")
 
@@ -52,7 +52,7 @@ class RecipeFormTest {
 
     @Test
     fun dish_newFormIsMainDish_andAnExistingSnackStaysOne() {
-        val snack = Recipe(1, "Porridge", "", null, bookServings = 1, ourServings = 1, cookingTimeMinutes = 10, dish = Dish.SNACK)
+        val snack = Recipe(1, "Porridge", "", null, bookServings = 1, ourServings = 1, totalTimeMinutes = 10, dish = Dish.SNACK)
 
         assertEquals(Dish.MAIN, valid.withLine(null, tofu).toDraft()?.dish)
         assertEquals(Dish.SNACK, RecipeForm.from(snack, emptyList()).withLine(null, tofu).toDraft()?.dish)
@@ -64,7 +64,7 @@ class RecipeFormTest {
 
         assertEquals(
             RecipeDraft(
-                "Chili", "Buch", page = 12, bookServings = 4, ourServings = null, cookingTimeMinutes = 45,
+                "Chili", "Buch", page = 12, bookServings = 4, ourServings = null, totalTimeMinutes = 45,
                 lines = listOf(tofu),
             ),
             form.toDraft(),
@@ -75,7 +75,7 @@ class RecipeFormTest {
     fun toDraft_rejectsInvalidInput() {
         assertNull(valid.copy(title = " ").toDraft())
         assertNull(valid.copy(bookServings = "0").toDraft())
-        assertNull(valid.copy(cookingTime = "abc").toDraft())
+        assertNull(valid.copy(totalTime = "abc").toDraft())
         assertNull(valid.copy(page = "abc").toDraft())
         assertNull(valid.withOurServings("-1").toDraft())
     }
@@ -88,18 +88,37 @@ class RecipeFormTest {
     }
 
     @Test
-    fun cookingTime_isOptional() {
-        val draft = valid.copy(cookingTime = " ").withLine(null, tofu).toDraft()
+    fun totalTime_isOptional() {
+        val draft = valid.copy(totalTime = " ").withLine(null, tofu).toDraft()
 
-        assertEquals(null, draft?.cookingTimeMinutes)
+        assertEquals(null, draft?.totalTimeMinutes)
         assertEquals("Chili", draft?.title)
     }
 
     @Test
-    fun from_recipeWithoutCookingTime_leavesTheFieldEmpty() {
-        val recipe = Recipe(1, "Dal", "Handschriftlich", null, bookServings = 4, ourServings = 4, cookingTimeMinutes = null)
+    fun activeTime_isOptional_andRoundTrips() {
+        val draft = valid.copy(activeTime = "20", totalTime = "65").withLine(null, tofu).toDraft()
+        val recipe = Recipe(1, "Lasagne", "", null, bookServings = 4, ourServings = 4, totalTimeMinutes = 65, activeTimeMinutes = 20)
 
-        assertEquals("", RecipeForm.from(recipe, emptyList()).cookingTime)
+        assertEquals(20, draft?.activeTimeMinutes)
+        assertEquals(null, valid.withLine(null, tofu).toDraft()?.activeTimeMinutes)
+        assertEquals("20", RecipeForm.from(recipe, emptyList()).activeTime)
+    }
+
+    @Test
+    fun activeTime_mustBeANumberNoLongerThanTheTotal() {
+        assertTrue(valid.copy(activeTime = "abc").errors().activeTime)
+        assertTrue(valid.copy(activeTime = "50", totalTime = "45").errors().activeTime)
+        assertFalse(valid.copy(activeTime = "45", totalTime = "45").errors().activeTime)
+        assertFalse(valid.copy(activeTime = "50", totalTime = "").errors().activeTime)
+        assertFalse(valid.copy(activeTime = "50", totalTime = "45").errors().totalTime)
+    }
+
+    @Test
+    fun from_recipeWithoutCookingTime_leavesTheFieldEmpty() {
+        val recipe = Recipe(1, "Dal", "Handschriftlich", null, bookServings = 4, ourServings = 4, totalTimeMinutes = null)
+
+        assertEquals("", RecipeForm.from(recipe, emptyList()).totalTime)
     }
 
     @Test
@@ -107,7 +126,7 @@ class RecipeFormTest {
         val errors = RecipeForm(title = "Chili", bookServings = "x").errors()
 
         assertTrue(errors.bookServings)
-        assertFalse(errors.cookingTime)
+        assertFalse(errors.totalTime)
         assertFalse(errors.title)
         assertFalse(errors.page)
         assertFalse(errors.ourServings)
@@ -130,8 +149,9 @@ class RecipeFormTest {
         val scan = ScannedRecipe(
             title = "Linsen-Dal",
             servings = 4,
-            cookingTimeMinutes = 40,
+            totalTimeMinutes = 40,
             page = 112,
+            activeTimeMinutes = 15,
             lines = listOf(
                 ScannedLine("200 g rote Linsen", 200.0, ingredientId = 3, ingredientName = "Linsen", uncertain = false),
                 ScannedLine("1 Bund Koriander", 30.0, ingredientId = null, ingredientName = "Koriander", uncertain = true),
@@ -145,7 +165,8 @@ class RecipeFormTest {
         assertEquals("112", form.page)
         assertEquals("4", form.bookServings)
         assertEquals("4", form.ourServings)
-        assertEquals("40", form.cookingTime)
+        assertEquals("40", form.totalTime)
+        assertEquals("15", form.activeTime)
         assertEquals(RecipeFormLine("1 Bund Koriander", 30.0, null, "Koriander", uncertain = true), form.lines[1])
     }
 
@@ -154,7 +175,7 @@ class RecipeFormTest {
         val scan = ScannedRecipe(
             title = "Hummus",
             servings = 2,
-            cookingTimeMinutes = 10,
+            totalTimeMinutes = 10,
             page = null,
             lines = listOf(
                 ScannedLine("1 Dose Kichererbsen", 240.0, ingredientId = 3, ingredientName = "Kichererbsen, abgetropft", uncertain = false),
@@ -196,7 +217,7 @@ class RecipeFormTest {
 
     @Test
     fun withScan_takesSourceAndPageFromBook() {
-        val scan = ScannedRecipe("Linsen-Dal", servings = 4, cookingTimeMinutes = 40, page = null, lines = emptyList())
+        val scan = ScannedRecipe("Linsen-Dal", servings = 4, totalTimeMinutes = 40, page = null, lines = emptyList())
 
         val form = RecipeForm().withScan(scan, BookPage("Plenty", 113))
 
@@ -209,7 +230,7 @@ class RecipeFormTest {
         val incompleteLine = RecipeFormLine("1 Bund Koriander", 30.0, ingredientId = null)
 
         assertFalse(valid.withLine(null, incompleteLine).errors().fields)
-        assertTrue(valid.copy(cookingTime = "abc").errors().fields)
+        assertTrue(valid.copy(totalTime = "abc").errors().fields)
     }
 
     @Test
@@ -240,7 +261,7 @@ class RecipeFormTest {
 
     @Test
     fun from_keepsLinesInStoredOrder() {
-        val recipe = Recipe(1, "Bowl", "Buch", null, bookServings = 2, ourServings = 2, cookingTimeMinutes = 20)
+        val recipe = Recipe(1, "Bowl", "Buch", null, bookServings = 2, ourServings = 2, totalTimeMinutes = 20)
         val stored = listOf(
             RecipeIngredient(10, recipeId = 1, position = 0, originalText = "200 g Tofu", grams = 200.0, ingredientId = 7),
             RecipeIngredient(11, recipeId = 1, position = 1, originalText = "1 Tasse Reis", grams = 185.0, ingredientId = 8),
@@ -440,7 +461,7 @@ class RecipeFormTest {
         val scan = ScannedRecipe(
             title = "Snack",
             servings = 1,
-            cookingTimeMinutes = 5,
+            totalTimeMinutes = 5,
             page = null,
             lines = listOf(
                 ScannedLine("4 Scheiben Toast", 120.0, ingredientId = 5, ingredientName = "Toast", uncertain = true),
@@ -464,7 +485,7 @@ class RecipeFormTest {
         val scan = ScannedRecipe(
             title = "Snack",
             servings = 1,
-            cookingTimeMinutes = 5,
+            totalTimeMinutes = 5,
             page = null,
             lines = listOf(ScannedLine("2 Scheiben Toastbrot", 60.0, ingredientId = 9, ingredientName = "Toastbrot", uncertain = false)),
         )

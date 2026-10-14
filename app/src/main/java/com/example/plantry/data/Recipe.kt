@@ -12,12 +12,14 @@ data class Recipe(
     val page: Int?,
     val bookServings: Int,
     val ourServings: Int,
-    /** Null when the recipe states no time, as most handwritten ones. */
-    val cookingTimeMinutes: Int?,
+    /** "Gesamtzeit", until the food is ready; null when the recipe states no time, as most handwritten ones. */
+    @ColumnInfo(name = "cookingTimeMinutes") val totalTimeMinutes: Int?,
     /** Set once the ingredient lines were edited after the recipe was first saved. */
     @ColumnInfo(defaultValue = "0") val modified: Boolean = false,
     /** Only main dishes are suggested; existing recipes became main dishes. */
     @ColumnInfo(defaultValue = "MAIN") val dish: Dish = Dish.MAIN,
+    /** "Arbeitszeit", the hands-on part of [totalTimeMinutes]; null when unknown, as for all older recipes. */
+    val activeTimeMinutes: Int? = null,
 )
 
 /** What a recipe is eaten as: "Hauptgericht" or "Snack". */
@@ -30,7 +32,8 @@ data class RecipeDraft(
     val page: Int?,
     val bookServings: Int,
     val ourServings: Int?,
-    val cookingTimeMinutes: Int?,
+    val totalTimeMinutes: Int?,
     val lines: List<RecipeIngredientDraft>,
     val dish: Dish = Dish.MAIN,
+    val activeTimeMinutes: Int? = null,
 )

@@ -5,7 +5,7 @@ import org.junit.Test
 
 class RecipeStatsTest {
 
-    private val recipe = Recipe(1, "Dal", "", null, bookServings = 4, ourServings = 2, cookingTimeMinutes = 30)
+    private val recipe = Recipe(1, "Dal", "", null, bookServings = 4, ourServings = 2, totalTimeMinutes = 30)
 
     private val ingredients = listOf(
         ingredient(1, "Linsen", PlantPoints.ONE, Nutrition(kcal = 340.0, protein = 24.0, carbs = 50.0, fibre = 11.0)),

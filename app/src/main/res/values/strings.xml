@@ -31,7 +31,10 @@
     <string name="recipe_book_servings">Portionen laut Buch</string>
     <string name="recipe_our_servings">Unsere Portionen</string>
     <string name="recipe_cooking_time">Kochzeit</string>
-    <string name="recipe_cooking_time_minutes">Kochzeit (Minuten)</string>
+    <string name="recipe_active_time">Arbeitszeit</string>
+    <string name="recipe_total_time">Gesamtzeit</string>
+    <string name="recipe_active_time_minutes">Arbeitszeit (Min.)</string>
+    <string name="recipe_total_time_minutes">Gesamtzeit (Min.)</string>
     <string name="recipe_cooking_time_hint">Optional</string>
     <string name="recipe_our_servings_hint">Standardmäßig wie laut Buch</string>
 
@@ -40,18 +43,20 @@
     <string name="recipe_page_only">S. %1$d</string>
     <string name="recipe_no_source">Keine Quelle</string>
     <string name="recipe_minutes">%1$d Min.</string>
+    <string name="recipe_minutes_active_total">%1$d / %2$d Min.</string>
+    <string name="recipe_minutes_active_only">%1$d / ? Min.</string>
     <string name="recipe_cooking_time_missing">Unbekannt</string>
     <string name="recipe_sort">Sortieren</string>
     <string name="recipe_sort_title">A–Z</string>
     <string name="recipe_sort_protein">Eiweiß je Portion</string>
-    <string name="recipe_sort_cooking_time">Kochzeit</string>
     <string name="recipe_sort_plant_points">Pflanzenpunkte</string>
     <string name="recipe_sort_last_cooked">Am längsten nicht gekocht</string>
     <string name="recipe_filter_add_ingredient">Zutat</string>
     <string name="recipe_filter_ingredients_title">Was soll rein?</string>
     <string name="recipe_filter_ingredients_search">Zutat suchen</string>
     <string name="recipe_filter_ingredients_none">Keine Zutat gefunden.</string>
-    <string name="recipe_filter_cooking_time_max">≤ %1$d Min.</string>
+    <string name="recipe_filter_quick">Schnell fertig</string>
+    <string name="recipe_filter_easy">Wenig Arbeit</string>
     <string name="recipe_filter_done">Fertig</string>
     <string name="recipe_filter_no_match">Kein Rezept passt zum Filter.</string>
     <string name="recipe_filter_reset">Filter zurücksetzen</string>
@@ -65,6 +70,7 @@
     <string name="recipe_edit">Rezept bearbeiten</string>
     <string name="error_title_required">Bitte einen Titel eingeben</string>
     <string name="error_positive_number">Bitte eine ganze Zahl größer 0 eingeben</string>
+    <string name="error_active_time_exceeds_total">Höchstens die Gesamtzeit</string>
 
     <!-- Recipe delete -->
     <string name="recipe_delete_title">Rezept löschen?</string>
@@ -118,7 +124,7 @@
     <string name="photo_take">Foto aufnehmen</string>
     <string name="photo_pick">Aus Galerie wählen</string>
     <string name="photo_unreadable">Das Foto konnte nicht geladen werden.</string>
-    <string name="scan_intro">Fotografiere die Rezeptseite. Claude liest Titel, Portionen, Kochzeit und Zutaten, du prüfst danach alles.</string>
+    <string name="scan_intro">Fotografiere die Rezeptseite. Claude liest Titel, Portionen, Zeiten und Zutaten, du prüfst danach alles.</string>
     <string name="scan_reading">Claude liest das Rezept …</string>
     <string name="scan_retry">Erneut versuchen</string>
     <string name="scan_skip">Von Hand ausfüllen</string>

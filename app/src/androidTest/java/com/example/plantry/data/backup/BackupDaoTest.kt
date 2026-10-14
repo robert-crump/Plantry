@@ -70,7 +70,7 @@ class BackupDaoTest {
     @Test
     fun replaceAll_restoresEverything_withIds() = runTest {
         db.ingredientDao().insert(ingredient(0, "Alt"))
-        db.recipeDao().insert(Recipe(title = "Alt", source = "", page = null, bookServings = 1, ourServings = 1, cookingTimeMinutes = 1))
+        db.recipeDao().insert(Recipe(title = "Alt", source = "", page = null, bookServings = 1, ourServings = 1, totalTimeMinutes = 1))
 
         dao.replaceAll(snapshot)
 

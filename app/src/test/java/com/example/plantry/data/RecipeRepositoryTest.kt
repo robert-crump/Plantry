@@ -29,7 +29,7 @@ class RecipeRepositoryTest {
         page = 42,
         bookServings = bookServings,
         ourServings = ourServings,
-        cookingTimeMinutes = 30,
+        totalTimeMinutes = 30,
         lines = lines,
     )
 
@@ -59,7 +59,7 @@ class RecipeRepositoryTest {
                 page = 42,
                 bookServings = 4,
                 ourServings = 4,
-                cookingTimeMinutes = 30,
+                totalTimeMinutes = 30,
                 modified = false,
             ),
             repository.getRecipe(id),

@@ -35,7 +35,7 @@ class CookLogDaoTest {
     private val titles = mutableMapOf<Long, String>()
 
     private suspend fun insertRecipe(title: String) = db.recipeDao().insert(
-        Recipe(title = title, source = "", page = null, bookServings = 2, ourServings = 2, cookingTimeMinutes = 20),
+        Recipe(title = title, source = "", page = null, bookServings = 2, ourServings = 2, totalTimeMinutes = 20),
     ).also { titles[it] = title }
 
     private fun log(recipeId: Long, cookedOn: LocalDate) =

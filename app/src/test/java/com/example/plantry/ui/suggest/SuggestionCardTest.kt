@@ -14,7 +14,7 @@ class SuggestionCardTest {
 
     private fun recipe(id: Long, minutes: Int? = 25) = Recipe(
         id = id, title = "Rezept $id", source = "", page = null,
-        bookServings = 2, ourServings = 2, cookingTimeMinutes = minutes,
+        bookServings = 2, ourServings = 2, totalTimeMinutes = minutes,
     )
 
     private fun line(recipeId: Long, position: Int, text: String, ingredientId: Long, grams: Double = 100.0) =
@@ -33,7 +33,7 @@ class SuggestionCardTest {
         assertEquals("1 Dose Kichererbsen, 2 TL Zucker", card.ingredients)
         assertEquals("Rezept 1", card.snapshot.title)
         assertEquals(10.0, card.snapshot.stats.proteinPerPortion, 1e-9)
-        assertEquals(25, card.cookingTimeMinutes)
+        assertEquals(25, card.totalTimeMinutes)
     }
 
     @Test
@@ -41,6 +41,6 @@ class SuggestionCardTest {
         val card = SuggestionCard.of(recipe(3, minutes = null), emptyList(), emptyMap())
 
         assertEquals("", card.ingredients)
-        assertEquals(null, card.cookingTimeMinutes)
+        assertEquals(null, card.totalTimeMinutes)
     }
 }

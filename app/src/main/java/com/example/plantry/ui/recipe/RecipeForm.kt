@@ -30,7 +30,8 @@ data class RecipeForm(
     val page: String = "",
     val bookServings: String = "",
     val ourServings: String = "",
-    val cookingTime: String = "",
+    val activeTime: String = "",
+    val totalTime: String = "",
     val dish: Dish = Dish.MAIN,
     val ourServingsEdited: Boolean = false,
     /** Ingredient lines are validated in the line editor, so they are kept parsed. */
@@ -75,7 +76,8 @@ data class RecipeForm(
         page = book.page?.toString().orEmpty(),
         bookServings = scan.servings?.toString().orEmpty(),
         ourServings = scan.servings?.toString().orEmpty(),
-        cookingTime = scan.cookingTimeMinutes?.toString().orEmpty(),
+        activeTime = scan.activeTimeMinutes?.toString().orEmpty(),
+        totalTime = scan.totalTimeMinutes?.toString().orEmpty(),
         lines = scan.lines.map {
             val aliased = IngredientAliases.match(it.ingredientName, aliases)
             val ingredientId = aliased ?: it.ingredientId
@@ -205,10 +207,18 @@ data class RecipeForm(
         page = page.isNotBlank() && page.toPositiveIntOrNull() == null,
         bookServings = bookServings.toPositiveIntOrNull() == null,
         ourServings = ourServings.isNotBlank() && ourServings.toPositiveIntOrNull() == null,
-        cookingTime = cookingTime.isNotBlank() && cookingTime.toPositiveIntOrNull() == null,
+        activeTime = activeTime.isNotBlank() && activeTime.toPositiveIntOrNull() == null || activeExceedsTotal(),
+        totalTime = totalTime.isNotBlank() && totalTime.toPositiveIntOrNull() == null,
         lines = lines.any { problem(it) != null },
         noLines = lines.isEmpty(),
     )
+
+    /** The hands-on time can't be longer than the time until the food is ready. */
+    private fun activeExceedsTotal(): Boolean {
+        val active = activeTime.toPositiveIntOrNull() ?: return false
+        val total = totalTime.toPositiveIntOrNull() ?: return false
+        return active > total
+    }
 
     /** Returns the validated draft, or null if any field is invalid. */
     fun toDraft(): RecipeDraft? {
@@ -219,9 +229,10 @@ data class RecipeForm(
             page = page.toPositiveIntOrNull(),
             bookServings = bookServings.toPositiveIntOrNull()!!,
             ourServings = ourServings.toPositiveIntOrNull(),
-            cookingTimeMinutes = cookingTime.toPositiveIntOrNull(),
+            totalTimeMinutes = totalTime.toPositiveIntOrNull(),
             lines = completeLines(),
             dish = dish,
+            activeTimeMinutes = activeTime.toPositiveIntOrNull(),
         )
     }
 
@@ -232,7 +243,8 @@ data class RecipeForm(
             page = recipe.page?.toString().orEmpty(),
             bookServings = recipe.bookServings.toString(),
             ourServings = recipe.ourServings.toString(),
-            cookingTime = recipe.cookingTimeMinutes?.toString().orEmpty(),
+            activeTime = recipe.activeTimeMinutes?.toString().orEmpty(),
+            totalTime = recipe.totalTimeMinutes?.toString().orEmpty(),
             dish = recipe.dish,
             ourServingsEdited = true,
             lines = lines.map { RecipeFormLine.from(it.toDraft()) },
@@ -245,14 +257,16 @@ data class RecipeFormErrors(
     val page: Boolean,
     val bookServings: Boolean,
     val ourServings: Boolean,
-    val cookingTime: Boolean,
+    /** Not a number, or longer than the total time. */
+    val activeTime: Boolean,
+    val totalTime: Boolean,
     /** Some line is still a problem, see [RecipeForm.problem]. */
     val lines: Boolean = false,
     /** A recipe needs at least one ingredient line. */
     val noLines: Boolean = false,
 ) {
     /** Some recipe field (all but the lines) is invalid. */
-    val fields: Boolean get() = title || page || bookServings || ourServings || cookingTime
+    val fields: Boolean get() = title || page || bookServings || ourServings || activeTime || totalTime
 
     val hasAny: Boolean get() = fields || lines || noLines
 }

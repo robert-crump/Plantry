@@ -16,9 +16,9 @@ class RecipeQueryTest {
 
     private val ingredients = listOf(riceDry, riceCooked, lentils, tofu, cumin, salt, oil).associateBy { it.id }
 
-    private fun recipe(id: Long, title: String, minutes: Int? = 30) = Recipe(
+    private fun recipe(id: Long, title: String, minutes: Int? = 30, active: Int? = null) = Recipe(
         id = id, title = title, source = "", page = null,
-        bookServings = 2, ourServings = 2, cookingTimeMinutes = minutes,
+        bookServings = 2, ourServings = 2, totalTimeMinutes = minutes, activeTimeMinutes = active,
     )
 
     private fun line(recipeId: Long, ingredient: Ingredient, grams: Double = 100.0) =
@@ -95,27 +95,61 @@ class RecipeQueryTest {
     }
 
     @Test
-    fun cookingTime_quickestFirst() {
-        val result = run(listOf(recipe(1, "A", 45), recipe(2, "B", 15), recipe(3, "C", 30)), sort = RecipeSort.COOKING_TIME)
+    fun totalTime_quickestFirst() {
+        val result = run(listOf(recipe(1, "A", 45), recipe(2, "B", 15), recipe(3, "C", 30)), sort = RecipeSort.TOTAL_TIME)
 
         assertEquals(listOf("B", "C", "A"), result.titles())
     }
 
     @Test
-    fun cookingTime_recipesWithoutTimeLast() {
-        val result = run(listOf(recipe(1, "A", null), recipe(2, "B", 45), recipe(3, "C", 15)), sort = RecipeSort.COOKING_TIME)
+    fun totalTime_recipesWithoutTimeLast() {
+        val result = run(listOf(recipe(1, "A", null), recipe(2, "B", 45), recipe(3, "C", 15)), sort = RecipeSort.TOTAL_TIME)
 
         assertEquals(listOf("C", "B", "A"), result.titles())
     }
 
     @Test
-    fun maxCookingMinutes_keepsRecipesWithoutTime() {
+    fun maxTotalMinutes_keepsRecipesWithoutTime() {
         val result = run(
             listOf(recipe(1, "Schnell", 15), recipe(2, "Langsam", 60), recipe(3, "Ohne", null)),
-            filter = RecipeFilter(maxCookingMinutes = 30),
+            filter = RecipeFilter(maxTotalMinutes = 30),
         )
 
         assertEquals(listOf("Ohne", "Schnell"), result.titles())
+    }
+
+    @Test
+    fun activeTime_leastWorkFirst_withoutArbeitszeitLast() {
+        val result = run(
+            listOf(recipe(1, "Risotto", 35, active = 35), recipe(2, "Ohne", 10), recipe(3, "Lasagne", 65, active = 20)),
+            sort = RecipeSort.ACTIVE_TIME,
+        )
+
+        assertEquals(listOf("Lasagne", "Risotto", "Ohne"), result.titles())
+    }
+
+    @Test
+    fun maxActiveMinutes_keepsLongCookingWithLittleWork_andRecipesWithoutArbeitszeit() {
+        val result = run(
+            listOf(recipe(1, "Lasagne", 65, active = 20), recipe(2, "Risotto", 35, active = 35), recipe(3, "Ohne", 90)),
+            filter = RecipeFilter(maxActiveMinutes = 20),
+        )
+
+        assertEquals(listOf("Lasagne", "Ohne"), result.titles())
+    }
+
+    @Test
+    fun bothTimeFilters_combine() {
+        val result = run(
+            listOf(
+                recipe(1, "Lasagne", 65, active = 20),
+                recipe(2, "Risotto", 30, active = 30),
+                recipe(3, "Pesto-Nudeln", 15, active = 10),
+            ),
+            filter = RecipeFilter(maxTotalMinutes = 30, maxActiveMinutes = 20),
+        )
+
+        assertEquals(listOf("Pesto-Nudeln"), result.titles())
     }
 
     @Test
@@ -146,7 +180,7 @@ class RecipeQueryTest {
 
     @Test
     fun sortTies_brokenByTitle() {
-        val result = run(listOf(recipe(1, "B", 20), recipe(2, "A", 20)), sort = RecipeSort.COOKING_TIME)
+        val result = run(listOf(recipe(1, "B", 20), recipe(2, "A", 20)), sort = RecipeSort.TOTAL_TIME)
 
         assertEquals(listOf("A", "B"), result.titles())
     }
@@ -162,7 +196,7 @@ class RecipeQueryTest {
                 line(4, riceDry),
             ),
             filter = RecipeFilter(ingredientIds = setOf(lentils.id, tofu.id)),
-            sort = RecipeSort.COOKING_TIME,
+            sort = RecipeSort.TOTAL_TIME,
         )
 
         assertEquals(listOf("Beides", "Nur Tofu", "Nur Linsen"), result.titles())
@@ -194,7 +228,7 @@ class RecipeQueryTest {
     }
 
     @Test
-    fun maxCookingTime_combinesWithIngredientFilter() {
+    fun maxTotalTime_combinesWithIngredientFilter() {
         val result = run(
             listOf(
                 recipe(1, "Schnell", 20),
@@ -202,23 +236,25 @@ class RecipeQueryTest {
                 recipe(3, "Schnell ohne Linsen", 20),
             ),
             listOf(line(1, lentils), line(2, lentils), line(3, tofu)),
-            filter = RecipeFilter(ingredientIds = setOf(lentils.id), maxCookingMinutes = 30),
+            filter = RecipeFilter(ingredientIds = setOf(lentils.id), maxTotalMinutes = 30),
         )
 
         assertEquals(listOf("Schnell"), result.titles())
     }
 
     @Test
-    fun filterOfChips_ingredientsInPickOrder_andTheCookingTime() {
+    fun filterOfChips_ingredientsInPickOrder_andBothTimes() {
         val chips = ChipSelection<RecipeChip>()
             .toggle(RecipeChip.WithIngredient(tofu.id))
             .toggle(RecipeChip.QUICK)
+            .toggle(RecipeChip.EASY)
             .toggle(RecipeChip.WithIngredient(lentils.id))
 
         val filter = RecipeFilter.of(chips.active)
 
         assertEquals(listOf(tofu.id, lentils.id), filter.ingredientIds.toList())
-        assertEquals(25, filter.maxCookingMinutes)
+        assertEquals(30, filter.maxTotalMinutes)
+        assertEquals(20, filter.maxActiveMinutes)
         assertEquals(RecipeFilter(), RecipeFilter.of(emptyList()))
     }
 

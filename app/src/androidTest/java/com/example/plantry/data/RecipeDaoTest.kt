@@ -36,7 +36,7 @@ class RecipeDaoTest {
         page = page,
         bookServings = 4,
         ourServings = 2,
-        cookingTimeMinutes = 30,
+        totalTimeMinutes = 30,
     )
 
     @Test

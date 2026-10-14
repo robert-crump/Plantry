@@ -42,8 +42,9 @@ class RecipeRepository(private val dao: RecipeDao) {
         page = page,
         bookServings = bookServings,
         ourServings = ourServings ?: bookServings,
-        cookingTimeMinutes = cookingTimeMinutes,
+        totalTimeMinutes = totalTimeMinutes,
         modified = modified,
         dish = dish,
+        activeTimeMinutes = activeTimeMinutes,
     )
 }

@@ -17,7 +17,7 @@ class CookReminderTest {
     private val time = LocalTime.of(19, 30)
 
     private fun recipe(id: Long, title: String) =
-        Recipe(id, title, "", null, bookServings = 2, ourServings = 2, cookingTimeMinutes = null)
+        Recipe(id, title, "", null, bookServings = 2, ourServings = 2, totalTimeMinutes = null)
 
     private val dal = recipe(1, "Linsen-Dal")
     private val curry = recipe(2, "Curry")

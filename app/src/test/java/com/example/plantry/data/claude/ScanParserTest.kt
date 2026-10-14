@@ -13,8 +13,8 @@ class ScanParserTest {
     private fun line(text: String, grams: Double, id: Long, uncertain: Boolean = false) =
         """{"originalText":"$text","grams":$grams,"ingredientId":$id,"ingredientName":"x","uncertain":$uncertain}"""
 
-    private fun answer(title: String = "Dal", servings: Int = 4, time: Int = 40, page: Int = 112, vararg lines: String) =
-        """{"title":"$title","servings":$servings,"cookingTimeMinutes":$time,"page":$page,"lines":[${lines.joinToString(",")}]}"""
+    private fun answer(title: String = "Dal", servings: Int = 4, active: Int = 15, time: Int = 40, page: Int = 112, vararg lines: String) =
+        """{"title":"$title","servings":$servings,"activeMinutes":$active,"totalMinutes":$time,"page":$page,"lines":[${lines.joinToString(",")}]}"""
 
     private fun success(text: String?) = (ScanParser.toResult(text, known) as ScanResult.Success).recipe
 
@@ -24,17 +24,19 @@ class ScanParserTest {
 
         assertEquals("Dal", recipe.title)
         assertEquals(4, recipe.servings)
-        assertEquals(40, recipe.cookingTimeMinutes)
+        assertEquals(15, recipe.activeTimeMinutes)
+        assertEquals(40, recipe.totalTimeMinutes)
         assertEquals(112, recipe.page)
         assertEquals(ScannedLine("200 g rote Linsen", 200.0, 3, "x", uncertain = false), recipe.lines.single())
     }
 
     @Test
     fun zeroMeansUnknown() {
-        val recipe = success(answer(servings = 0, time = 0, page = 0, lines = arrayOf(line("Salz", 2.0, 7))))
+        val recipe = success(answer(servings = 0, active = 0, time = 0, page = 0, lines = arrayOf(line("Salz", 2.0, 7))))
 
         assertNull(recipe.servings)
-        assertNull(recipe.cookingTimeMinutes)
+        assertNull(recipe.activeTimeMinutes)
+        assertNull(recipe.totalTimeMinutes)
         assertNull(recipe.page)
     }
 
