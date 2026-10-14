@@ -152,6 +152,8 @@ fun RecipeDetailScreen(
     viewModel: RecipeDetailViewModel,
     onBack: () -> Unit,
     onEdit: () -> Unit,
+    /** With the ingredient id of a tapped ingredient line. */
+    onIngredientClick: (Long) -> Unit = {},
     /** After "Planen", e.g. to ask for the reminder's notification permission. */
     onPlanned: () -> Unit = {},
 ) {
@@ -221,7 +223,7 @@ fun RecipeDetailScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                 }
-                IngredientList(detail.lines)
+                IngredientList(detail.lines, onLineClick = { onIngredientClick(it.ingredientId) })
             }
 
             if (detail.lines.isNotEmpty()) {
@@ -411,28 +413,38 @@ private fun TimerChip(text: String, modifier: Modifier) {
 /**
  * The lines' original wording in recipe order, one per line. A long list shows only its first
  * lines, see [collapsedLineCount], and a toggle below them for the rest; it starts collapsed
- * whenever the screen opens.
+ * whenever the screen opens. Each line is tappable.
  */
 @Composable
-private fun IngredientList(lines: List<RecipeIngredient>) {
+private fun IngredientList(lines: List<RecipeIngredient>, onLineClick: (RecipeIngredient) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val collapsedCount = collapsedLineCount(lines.size)
     val hidden = lines.size - collapsedCount
     Column(
         Modifier
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(vertical = 8.dp)
             .animateContentSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        val openLabel = stringResource(R.string.recipe_line_open)
         (if (expanded) lines else lines.take(collapsedCount)).forEach { line ->
-            Text(line.originalText, style = MaterialTheme.typography.bodyLarge)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .clickable(onClickLabel = openLabel) { onLineClick(line) }
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Text(line.originalText, style = MaterialTheme.typography.bodyLarge)
+            }
         }
         if (hidden > 0) {
             Row(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 48.dp)
-                    .clickable { expanded = !expanded },
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

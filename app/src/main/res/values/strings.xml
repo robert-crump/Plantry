@@ -85,6 +85,7 @@
         <item quantity="other">+ %1$d weitere Zutaten</item>
     </plurals>
     <string name="recipe_lines_less">Weniger anzeigen</string>
+    <string name="recipe_line_open">Zutat öffnen</string>
     <string name="recipe_line_amount">%1$s g · %2$s</string>
     <string name="recipe_line_add">Zutat hinzufügen</string>
     <string name="recipe_line_new">Neue Zeile</string>

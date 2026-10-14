@@ -335,6 +335,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         },
                         onBack = { navController.popBackStack() },
                         onEdit = { navController.navigate(RecipeEditRoute(recipeId)) },
+                        onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
                         onPlanned = askForNotifications,
                     )
                 }
