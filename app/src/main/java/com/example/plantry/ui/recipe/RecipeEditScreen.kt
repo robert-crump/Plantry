@@ -75,6 +75,7 @@ import com.example.plantry.R
 import com.example.plantry.data.BookPage
 import com.example.plantry.data.BookSession
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientAliases
 import com.example.plantry.data.IngredientSuggestions
@@ -539,8 +540,12 @@ class RecipeEditViewModel(
     private fun lineEditor(form: RecipeForm, index: Int): LineEditorState {
         val line = form.lines[index]
         val name = line.ingredientId?.let { ingredientNames.value[it] }
-        return LineEditorState(index, RecipeLineForm.from(line, name), toNextProblem = form.problem(line) != null)
+        val pieceWeight = line.ingredientId?.let { pieceWeights()[it] }
+        return LineEditorState(index, RecipeLineForm.from(line, name, pieceWeight), toNextProblem = form.problem(line) != null)
     }
+
+    private fun pieceWeights(): Map<Long, PieceWeight> =
+        ingredients.value.mapNotNull { ingredient -> ingredient.pieceWeight?.let { ingredient.id to it } }.toMap()
 
     fun onLineFormChange(transform: RecipeLineForm.() -> RecipeLineForm) {
         _state.update { state ->
@@ -552,7 +557,7 @@ class RecipeEditViewModel(
         _state.update { state ->
             val editor = state.lineEditor ?: return@update state
             // A typed wording the user confirmed before needs no picking.
-            val line = editor.form.withAlias(aliases.value, ingredientNames.value).toFormLine()
+            val line = editor.form.withAlias(aliases.value, ingredientNames.value, pieceWeights()).toFormLine()
             if (line == null || !state.form.isReady(line.ingredientId)) {
                 state.copy(lineEditor = editor.copy(showErrors = true))
             } else {
@@ -1193,7 +1198,7 @@ private fun LineEditorDialog(
             ) {
                 FormField(
                     value = form.originalText,
-                    onValueChange = { onChange { copy(originalText = it) } },
+                    onValueChange = { onChange { withText(it) } },
                     label = R.string.recipe_line_text,
                     hint = R.string.recipe_line_text_hint,
                     capitalize = true,
@@ -1203,9 +1208,10 @@ private fun LineEditorDialog(
                 val gramsLast = form.ingredientId != null
                 FormField(
                     value = form.grams,
-                    onValueChange = { onChange { copy(grams = it) } },
+                    onValueChange = { onChange { withGrams(it) } },
                     label = R.string.recipe_line_grams,
                     error = if (errors?.grams == true) R.string.error_positive_decimal else null,
+                    supportingText = form.autoAmount()?.calculation(),
                     keyboardType = KeyboardType.Decimal,
                     imeAction = if (!gramsLast) ImeAction.Next else if (hasNextProblem) ImeAction.Go else ImeAction.Done,
                     onImeAction = if (gramsLast) onApply else null,
@@ -1287,6 +1293,8 @@ private fun FormField(
     modifier: Modifier = Modifier.fillMaxWidth(),
     @StringRes error: Int? = null,
     @StringRes hint: Int? = null,
+    /** Shown below the field unless there is an [error]. */
+    supportingText: String? = null,
     numeric: Boolean = false,
     capitalize: Boolean = false,
     keyboardType: KeyboardType = if (numeric) KeyboardType.Number else KeyboardType.Text,
@@ -1294,13 +1302,13 @@ private fun FormField(
     /** Replaces the default IME action (moving focus on Next, closing the keyboard on Done). */
     onImeAction: (() -> Unit)? = null,
 ) {
-    val supporting = error ?: hint
+    val supporting = (error ?: hint)?.let { stringResource(it) } ?: supportingText
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(stringResource(label)) },
         isError = error != null,
-        supportingText = supporting?.let { { Text(stringResource(it)) } },
+        supportingText = supporting?.let { { Text(it) } },
         singleLine = true,
         keyboardOptions = KeyboardOptions(
             keyboardType = keyboardType,

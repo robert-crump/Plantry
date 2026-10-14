@@ -1,14 +1,19 @@
 package com.example.plantry.ui.recipe
 
+import com.example.plantry.data.AmountParser
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAliases
+import com.example.plantry.data.ParsedAmount
+import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.RecipeIngredientDraft
 import com.example.plantry.ui.ingredient.formatDecimal
 import com.example.plantry.ui.ingredient.toPositiveDecimalOrNull
+import kotlin.math.roundToLong
 
 /**
  * Raw input of the ingredient line editor. Typing into the ingredient field clears the selected
- * ingredient until the user picks one of the suggestions.
+ * ingredient until the user picks one of the suggestions. While [gramsAuto], the grams follow the
+ * amount the text starts with ([AmountParser]); typing grams stops that.
  */
 data class RecipeLineForm(
     val originalText: String = "",
@@ -20,23 +25,42 @@ data class RecipeLineForm(
      * the chosen ingredient; blank for a line entered by hand.
      */
     val scannedName: String = "",
+    /** Of the selected ingredient, for amounts given in pieces. */
+    val pieceWeight: PieceWeight? = null,
+    /** The grams come from the text, not from the user; grams given here count as typed. */
+    val gramsAuto: Boolean = grams.isBlank(),
 ) {
-    fun withIngredientQuery(query: String) = copy(ingredientQuery = query, ingredientId = null)
+    fun withText(text: String) = copy(originalText = text).autoFilled()
+
+    fun withGrams(grams: String) = copy(grams = grams, gramsAuto = false)
+
+    fun withIngredientQuery(query: String) =
+        copy(ingredientQuery = query, ingredientId = null, pieceWeight = null).autoFilled()
 
     /**
      * Selects the ingredient the typed text is a learned alias of, if none is selected yet; [names]
      * by ingredient id.
      */
-    fun withAlias(aliases: Map<String, Long>, names: Map<Long, String>): RecipeLineForm {
+    fun withAlias(
+        aliases: Map<String, Long>,
+        names: Map<Long, String>,
+        pieceWeights: Map<Long, PieceWeight> = emptyMap(),
+    ): RecipeLineForm {
         if (ingredientId != null) return this
         val id = IngredientAliases.match(ingredientQuery, aliases) ?: return this
-        return withIngredient(id, names[id] ?: return this)
+        return withIngredient(id, names[id] ?: return this, pieceWeights[id])
     }
 
-    fun withIngredient(ingredient: Ingredient) = withIngredient(ingredient.id, ingredient.name)
+    fun withIngredient(ingredient: Ingredient) = withIngredient(ingredient.id, ingredient.name, ingredient.pieceWeight)
 
     /** A negative [id] is a new ingredient proposed by Claude, see [RecipeForm.newIngredients]. */
-    fun withIngredient(id: Long, name: String) = copy(ingredientQuery = name, ingredientId = id)
+    fun withIngredient(id: Long, name: String, pieceWeight: PieceWeight? = null) =
+        copy(ingredientQuery = name, ingredientId = id, pieceWeight = pieceWeight).autoFilled()
+
+    /** The amount the grams were filled in from; null once the user typed grams or nothing parses. */
+    fun autoAmount(): ParsedAmount? = if (gramsAuto) AmountParser.parse(originalText, pieceWeight) else null
+
+    private fun autoFilled() = if (gramsAuto) copy(grams = autoAmount()?.let { formatDecimal(it.grams) } ?: "") else this
 
     fun errors() = RecipeLineFormErrors(
         grams = grams.toPositiveDecimalOrNull() == null,
@@ -63,18 +87,34 @@ data class RecipeLineForm(
     }
 
     companion object {
-        fun from(line: RecipeIngredientDraft, ingredientName: String) = from(RecipeFormLine.from(line), ingredientName)
+        fun from(line: RecipeIngredientDraft, ingredientName: String, pieceWeight: PieceWeight? = null) =
+            from(RecipeFormLine.from(line), ingredientName, pieceWeight)
 
-        /** An unmatched line starts with Claude's name for the food as the search term. */
-        fun from(line: RecipeFormLine, ingredientName: String?) = RecipeLineForm(
-            originalText = line.originalText,
-            grams = if (line.grams > 0.0) formatDecimal(line.grams) else "",
-            ingredientQuery = ingredientName ?: line.ingredientName,
-            ingredientId = line.ingredientId,
-            scannedName = line.ingredientName,
-        )
+        /**
+         * An unmatched line starts with Claude's name for the food as the search term. Grams the
+         * line already has count as typed by the user, so they never change on their own.
+         */
+        fun from(line: RecipeFormLine, ingredientName: String?, pieceWeight: PieceWeight? = null): RecipeLineForm {
+            val form = RecipeLineForm(
+                originalText = line.originalText,
+                grams = if (line.grams > 0.0) formatDecimal(line.grams) else "",
+                ingredientQuery = ingredientName ?: line.ingredientName,
+                ingredientId = line.ingredientId,
+                scannedName = line.ingredientName,
+                pieceWeight = pieceWeight,
+            )
+            return form.autoFilled()
+        }
     }
 }
+
+/** How the grams were worked out, e.g. "4 × 37,5 g" or "150 g". */
+fun ParsedAmount.calculation(): String {
+    val perPiece = gramsPerPiece ?: return "${formatDecimal(grams)} g"
+    return "${formatDecimal(count.rounded(100))} × ${formatDecimal(perPiece.rounded(10))} g"
+}
+
+private fun Double.rounded(steps: Int) = (this * steps).roundToLong().toDouble() / steps
 
 data class RecipeLineFormErrors(val grams: Boolean, val ingredient: Boolean) {
     val hasAny: Boolean get() = grams || ingredient
