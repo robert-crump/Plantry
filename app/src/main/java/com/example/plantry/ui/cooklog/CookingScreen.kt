@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material3.AlertDialog
@@ -82,6 +83,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -111,6 +114,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 class CookingViewModel(
     private val repository: CookLogRepository,
@@ -126,6 +130,15 @@ class CookingViewModel(
     /** Null until the first emission, so the empty state doesn't flash. */
     val entries: StateFlow<List<CookLog>?> = repository.observeHistory()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Each history week's plant points, keyed by its Monday, see [weeklyPlantPoints]. */
+    val weeklyPlantPoints: StateFlow<Map<LocalDate, Double>> = combine(
+        repository.observeHistory(),
+        recipeRepository.observeAllLines(),
+        ingredientRepository.observeIngredients(),
+    ) { entries, lines, ingredients ->
+        weeklyPlantPoints(entries, lines, ingredients.associateBy { it.id })
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** Geplant, with each recipe's current stats; null until loaded. */
     val planned: StateFlow<List<PlannedItem>?> = combine(
@@ -179,8 +192,8 @@ data class JustPlanned(val recipeId: Long, val title: String)
 
 /**
  * The Kochen tab: Geplant on top as cards (hidden when empty), then the cooking history under
- * "Verlauf", newest first, in Monday–Sunday weeks with sticky headers, each row with its own date
- * badge. History rows show the recipe as it was when logged. A "+" FAB, hidden while scrolling
+ * "Verlauf", newest first, in Monday–Sunday weeks with sticky headers showing the week's plant
+ * points, each row with its own date badge. History rows show the recipe as it was when logged. A "+" FAB, hidden while scrolling
  * down, opens "Vorschlag" and "Kocheintrag" (pick a recipe, then a day up to today).
  * [justPlanned] is shown once as a snackbar, then [onJustPlannedShown] clears it.
  */
@@ -195,6 +208,7 @@ fun CookingScreen(
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val planned by viewModel.planned.collectAsStateWithLifecycle()
+    val weeklyPlantPoints by viewModel.weeklyPlantPoints.collectAsStateWithLifecycle()
     val showSwipeHint by viewModel.showSwipeHint.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -336,7 +350,7 @@ fun CookingScreen(
                         }
                         weeks.forEach { (monday, week) ->
                             stickyHeader(key = "week-$monday") {
-                                WeekHeader(cookWeekLabel(monday, today, locale, thisWeek, lastWeek))
+                                WeekHeader(cookWeekLabel(monday, today, locale, thisWeek, lastWeek), weeklyPlantPoints[monday])
                             }
                             items(week, key = { it.id }) { entry ->
                                 HistoryRow(
@@ -446,17 +460,41 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** A week's header in the history: a thin line, then e.g. "Diese Woche"; opaque, as it sticks at the top. */
+/**
+ * A week's header in the history: a thin line, then e.g. "Diese Woche" and, at the end, a leaf with
+ * the week's [plantPoints] against the goal, e.g. "23/30", green and bold once reached (none while
+ * still loading). Opaque, as it sticks at the top.
+ */
 @Composable
-private fun WeekHeader(text: String) {
+private fun WeekHeader(text: String, plantPoints: Double?) {
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         HorizontalDivider()
-        Text(
-            text,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
-        )
+        Row(
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val color = MaterialTheme.colorScheme.onSurfaceVariant
+            Text(text, style = MaterialTheme.typography.titleSmall, color = color, modifier = Modifier.weight(1f))
+            if (plantPoints != null) {
+                val points = plantPoints.roundToInt()
+                val reached = plantPointsGoalReached(plantPoints)
+                val description = stringResource(R.string.cook_week_plant_points, points, WeeklyPlantPointsGoal)
+                Row(
+                    Modifier.clearAndSetSemantics { contentDescription = description },
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val tint = if (reached) highlightGreen else color
+                    Icon(Icons.Filled.Eco, contentDescription = null, Modifier.size(16.dp), tint = tint)
+                    Text(
+                        "$points/$WeeklyPlantPointsGoal",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = tint,
+                        fontWeight = if (reached) FontWeight.Bold else null,
+                    )
+                }
+            }
+        }
     }
 }
 

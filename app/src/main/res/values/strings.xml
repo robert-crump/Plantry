@@ -157,6 +157,7 @@
     <string name="planned_history_title">Verlauf</string>
     <string name="cook_week_this">Diese Woche</string>
     <string name="cook_week_last">Letzte Woche</string>
+    <string name="cook_week_plant_points">%1$d von %2$d Pflanzenpunkten</string>
     <string name="planned_remove">Entfernen</string>
     <string name="planned_remove_confirm">„%1$s“ von „Geplant“ entfernen?</string>
     <string name="planned_done">Eintragen</string>
