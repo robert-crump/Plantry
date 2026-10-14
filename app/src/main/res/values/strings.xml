@@ -292,6 +292,12 @@
     <string name="ingredient_piece_weight_summary_single">%1$s · %2$s g</string>
     <string name="ingredient_piece_weight_hint">Damit Rezepte die Menge in Stück angeben können, z. B. „4 Scheiben“.</string>
     <string name="ingredient_piece_unit">Einheit</string>
+    <plurals name="ingredient_piece_weight_recipes_title">
+        <item quantity="one">Stückgewicht in %d Rezept übernehmen?</item>
+        <item quantity="other">Stückgewicht in %d Rezepten übernehmen?</item>
+    </plurals>
+    <string name="ingredient_piece_weight_recipes_message">Die Mengen in Stück werden mit dem neuen Stückgewicht neu berechnet.</string>
+    <string name="ingredient_piece_weight_recipes_keep">Beibehalten</string>
     <string name="ingredient_piece_weight_package_question">Kommt in einer Packung mit Einzelteilen?</string>
     <string name="ingredient_piece_package_grams_field">Packungsgewicht (g)</string>
     <string name="ingredient_piece_grams_field">Gewicht pro Stück (g)</string>

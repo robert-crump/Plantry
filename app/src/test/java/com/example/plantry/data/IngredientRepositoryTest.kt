@@ -201,6 +201,38 @@ class IngredientRepositoryTest {
     }
 
     @Test
+    fun update_changedPieceWeight_offersTheLinesItChanges() = runTest {
+        val id = repository.createFromLabel("Toast", Nutrition())
+        val toast = repository.getIngredient(id)!!
+        repository.update(id, draft(toast).copy(pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 20)))
+        dao.lines += listOf(
+            RecipeIngredient(id = 1, recipeId = 10, position = 0, originalText = "4 Scheiben Toast", grams = 150.0, ingredientId = id),
+            RecipeIngredient(id = 2, recipeId = 11, position = 0, originalText = "4 Scheiben Toast", grams = 150.0, ingredientId = id),
+            RecipeIngredient(id = 3, recipeId = 12, position = 3, originalText = "4 Scheiben Toast", grams = 150.0, ingredientId = id),
+            RecipeIngredient(id = 4, recipeId = 12, position = 4, originalText = "50 g Toast", grams = 50.0, ingredientId = id),
+        )
+
+        val update = repository.update(id, draft(toast).copy(pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 22)))!!
+        assertEquals(3, update.recipeCount)
+        repository.applyLineGrams(update)
+
+        assertEquals(listOf(136.4, 136.4, 136.4, 50.0), dao.lines.map { it.grams })
+    }
+
+    @Test
+    fun update_noPromptWhenRemovedUnchangedOrNothingChanges() = runTest {
+        val id = repository.createFromLabel("Toast", Nutrition())
+        val toast = repository.getIngredient(id)!!
+        val weight = PieceWeight(PieceUnit.SLICE, 750.0, 20)
+        dao.lines += RecipeIngredient(id = 1, recipeId = 10, position = 0, originalText = "4 Scheiben Toast", grams = 150.0, ingredientId = id)
+
+        assertNull(repository.update(id, draft(toast).copy(pieceWeight = weight)))
+        assertNull(repository.update(id, draft(toast).copy(pieceWeight = weight)))
+        assertNull(repository.update(id, draft(toast)))
+        assertNull(repository.getIngredient(id)!!.pieceWeight)
+    }
+
+    @Test
     fun update_savesEditsAndKeepsReviewed() = runTest {
         val id = repository.createFromUsda(riceCooked, "Reis, gekocht")
 
@@ -341,6 +373,15 @@ private class FakeIngredientDao : IngredientDao {
     val recipeTitles = mutableMapOf<Long, List<String>>()
 
     override suspend fun getRecipeTitlesUsing(id: Long): List<String> = recipeTitles[id].orEmpty()
+
+    /** Recipe lines of every ingredient. */
+    val lines = mutableListOf<RecipeIngredient>()
+
+    override suspend fun getLinesUsing(id: Long): List<RecipeIngredient> = lines.filter { it.ingredientId == id }
+
+    override suspend fun setLineGrams(lineId: Long, grams: Double) {
+        lines.replaceAll { if (it.id == lineId) it.copy(grams = grams) else it }
+    }
 
     override suspend fun deleteById(id: Long) {
         ingredients.value -= id

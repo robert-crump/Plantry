@@ -126,4 +126,19 @@ class IngredientDaoTest {
         assertEquals(PlantPoints.ZERO, all.getValue(other).plantPoints)
         assertEquals(listOf(false, true, true), listOf(dry, cooked, other).map { all.getValue(it).reviewed })
     }
+
+    @Test
+    fun setLinesGrams_changesOnlyTheGivenLinesOfTheIngredient() = runTest {
+        val toast = dao.insert(ingredient("Toast"))
+        val rice = dao.insert(ingredient("Reis"))
+        val recipeDao = db.recipeDao()
+        recipeDao.insertWithLines(recipe("Croque"), listOf(RecipeIngredientDraft("4 Scheiben Toast", 150.0, toast), line(rice)))
+        recipeDao.insertWithLines(recipe("Arme Ritter"), listOf(RecipeIngredientDraft("2 Scheiben Toast", 75.0, toast)))
+
+        val lines = dao.getLinesUsing(toast)
+        dao.setLinesGrams(lines.map { it.copy(grams = it.grams + 1) })
+
+        assertEquals(listOf(151.0, 76.0), dao.getLinesUsing(toast).sortedBy { it.id }.map { it.grams })
+        assertEquals(listOf(100.0), dao.getLinesUsing(rice).map { it.grams })
+    }
 }

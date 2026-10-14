@@ -83,9 +83,12 @@ class IngredientRepository(private val dao: IngredientDao) {
     /**
      * Saves the user's edits; reviewed stays as it is, see [setReviewed]. A
      * [IngredientDraft.scannedLabel] becomes the source and clears the USDA reference.
+     *
+     * When the edit changes the piece weight, returns the recipe lines that would get other grams
+     * from it, for the user to confirm with [applyLineGrams]; null when there are none.
      */
-    suspend fun update(id: Long, draft: IngredientDraft) {
-        val existing = dao.getById(id) ?: return
+    suspend fun update(id: Long, draft: IngredientDraft): LineGramsUpdate? {
+        val existing = dao.getById(id) ?: return null
         val sourced = draft.scannedLabel?.let { existing.copy(fdcId = null, usdaDescription = null, labelSource = it) } ?: existing
         dao.update(
             sourced.copy(
@@ -99,6 +102,15 @@ class IngredientRepository(private val dao: IngredientDao) {
                 plantPointsUndecided = false,
             ),
         )
+        val pieceWeight = draft.pieceWeight
+        if (pieceWeight == null || !PieceWeightUpdate.changed(existing.pieceWeight, pieceWeight)) return null
+        val lines = PieceWeightUpdate.affectedLines(dao.getLinesUsing(id), pieceWeight)
+        return if (lines.isEmpty()) null else LineGramsUpdate(lines)
+    }
+
+    /** Gives the recipe lines their new grams in one transaction, see [update]. */
+    suspend fun applyLineGrams(update: LineGramsUpdate) {
+        dao.setLinesGrams(update.lines)
     }
 
     suspend fun setReviewed(id: Long, reviewed: Boolean) {

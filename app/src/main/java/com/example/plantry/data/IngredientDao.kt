@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
@@ -42,6 +43,19 @@ interface IngredientDao {
         """,
     )
     suspend fun getRecipeTitlesUsing(id: Long): List<String>
+
+    /** Every recipe line of the ingredient, see [PieceWeightUpdate]. */
+    @Query("SELECT * FROM recipe_ingredients WHERE ingredientId = :id")
+    suspend fun getLinesUsing(id: Long): List<RecipeIngredient>
+
+    @Query("UPDATE recipe_ingredients SET grams = :grams WHERE id = :lineId")
+    suspend fun setLineGrams(lineId: Long, grams: Double)
+
+    /** Gives each of [lines] its grams, all or none. */
+    @Transaction
+    suspend fun setLinesGrams(lines: List<RecipeIngredient>) {
+        lines.forEach { setLineGrams(it.id, it.grams) }
+    }
 
     /** Aliases go with the ingredient. */
     @Query("DELETE FROM ingredients WHERE id = :id")

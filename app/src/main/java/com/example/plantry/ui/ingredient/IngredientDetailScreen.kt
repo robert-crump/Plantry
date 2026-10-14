@@ -54,6 +54,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -69,6 +70,7 @@ import com.example.plantry.R
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.LineGramsUpdate
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PieceWeight
@@ -109,6 +111,8 @@ data class IngredientDetailUiState(
     val createdId: Long? = null,
     /** The scanned barcode's lookup; null when there is none to show. */
     val barcode: BarcodeLookup? = null,
+    /** Set after a save changed the piece weight, while the user is asked whether recipes take it over. */
+    val lineGramsUpdate: LineGramsUpdate? = null,
 )
 
 data class DeleteCheck(val usedIn: List<String>)
@@ -194,10 +198,30 @@ class IngredientDetailViewModel(
             return
         }
         viewModelScope.launch {
-            repository.update(ingredientId, draft)
+            val lineGrams = repository.update(ingredientId, draft)
             val saved = repository.getIngredient(ingredientId) ?: return@launch
-            _state.update { it.copy(ingredient = saved, form = IngredientForm.from(saved), editing = false, showErrors = false) }
+            _state.update {
+                it.copy(
+                    ingredient = saved,
+                    form = IngredientForm.from(saved),
+                    editing = false,
+                    showErrors = false,
+                    lineGramsUpdate = lineGrams,
+                )
+            }
         }
+    }
+
+    /** Gives the recipes the grams from the new piece weight. */
+    fun applyLineGrams() {
+        val update = _state.value.lineGramsUpdate ?: return
+        _state.update { it.copy(lineGramsUpdate = null) }
+        viewModelScope.launch { repository.applyLineGrams(update) }
+    }
+
+    /** Leaves the recipes as they are. */
+    fun dismissLineGrams() {
+        _state.update { it.copy(lineGramsUpdate = null) }
     }
 
     fun setReviewed(reviewed: Boolean) {
@@ -363,6 +387,21 @@ fun IngredientDetailScreen(
                 text = { Text(stringResource(R.string.ingredient_discard_message)) },
                 confirmButton = { TextButton(onClick = viewModel::discard) { Text(stringResource(R.string.action_discard)) } },
                 dismissButton = { TextButton(onClick = viewModel::dismissDiscard) { Text(stringResource(R.string.action_cancel)) } },
+            )
+        }
+        state.lineGramsUpdate?.let { update ->
+            AlertDialog(
+                onDismissRequest = viewModel::dismissLineGrams,
+                title = {
+                    Text(pluralStringResource(R.plurals.ingredient_piece_weight_recipes_title, update.recipeCount, update.recipeCount))
+                },
+                text = { Text(stringResource(R.string.ingredient_piece_weight_recipes_message)) },
+                confirmButton = {
+                    TextButton(onClick = viewModel::applyLineGrams) { Text(stringResource(R.string.action_apply)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::dismissLineGrams) { Text(stringResource(R.string.ingredient_piece_weight_recipes_keep)) }
+                },
             )
         }
         state.deleteCheck?.let { check ->
