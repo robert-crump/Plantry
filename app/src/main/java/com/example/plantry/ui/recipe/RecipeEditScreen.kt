@@ -363,7 +363,7 @@ class RecipeEditViewModel(
                     is ScanResult.Success -> {
                         // Claude never reads the book, so the source always comes from the session.
                         val book = bookSession.defaults(BookPage(source = "", page = result.recipe.page))
-                        state.copy(form = RecipeForm().withScan(result.recipe, book, aliases.value), scan = ScanState.Done)
+                        state.copy(form = RecipeForm().withScan(result.recipe, book, aliases.value, pieceWeights()), scan = ScanState.Done)
                     }
                     is ScanResult.Failure -> state.copy(scan = ScanState.Failed(result.reason))
                 }

@@ -88,7 +88,11 @@ object AmountParser {
         "pinch", "dash", "handful",
     ).map(::normalize).toSet()
 
-    private val UNITS: Map<String, PieceUnit> = mapOf(
+    /** The German singular of [unit] as a recipe would write it, e.g. "Scheibe". */
+    fun word(unit: PieceUnit): String = WORDS.getValue(unit).substringBefore(' ')
+
+    /** Every word a recipe may use for a unit; the German singular first. */
+    private val WORDS: Map<PieceUnit, String> = mapOf(
         PieceUnit.PIECE to "Stück Stk Stck piece pieces pc pcs",
         PieceUnit.SLICE to "Scheibe Scheiben slice slices",
         PieceUnit.CLOVE to "Zehe Zehen clove cloves",
@@ -102,5 +106,8 @@ object AmountParser {
         PieceUnit.JAR to "Glas Gläser jar jars",
         PieceUnit.TUB to "Becher tub tubs pot pots",
         PieceUnit.PACKET to "Päckchen Packung Packungen packet packets pack packs",
-    ).flatMap { (unit, words) -> words.split(' ').map { normalize(it) to unit } }.toMap()
+    )
+
+    private val UNITS: Map<String, PieceUnit> =
+        WORDS.flatMap { (unit, words) -> words.split(' ').map { normalize(it) to unit } }.toMap()
 }

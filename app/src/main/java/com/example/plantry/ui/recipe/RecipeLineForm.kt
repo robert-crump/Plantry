@@ -83,7 +83,10 @@ data class RecipeLineForm(
 
     /** The validated line for the recipe form, marked as confirmed by the user. */
     fun toFormLine(): RecipeFormLine? = toDraft()?.let {
-        RecipeFormLine(it.originalText, it.grams, it.ingredientId, ingredientName = scannedName, confirmed = true)
+        RecipeFormLine(
+            it.originalText, it.grams, it.ingredientId, ingredientName = scannedName, confirmed = true,
+            gramsParsed = autoAmount() != null,
+        )
     }
 
     companion object {
@@ -92,7 +95,8 @@ data class RecipeLineForm(
 
         /**
          * An unmatched line starts with Claude's name for the food as the search term. Grams the
-         * line already has count as typed by the user, so they never change on their own.
+         * line already has count as typed by the user, so they never change on their own, unless
+         * they were read from its amount.
          */
         fun from(line: RecipeFormLine, ingredientName: String?, pieceWeight: PieceWeight? = null): RecipeLineForm {
             val form = RecipeLineForm(
@@ -102,6 +106,7 @@ data class RecipeLineForm(
                 ingredientId = line.ingredientId,
                 scannedName = line.ingredientName,
                 pieceWeight = pieceWeight,
+                gramsAuto = line.gramsParsed || line.grams <= 0.0,
             )
             return form.autoFilled()
         }

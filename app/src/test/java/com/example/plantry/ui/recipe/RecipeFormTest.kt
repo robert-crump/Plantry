@@ -3,6 +3,8 @@ package com.example.plantry.ui.recipe
 import com.example.plantry.data.BookPage
 import com.example.plantry.data.Dish
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.PieceUnit
+import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.StoreSection
@@ -430,5 +432,50 @@ class RecipeFormTest {
         assertFalse(RecipeForm().copy(title = "C").isEmpty)
         assertFalse(RecipeForm().withBookServings("4").isEmpty)
         assertFalse(RecipeForm().withLine(null, RecipeIngredientDraft("Salz", 1.0, 1)).isEmpty)
+    }
+
+    @Test
+    fun withScan_parsedAmountsReplaceClaudesGrams() {
+        val toast = PieceWeight(PieceUnit.SLICE, 750.0, 20)
+        val scan = ScannedRecipe(
+            title = "Snack",
+            servings = 1,
+            cookingTimeMinutes = 5,
+            page = null,
+            lines = listOf(
+                ScannedLine("4 Scheiben Toast", 120.0, ingredientId = 5, ingredientName = "Toast", uncertain = true),
+                ScannedLine("150 g Mehl", 140.0, ingredientId = 6, ingredientName = "Mehl", uncertain = false),
+                ScannedLine("1 Bund Petersilie", 30.0, ingredientId = 7, ingredientName = "Petersilie", uncertain = true),
+                ScannedLine("2 Scheiben Käse", 40.0, ingredientId = 8, ingredientName = "Käse", uncertain = false),
+                // No ingredient matched: nothing to parse for.
+                ScannedLine("100 g Tahin", 90.0, ingredientId = null, ingredientName = "Tahin", uncertain = false),
+            ),
+        )
+
+        val lines = RecipeForm().withScan(scan, pieceWeights = mapOf(5L to toast)).lines
+
+        assertEquals(listOf(150.0, 150.0, 30.0, 40.0, 90.0), lines.map { it.grams })
+        assertEquals(listOf(false, false, true, false, false), lines.map { it.uncertain })
+        assertEquals(listOf(true, true, false, false, false), lines.map { it.gramsParsed })
+    }
+
+    @Test
+    fun withScan_parsesWithThePieceWeightOfTheAliasedIngredient() {
+        val scan = ScannedRecipe(
+            title = "Snack",
+            servings = 1,
+            cookingTimeMinutes = 5,
+            page = null,
+            lines = listOf(ScannedLine("2 Scheiben Toastbrot", 60.0, ingredientId = 9, ingredientName = "Toastbrot", uncertain = false)),
+        )
+
+        val line = RecipeForm().withScan(
+            scan,
+            aliases = mapOf("toastbrot" to 5L),
+            pieceWeights = mapOf(5L to PieceWeight(PieceUnit.SLICE, 750.0, 20)),
+        ).lines.single()
+
+        assertEquals(5L, line.ingredientId)
+        assertEquals(75.0, line.grams, 0.0)
     }
 }

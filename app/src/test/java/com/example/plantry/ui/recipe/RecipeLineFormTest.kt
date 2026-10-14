@@ -176,4 +176,17 @@ class RecipeLineFormTest {
 
         assertEquals("75", form.grams)
     }
+
+    @Test
+    fun autoGrams_aScannedLineWithParsedGramsKeepsFollowingTheText() {
+        val line = RecipeFormLine("4 Scheiben Toast", 150.0, ingredientId = 5, gramsParsed = true)
+
+        val form = RecipeLineForm.from(line, "Toast", toast.pieceWeight)
+
+        assertTrue(form.gramsAuto)
+        assertEquals("4 × 37,5 g", form.autoAmount()!!.calculation())
+        assertEquals("225", form.withText("6 Scheiben Toast").grams)
+        assertTrue(form.toFormLine()!!.gramsParsed)
+        assertFalse(form.withGrams("160").toFormLine()!!.gramsParsed)
+    }
 }

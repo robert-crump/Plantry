@@ -1,11 +1,13 @@
 package com.example.plantry.ui.recipe
 
+import com.example.plantry.data.AmountParser
 import com.example.plantry.data.BookPage
 import com.example.plantry.data.BookSession
 import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAliases
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeDraft
 import com.example.plantry.data.RecipeIngredient
@@ -59,11 +61,14 @@ data class RecipeForm(
      * Takes what Claude read, with source and page from [book] (see [BookSession.defaults]); by
      * default the source is kept, since a page photo rarely shows the book. A line whose food name
      * is a learned alias (see [IngredientAliases]) gets that ingredient, whatever Claude matched.
+     * Where the amount of a line with an ingredient can be read ([AmountParser], with the piece
+     * weight from [pieceWeights] by ingredient id), its grams replace Claude's estimate.
      */
     fun withScan(
         scan: ScannedRecipe,
         book: BookPage = BookPage(source, scan.page),
         aliases: Map<String, Long> = emptyMap(),
+        pieceWeights: Map<Long, PieceWeight> = emptyMap(),
     ) = RecipeForm(
         title = scan.title,
         source = book.source,
@@ -73,13 +78,16 @@ data class RecipeForm(
         cookingTime = scan.cookingTimeMinutes?.toString().orEmpty(),
         lines = scan.lines.map {
             val aliased = IngredientAliases.match(it.ingredientName, aliases)
+            val ingredientId = aliased ?: it.ingredientId
+            val parsed = ingredientId?.let { id -> AmountParser.parse(it.originalText, pieceWeights[id]) }
             RecipeFormLine(
                 originalText = it.originalText,
-                grams = it.grams,
-                ingredientId = aliased ?: it.ingredientId,
+                grams = parsed?.grams ?: it.grams,
+                ingredientId = ingredientId,
                 ingredientName = it.ingredientName,
-                uncertain = it.uncertain,
+                uncertain = it.uncertain && parsed == null,
                 searchTerms = if (aliased != null) emptyList() else it.searchTerms,
+                gramsParsed = parsed != null,
             )
         },
     )
@@ -262,6 +270,8 @@ data class RecipeFormLine(
     val searchTerms: List<String> = emptyList(),
     /** The user applied the line in the editor, confirming [ingredientName] means [ingredientId]. */
     val confirmed: Boolean = false,
+    /** [grams] were read from the amount ([AmountParser]), so the line editor keeps them following it. */
+    val gramsParsed: Boolean = false,
 ) {
     val complete: Boolean get() = ingredientId != null && grams > 0.0
 
