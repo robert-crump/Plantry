@@ -21,3 +21,13 @@ To regenerate the asset, download the SR Legacy CSV release from
 ```
 python tools/usda_to_asset.py path/to/FoodData_Central_sr_legacy_food_csv_2018-04
 ```
+
+## Emulator test data
+
+Debug builds on an emulator start with invented test data from
+`app/src/debug/assets/emulator-fixture.json` (a backup file: ingredients, recipes, aliases, cooking log, Geplant).
+It is imported when the database is empty (fresh install, uninstall, wipe) and replaces all data whenever the
+fixture changes. Dates are moved so the cooking log ends today. Phones and release builds are never touched.
+
+When the backup format version is bumped, `EmulatorSeederTest` fails until the fixture uses the new fields
+and the new `formatVersion`.

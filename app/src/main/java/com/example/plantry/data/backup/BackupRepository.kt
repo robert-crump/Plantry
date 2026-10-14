@@ -69,6 +69,9 @@ class BackupRepository(
         setBaseline(currentJson())
     }
 
+    /** True unless there are no ingredients and no recipes. */
+    suspend fun hasData(): Boolean = store.snapshot().let { it.ingredients.isNotEmpty() || it.recipes.isNotEmpty() }
+
     /** Re-evaluates [reminder]; cheap unless the last export is old. */
     suspend fun refreshReminder() {
         val baselineDate = storage.getString(KEY_BASELINE_DATE)?.let(LocalDate::parse)
@@ -110,7 +113,7 @@ class BackupRepository(
         fun fileName(date: LocalDate, number: Int): String =
             date.format(DATE_FORMAT) + "-plantry" + (if (number > 1) "-$number" else "") + ".json"
 
-        private fun fingerprint(json: String): String =
+        internal fun fingerprint(json: String): String =
             MessageDigest.getInstance("SHA-256").digest(json.toByteArray()).joinToString("") { "%02x".format(it) }
     }
 }

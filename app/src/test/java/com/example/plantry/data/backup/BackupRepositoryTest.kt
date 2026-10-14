@@ -496,7 +496,8 @@ private class FakePhotoStore : PhotoStore {
     }
 }
 
-private class MapStorage : SettingsStorage {
+/** Also used by [EmulatorSeederTest]. */
+internal class MapStorage : SettingsStorage {
     val values = mutableMapOf<String, String>()
     override fun getString(key: String) = values[key]
     override fun putString(key: String, value: String) { values[key] = value }

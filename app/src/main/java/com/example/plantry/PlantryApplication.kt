@@ -39,6 +39,7 @@ class PlantryApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         cookReminders.start(appScope)
+        EmulatorSeed.start(this, appScope)
     }
 
     private val database by lazy { PlantryDatabase.create(this) }
