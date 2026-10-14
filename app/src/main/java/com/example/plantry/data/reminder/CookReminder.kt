@@ -9,11 +9,11 @@ import java.time.LocalTime
 
 /** What the reminders about today's planned recipes say. */
 sealed interface ReminderContent {
-    /** "Habt ihr heute <Titel> gekocht?" with Ja / Nein. */
+    /** "Habt ihr heute <Titel> gekocht?" with Ja / Nein, morgen. */
     data class Single(val recipeId: Long, val title: String) : ReminderContent
 
-    /** "Habt ihr heute etwas von Geplant gekocht?" with the titles in Geplant order; [firstRecipeId] is the first of them. */
-    data class Several(val firstRecipeId: Long, val titles: List<String>) : ReminderContent
+    /** "Habt ihr heute etwas davon gekocht?" with Keins, morgen; [recipeIds] and [titles] in Geplant order. */
+    data class Several(val recipeIds: List<Long>, val titles: List<String>) : ReminderContent
 }
 
 /** The rules of the reminders; the alarms and the notifications only carry them out. */
@@ -41,7 +41,7 @@ object CookReminder {
         return when (shown.size) {
             0 -> null
             1 -> ReminderContent.Single(shown.single().id, shown.single().title)
-            else -> ReminderContent.Several(shown.first().id, shown.map { it.title })
+            else -> ReminderContent.Several(shown.map { it.id }, shown.map { it.title })
         }
     }
 

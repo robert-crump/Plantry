@@ -157,23 +157,26 @@
     <string name="planned_done_title">Als gekocht eintragen?</string>
     <string name="planned_done_confirm">„%1$s“ wird für %2$s eingetragen.</string>
     <string name="planned_swipe_hint">Nach links wischen zum Entfernen, nach rechts, wenn gekocht.</string>
-    <string name="reminder_channel">Kochen-Erinnerung</string>
+    <string name="reminder_channel">Kocherinnerung</string>
     <string name="reminder_channel_description">Fragt am Abend des geplanten Tages, ob das Rezept gekocht wurde</string>
-    <string name="reminder_single_title">Habt ihr heute %1$s gekocht?</string>
-    <string name="reminder_several_title">Habt ihr heute etwas von „Geplant“ gekocht?</string>
+    <string name="reminder_single_text">Habt ihr heute %1$s gekocht?</string>
+    <string name="reminder_several_text">Habt ihr heute etwas davon gekocht: %1$s?</string>
+    <string name="reminder_several_question">Habt ihr heute etwas davon gekocht?</string>
     <string name="reminder_offer_message">Möchtest du erinnert werden, ob du ein geplantes Rezept gekocht hast?</string>
     <string name="proposal_channel">Rezeptvorschlag</string>
     <string name="proposal_channel_description">Schlägt ein Rezept vor, wenn für heute nichts geplant ist</string>
-    <string name="proposal_title">Heute kochen: %1$s?</string>
+    <string name="proposal_text">Heute kochen: %1$s?</string>
     <string name="shopping_channel">Einkaufserinnerung</string>
     <string name="shopping_channel_description">Erinnert ans Einkaufen, wenn für heute ein Rezept geplant ist</string>
-    <string name="shopping_single_title">Einkaufen für heute: %1$s?</string>
-    <string name="shopping_several_title">Einkaufen für heute?</string>
+    <string name="shopping_text">Einkaufen für heute: %1$s?</string>
+    <string name="shopping_several_question">Einkaufen für heute?</string>
     <string name="date_today">Heute</string>
     <string name="date_yesterday">Gestern</string>
     <string name="action_undo">Rückgängig</string>
     <string name="action_yes">Ja</string>
     <string name="action_no">Nein</string>
+    <string name="action_no_tomorrow">Nein, morgen</string>
+    <string name="action_none_tomorrow">Keins, morgen</string>
 
     <!-- Suggestions -->
     <string name="suggest_action">Vorschlag</string>

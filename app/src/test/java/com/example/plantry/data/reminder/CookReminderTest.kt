@@ -56,7 +56,7 @@ class CookReminderTest {
     fun content_severalRecipesForToday_listsTitlesInPlanOrder() {
         val planned = listOf(PlannedRecipe(2, today), PlannedRecipe(1, today))
 
-        assertEquals(ReminderContent.Several(2, listOf("Curry", "Linsen-Dal")), CookReminder.content(true, today, planned, listOf(dal, curry)))
+        assertEquals(ReminderContent.Several(listOf(2, 1), listOf("Curry", "Linsen-Dal")), CookReminder.content(true, today, planned, listOf(dal, curry)))
     }
 
     @Test

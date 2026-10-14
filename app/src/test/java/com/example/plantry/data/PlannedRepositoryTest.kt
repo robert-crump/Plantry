@@ -32,6 +32,40 @@ class PlannedRepositoryTest {
     }
 
     @Test
+    fun postpone_movesTheRecipesStillPlannedForTheDayToTheNextDay() = runTest {
+        repository.plan(1, today)
+        repository.plan(2, today)
+        repository.plan(3, today.plusDays(1))
+
+        repository.postpone(listOf(1, 2), today)
+
+        assertEquals(
+            listOf(PlannedRecipe(1, today.plusDays(1)), PlannedRecipe(2, today.plusDays(1)), PlannedRecipe(3, today.plusDays(1))),
+            repository.observe().first().sortedBy { it.recipeId },
+        )
+    }
+
+    @Test
+    fun postpone_afterTheNextDayBegan_movesToToday() = runTest {
+        repository.plan(1, today.minusDays(3))
+
+        repository.postpone(listOf(1), today.minusDays(3))
+
+        assertEquals(listOf(PlannedRecipe(1, today)), repository.observe().first())
+    }
+
+    @Test
+    fun postpone_leavesRecipesMovedOrCookedInTheMeantimeAlone() = runTest {
+        repository.plan(1, today.plusDays(4))
+        repository.plan(2, today)
+        repository.cook(2, today)
+
+        repository.postpone(listOf(1, 2, 3), today)
+
+        assertEquals(listOf(PlannedRecipe(1, today.plusDays(4))), repository.observe().first())
+    }
+
+    @Test
     fun plan_countsThePlans() = runTest {
         assertEquals(0, repository.plans.value)
 

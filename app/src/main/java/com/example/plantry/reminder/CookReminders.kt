@@ -32,7 +32,7 @@ import java.time.ZoneId
 /**
  * The notifications: a recipe proposal and a shopping reminder at their times, and the "Habt ihr
  * heute … gekocht?" question on the evening of a planned day. Keeps one alarm per kind set while
- * it is on, shows the notification when the alarm fires and answers the evening one's Ja button.
+ * it is on, shows the notification when the alarm fires and answers the evening one's buttons.
  */
 class CookReminders(
     private val context: Context,
@@ -81,7 +81,7 @@ class CookReminders(
                     notifications.notify(kind.notificationId, buildShopping(it))
                 }
                 ReminderKind.COOKED -> CookReminder.content(enabled, today, plannedNow, recipes.observeRecipes().first())?.let {
-                    notifications.notify(kind.notificationId, buildCooked(it))
+                    notifications.notify(kind.notificationId, buildCooked(it, today))
                 }
             }
         }
@@ -94,8 +94,14 @@ class CookReminders(
         if (planned.observe().first().any { it.recipeId == recipeId }) planned.cook(recipeId, LocalDate.now())
     }
 
-    /** "Nein": keeps it on Geplant until it drops off; no more reminders for it unless it is moved to a later day. */
-    fun answerNo() = notifications.cancel(ReminderKind.COOKED.notificationId)
+    /** "Nein, morgen" / "Keins, morgen": moves the recipes asked about on [askedOn] to the next day. */
+    suspend fun answerNo(recipeIds: List<Long>, askedOn: LocalDate) {
+        notifications.cancel(ReminderKind.COOKED.notificationId)
+        planned.postpone(recipeIds, askedOn)
+    }
+
+    /** "Nein" of a notification from before "Nein, morgen", which carries no recipes. */
+    fun dismissCooked() = notifications.cancel(ReminderKind.COOKED.notificationId)
 
     /** The recipe to propose, picked now; null when none is wanted or none is left to propose. */
     private suspend fun proposal(enabled: Boolean, today: LocalDate, planned: List<PlannedRecipe>): Recipe? {
@@ -141,6 +147,8 @@ class CookReminders(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         return Notification.Builder(context, kind.channelId)
+            // The kind is the title; the question goes below it.
+            .setContentTitle(context.getString(kind.channelName))
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(open)
             .setAutoCancel(true)
@@ -148,47 +156,58 @@ class CookReminders(
 
     private fun buildProposal(recipe: Recipe): Notification =
         builder(ReminderKind.PROPOSAL, recipe.id)
-            .setContentTitle(context.getString(R.string.proposal_title, recipe.title))
+            .setContentText(context.getString(R.string.proposal_text, recipe.title))
             .build()
 
     private fun buildShopping(content: ReminderContent): Notification =
         when (content) {
             is ReminderContent.Single ->
                 builder(ReminderKind.SHOPPING, content.recipeId)
-                    .setContentTitle(context.getString(R.string.shopping_single_title, content.title))
+                    .setContentText(context.getString(R.string.shopping_text, content.title))
                     .build()
             is ReminderContent.Several ->
-                builder(ReminderKind.SHOPPING, content.firstRecipeId)
-                    .setContentTitle(context.getString(R.string.shopping_several_title))
-                    .setContentText(content.titles.joinToString(", "))
-                    .setStyle(Notification.BigTextStyle().bigText(content.titles.joinToString("\n")))
+                builder(ReminderKind.SHOPPING, content.recipeIds.first())
+                    .setContentText(context.getString(R.string.shopping_text, content.titles.joinToString(", ")))
+                    .setStyle(listed(R.string.shopping_several_question, content.titles))
                     .build()
         }
 
-    private fun buildCooked(content: ReminderContent): Notification {
+    private fun buildCooked(content: ReminderContent, askedOn: LocalDate): Notification {
         val builder = builder(ReminderKind.COOKED, openRecipeId = null)
+        val ids = when (content) {
+            is ReminderContent.Single -> listOf(content.recipeId)
+            is ReminderContent.Several -> content.recipeIds
+        }
+        val no = broadcast(ReminderReceiver.ACTION_NO, REQUEST_NO) {
+            putExtra(ReminderReceiver.EXTRA_RECIPE_IDS, ids.toLongArray())
+            putExtra(ReminderReceiver.EXTRA_DATE, askedOn.toEpochDay())
+        }
         return when (content) {
             is ReminderContent.Single -> {
                 val yes = broadcast(ReminderReceiver.ACTION_YES, REQUEST_YES) {
                     putExtra(ReminderReceiver.EXTRA_RECIPE_ID, content.recipeId)
                 }
-                val no = broadcast(ReminderReceiver.ACTION_NO, REQUEST_NO)
                 builder
-                    .setContentTitle(context.getString(R.string.reminder_single_title, content.title))
+                    .setContentText(context.getString(R.string.reminder_single_text, content.title))
                     .addAction(Notification.Action.Builder(null, context.getString(R.string.action_yes), yes).build())
-                    .addAction(Notification.Action.Builder(null, context.getString(R.string.action_no), no).build())
+                    .addAction(Notification.Action.Builder(null, context.getString(R.string.action_no_tomorrow), no).build())
                     .build()
             }
-            is ReminderContent.Several -> {
-                val titles = content.titles.joinToString(", ")
+            // No Ja: it can't tell which one was cooked; tapping the notification opens Kochen for that.
+            is ReminderContent.Several ->
                 builder
-                    .setContentTitle(context.getString(R.string.reminder_several_title))
-                    .setContentText(titles)
-                    .setStyle(Notification.BigTextStyle().bigText(content.titles.joinToString("\n")))
+                    .setContentText(context.getString(R.string.reminder_several_text, content.titles.joinToString(", ")))
+                    .setStyle(listed(R.string.reminder_several_question, content.titles))
+                    .addAction(Notification.Action.Builder(null, context.getString(R.string.action_none_tomorrow), no).build())
                     .build()
-            }
         }
     }
+
+    /** Expanded: the question, then one title per line. */
+    private fun listed(question: Int, titles: List<String>): Notification.BigTextStyle =
+        Notification.BigTextStyle().bigText(
+            context.getString(question) + titles.joinToString("") { "\n• $it" },
+        )
 
     private fun broadcast(action: String, requestCode: Int, extras: Intent.() -> Unit = {}): PendingIntent =
         PendingIntent.getBroadcast(

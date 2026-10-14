@@ -42,6 +42,18 @@ class PlannedRepository(
     suspend fun remove(recipeId: Long): PlannedRecipe? =
         dao.get(recipeId)?.takeIf { it.isCurrent(today()) }.also { dao.delete(recipeId) }
 
+    /**
+     * "Nein, morgen" in the evening reminder: moves the recipes still planned for [askedOn] to the
+     * day after, or to today if that day has passed already. Recipes moved or cooked in the
+     * meantime are left alone.
+     */
+    suspend fun postpone(recipeIds: Collection<Long>, askedOn: LocalDate) {
+        val to = maxOf(askedOn.plusDays(1), today())
+        recipeIds.forEach { id ->
+            if (dao.get(id)?.plannedOn == askedOn) dao.upsert(PlannedRecipe(id, to))
+        }
+    }
+
     /** Puts a removed entry back with its original date (undo). */
     suspend fun restore(planned: PlannedRecipe) = dao.upsert(planned)
 

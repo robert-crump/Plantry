@@ -8,8 +8,9 @@ import com.example.plantry.data.settings.ReminderKind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
-/** The reminder alarm, the notification's Ja / Nein, and the system events after which the alarm is set again. */
+/** The reminder alarm, the notification's buttons, and the system events after which the alarm is set again. */
 class ReminderReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -20,7 +21,15 @@ class ReminderReceiver : BroadcastReceiver() {
                 when (intent.action) {
                     ACTION_SHOW -> reminders.show(kindOf(intent))
                     ACTION_YES -> intent.getLongExtra(EXTRA_RECIPE_ID, -1).takeIf { it >= 0 }?.let { reminders.answerYes(it) }
-                    ACTION_NO -> reminders.answerNo()
+                    ACTION_NO -> {
+                        val ids = intent.getLongArrayExtra(EXTRA_RECIPE_IDS)
+                        val askedOn = intent.getLongExtra(EXTRA_DATE, Long.MIN_VALUE)
+                        if (ids == null || askedOn == Long.MIN_VALUE) {
+                            reminders.dismissCooked()
+                        } else {
+                            reminders.answerNo(ids.toList(), LocalDate.ofEpochDay(askedOn))
+                        }
+                    }
                     // Boot, app update, time or time zone change.
                     else -> reminders.sync()
                 }
@@ -39,6 +48,10 @@ class ReminderReceiver : BroadcastReceiver() {
         const val ACTION_YES = "com.example.plantry.reminder.YES"
         const val ACTION_NO = "com.example.plantry.reminder.NO"
         const val EXTRA_RECIPE_ID = "recipeId"
+        const val EXTRA_RECIPE_IDS = "recipeIds"
+
+        /** The day the evening reminder asked about, as epoch day. */
+        const val EXTRA_DATE = "date"
         const val EXTRA_KIND = "kind"
     }
 }
