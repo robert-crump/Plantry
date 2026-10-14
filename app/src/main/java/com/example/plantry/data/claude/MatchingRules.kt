@@ -1,5 +1,7 @@
 package com.example.plantry.data.claude
 
+import com.example.plantry.data.PieceUnit
+
 /**
  * How a food is classified when it becomes a Plantry ingredient: USDA entry, plant points and
  * store section. Derived from `tools/seed/matching-rules.md`, the rules calibrated for the
@@ -66,5 +68,27 @@ object MatchingRules {
         Typical drained shares: beans and chickpeas about 60 %, corn about 50 %. The nutrition
         stays per 100 g drained ("canned, drained solids"). 0 for both for everything else,
         including canned goods used with their liquid (Kokosmilch, stückige Tomaten).
+    """.trimIndent()
+
+    /**
+     * Units a food is naturally counted in. Slices and containers depend on the user's package,
+     * so Claude never proposes them. App-only: the seed has no piece weights.
+     */
+    val PIECE_UNITS = listOf(
+        PieceUnit.PIECE, PieceUnit.CLOVE, PieceUnit.LEAF, PieceUnit.SPRIG, PieceUnit.STALK,
+        PieceUnit.BULB, PieceUnit.HEAD, PieceUnit.BUNCH,
+    )
+
+    /** Lets recipes give the amount in pieces ("2 Eier", "3 Zehen Knoblauch"). */
+    val PIECE_WEIGHT = """
+        Only for foods that are naturally counted: pieceUnit is how a recipe counts it (PIECE for
+        an egg, onion, apple, carrot or lemon; CLOVE for garlic; LEAF for bay leaves; SPRIG for
+        rosemary or thyme; STALK for leek or celery; BULB for fennel; HEAD for lettuce or
+        cauliflower; BUNCH for parsley or radishes), pieceGrams the edible weight of one typical
+        medium piece in grams, without shell, peel or core, since the nutrition is per 100 g
+        edible, e.g. Ei PIECE 55, Knoblauch CLOVE 4, Zwiebel PIECE 100. NONE
+        and 0 for everything else: packaged goods whose piece size depends on the package (Toast,
+        sliced cheese, cans, jars) and foods measured by weight or volume (Mehl, Reis, Öl, Linsen,
+        Milch, spices).
     """.trimIndent()
 }

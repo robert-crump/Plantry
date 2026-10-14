@@ -12,6 +12,7 @@ import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientOrigin
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.settings.ScanModel
@@ -62,6 +63,8 @@ data class IngredientProposal(
     val plantPoints: PlantPoints,
     /** Only for drained canned or jarred goods. */
     val drainedWeight: DrainedWeight? = null,
+    /** Only for naturally counted foods; always for one piece (count 1). */
+    val pieceWeight: PieceWeight? = null,
     /** Claude gave no valid store section / plant points, so the value above is a fallback to replace. */
     val storeSectionUndecided: Boolean = false,
     val plantPointsUndecided: Boolean = false,
@@ -82,6 +85,7 @@ data class IngredientProposal(
             plantPoints = plantPoints,
             reviewed = false,
             drainedWeight = drainedWeight,
+            pieceWeight = pieceWeight,
             origin = IngredientOrigin.CLAUDE,
             storeSectionUndecided = storeSectionUndecided,
             plantPointsUndecided = plantPointsUndecided,
@@ -227,6 +231,8 @@ object ProposalPrompt {
             - storeSection, plantPoints: see the rules below.
             - netWeightGrams, drainedWeightGrams: see the drained weight rule below; 0 for both if
               it does not apply.
+            - pieceUnit, pieceGrams: see the piece weight rule below; NONE and 0 if it does not
+              apply.
             """.trimIndent(),
         )
         appendLine()
@@ -235,7 +241,8 @@ object ProposalPrompt {
         appendRule("Name", MatchingRules.NAME)
         appendRule("storeSection", MatchingRules.STORE_SECTION)
         appendRule("plantPoints", MatchingRules.PLANT_POINTS)
-        append("Drained weight: ${MatchingRules.DRAINED_WEIGHT}")
+        appendRule("Drained weight", MatchingRules.DRAINED_WEIGHT)
+        append("Piece weight: ${MatchingRules.PIECE_WEIGHT}")
     }
 
     private fun StringBuilder.appendRule(title: String, rule: String) {
@@ -279,9 +286,14 @@ object ProposalPrompt {
                 "plantPoints" to enumSchema(PlantPoints.entries),
                 "netWeightGrams" to mapOf("type" to "number"),
                 "drainedWeightGrams" to mapOf("type" to "number"),
+                "pieceUnit" to mapOf("type" to "string", "enum" to listOf(NO_PIECE_UNIT) + MatchingRules.PIECE_UNITS.map { it.name }),
+                "pieceGrams" to mapOf("type" to "number"),
             ),
         ),
     )
+
+    /** What Claude answers for a food without a piece weight. */
+    const val NO_PIECE_UNIT = "NONE"
 
     private fun enumSchema(values: List<Enum<*>>) = mapOf("type" to "string", "enum" to values.map { it.name })
 
@@ -322,6 +334,8 @@ object ProposalParser {
         val plantPoints: String = "",
         val netWeightGrams: Double = 0.0,
         val drainedWeightGrams: Double = 0.0,
+        val pieceUnit: String = "",
+        val pieceGrams: Double = 0.0,
     )
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -336,7 +350,8 @@ object ProposalParser {
     /**
      * One proposal per food. Invalid or missing fields fall back to neutral values the user reviews
      * later: a USDA entry that was not a candidate counts as none and unknown enums become
-     * OTHER / ZERO, marked undecided so they can't be reviewed unseen, and weights other than 0 < drained ≤ net mean not drained. A food Claude left
+     * OTHER / ZERO, marked undecided so they can't be reviewed unseen, and weights other than 0 < drained ≤ net mean not drained; a piece unit Claude may
+     * not propose or grams ≤ 0 mean no piece weight. A food Claude left
      * out gets only defaults.
      */
     fun proposals(text: String?, foods: List<FoodCandidates>): ClaudeResult<Map<Long, IngredientProposal>> {
@@ -362,6 +377,11 @@ object ProposalParser {
             storeSection = storeSection ?: StoreSection.OTHER,
             plantPoints = plantPoints ?: PlantPoints.ZERO,
             drainedWeight = DrainedWeight.of(answer.netWeightGrams, answer.drainedWeightGrams),
+            pieceWeight = PieceWeight.of(
+                MatchingRules.PIECE_UNITS.firstOrNull { it.name == answer.pieceUnit.trim().uppercase() },
+                answer.pieceGrams,
+                1,
+            ),
             storeSectionUndecided = storeSection == null,
             plantPointsUndecided = plantPoints == null,
         )

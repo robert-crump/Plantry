@@ -57,11 +57,32 @@ class ProposalPromptTest {
 
     @Test
     fun `propose prompt and schema ask for drained weights of canned goods`() {
-        assertTrue(ProposalPrompt.PROPOSE_SYSTEM.endsWith("Drained weight: " + MatchingRules.DRAINED_WEIGHT))
+        assertTrue(ProposalPrompt.PROPOSE_SYSTEM.contains("Drained weight: " + MatchingRules.DRAINED_WEIGHT))
         assertTrue(MatchingRules.DRAINED_WEIGHT.contains("about 60 %"))
         val schema = ProposalPrompt.proposeSchema().toString()
         assertTrue(schema.contains("netWeightGrams"))
         assertTrue(schema.contains("drainedWeightGrams"))
+    }
+
+    @Test
+    fun `propose prompt and schema ask for piece weights of naturally counted foods only`() {
+        assertTrue(ProposalPrompt.PROPOSE_SYSTEM.endsWith("Piece weight: " + MatchingRules.PIECE_WEIGHT))
+        val rule = MatchingRules.PIECE_WEIGHT
+        assertTrue(rule.contains("Ei PIECE 55, Knoblauch CLOVE 4"))
+        assertTrue(rule.contains("packaged goods whose piece size depends on the package (Toast"))
+        val schema = ProposalPrompt.proposeSchema().toString()
+        assertTrue(schema.contains("pieceUnit"))
+        assertTrue(schema.contains("pieceGrams"))
+        listOf("SLICE", "CAN", "JAR", "TUB", "PACKET").forEach { assertFalse(it, schema.contains(it)) }
+    }
+
+    @Test
+    fun `piece weight rule names only the units Claude may propose`() {
+        val words = Regex("\\b[A-Z]{2,}\\b").findAll(MatchingRules.PIECE_WEIGHT).map { it.value }.toSet()
+        val known = MatchingRules.PIECE_UNITS.map { it.name } + ProposalPrompt.NO_PIECE_UNIT
+
+        assertTrue(words.toString(), known.containsAll(words))
+        assertTrue(words.containsAll(known))
     }
 
     @Test
