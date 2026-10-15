@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -38,7 +37,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
@@ -53,7 +51,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -80,7 +77,6 @@ import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientAliases
 import com.example.plantry.data.IngredientSuggestions
 import com.example.plantry.data.Dish
-import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.NewIngredientFinder
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.RecipePhotoRepository
@@ -107,7 +103,6 @@ import com.example.plantry.ui.settings.SettingsRow
 import com.example.plantry.ui.settings.ApiKeyDialog
 import com.example.plantry.ui.settings.ApiKeyEntry
 import com.example.plantry.data.claude.ConnectionTester
-import com.example.plantry.data.nutritionLines
 import com.example.plantry.ui.ingredient.LabelNutritionDialog
 import com.example.plantry.ui.ingredient.LabelNutritionForm
 import com.example.plantry.ui.ingredient.formatDecimal
@@ -128,6 +123,8 @@ data class RecipeEditUiState(
     /** Null while no line is being edited. */
     val lineEditor: LineEditorState? = null,
     val saved: Boolean = false,
+    /** Closed without saving. */
+    val closed: Boolean = false,
     /** The photo of the cookbook page as compressed JPEG, stored or just taken. */
     val photo: ByteArray? = null,
     /** True once [photo] was taken or picked here, so saving stores it. */
@@ -151,7 +148,15 @@ data class RecipeEditUiState(
     val choosingPhotoSource: Boolean = false,
     /** Null unless a Claude feature waits for the costs to be accepted or a key to be entered. */
     val claudeGate: ClaudeGate? = null,
-)
+    /** The form as loaded: the saved recipe, or the empty form of a new one. */
+    val loadedForm: RecipeForm = RecipeForm(),
+    /** Closing waits for "Verwerfen", because [hasChanges]. */
+    val confirmDiscard: Boolean = false,
+) {
+    /** Closing would lose something: the form differs from [loadedForm], or a photo was taken for a scan. */
+    val hasChanges: Boolean
+        get() = scanning || photoChanged || form.copy(ourServingsEdited = loadedForm.ourServingsEdited) != loadedForm
+}
 
 /** What uses Claude here; each waits until Claude is set up, see [RecipeEditViewModel.useClaude]. */
 enum class ClaudeAction { SCAN, PROPOSE_LINE }
@@ -230,22 +235,6 @@ class RecipeEditViewModel(
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     /**
-     * Nutrition per portion of the lines as they are now, including a valid line in the open
-     * editor, so the effect of a change shows before it is applied. Null without lines or valid
-     * servings.
-     */
-    val preview: StateFlow<RecipeNutrition?> = combine(_state, ingredients) { state, ingredients ->
-        val servings = state.form.effectiveServings() ?: return@combine null
-        val editor = state.lineEditor
-        val pending = editor?.form?.toDraft()
-        val form = if (pending == null) state.form else state.form.withLine(editor.index, pending)
-        val lines = form.completeLines()
-        if (lines.isEmpty()) return@combine null
-        val all = ingredients + state.form.previewIngredients()
-        RecipeNutrition.calculate(nutritionLines(lines, all.associateBy { it.id }), servings)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    /**
      * Matches for the ingredient field of the open line editor: own table and new ingredients, the
      * ingredient the typed wording is a learned alias of first.
      */
@@ -295,7 +284,8 @@ class RecipeEditViewModel(
                 val recipe = repository.getRecipe(recipeId) ?: return@launch
                 val lines = repository.getLines(recipeId)
                 val photo = photos.get(recipeId)
-                _state.update { it.copy(form = RecipeForm.from(recipe, lines), photo = it.photo ?: photo) }
+                val form = RecipeForm.from(recipe, lines)
+                _state.update { it.copy(form = form, loadedForm = form, photo = it.photo ?: photo) }
             }
         }
     }
@@ -576,6 +566,20 @@ class RecipeEditViewModel(
         _state.update { it.copy(form = it.form.removeLine(index)) }
     }
 
+    /** Leaves the editor; with [RecipeEditUiState.hasChanges] it asks first, see [discard]. */
+    fun close() {
+        _state.update { if (it.hasChanges) it.copy(confirmDiscard = true) else it.copy(closed = true) }
+    }
+
+    fun dismissDiscard() {
+        _state.update { it.copy(confirmDiscard = false) }
+    }
+
+    fun discard() {
+        reading?.cancel()
+        _state.update { it.copy(confirmDiscard = false, closed = true) }
+    }
+
     fun save() {
         val draft = _state.value.form.toDraft()
         if (draft == null) {
@@ -606,13 +610,12 @@ fun RecipeEditScreen(
     onCreateIngredient: (String) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val preview by viewModel.preview.collectAsStateWithLifecycle()
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     val ingredientNames by viewModel.ingredientNames.collectAsStateWithLifecycle()
     val sourceSuggestions by viewModel.sourceSuggestions.collectAsStateWithLifecycle()
     val photoSource = rememberPhotoSource(viewModel::onPhoto)
     var showingScanInfo by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(state.saved) { if (state.saved) onBack() }
+    LaunchedEffect(state.saved, state.closed) { if (state.saved || state.closed) onBack() }
 
     val form = state.form
     val errors = if (state.showErrors) form.errors() else null
@@ -621,13 +624,14 @@ fun RecipeEditScreen(
     // A scan is reviewed in two steps, recipe fields then lines; otherwise both show at once.
     val showFields = showForm && !(isScan && state.linesStep)
     val showLines = showForm && (!isScan || state.linesStep)
-    // Back steps out of the scan's photo and lines steps before it leaves the screen.
-    val back = when {
-        isScan && !showForm -> viewModel::skipScan
-        isScan && state.linesStep -> viewModel::showFields
-        else -> onBack
+    // System back steps out of the scan's photo and lines steps before it closes the editor; X always closes.
+    BackHandler {
+        when {
+            isScan && !showForm -> viewModel.skipScan()
+            isScan && state.linesStep -> viewModel.showFields()
+            else -> viewModel.close()
+        }
     }
-    BackHandler(enabled = isScan && (!showForm || state.linesStep), onBack = back)
 
     Scaffold(
         topBar = {
@@ -640,8 +644,8 @@ fun RecipeEditScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = back) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
+                    IconButton(onClick = viewModel::close) {
+                        Icon(Icons.Filled.Close, stringResource(R.string.action_close))
                     }
                 },
                 actions = {
@@ -655,20 +659,6 @@ fun RecipeEditScreen(
                     }
                 },
             )
-        },
-        bottomBar = {
-            // Live protein preview, so the effect of every edit is visible right away.
-            preview?.let { nutrition ->
-                Surface(tonalElevation = 3.dp) {
-                    ProteinIndicator(
-                        nutrition.perPortion.protein,
-                        Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                    )
-                }
-            }
         },
     ) { padding ->
         Column(
@@ -816,6 +806,15 @@ fun RecipeEditScreen(
                     }
                 },
                 dismissButton = { TextButton(onClick = viewModel::dismissReplace) { Text(stringResource(R.string.action_cancel)) } },
+            )
+        }
+
+        if (state.confirmDiscard) {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissDiscard,
+                title = { Text(stringResource(R.string.recipe_discard_title)) },
+                confirmButton = { TextButton(onClick = viewModel::discard) { Text(stringResource(R.string.action_discard)) } },
+                dismissButton = { TextButton(onClick = viewModel::dismissDiscard) { Text(stringResource(R.string.action_cancel)) } },
             )
         }
 

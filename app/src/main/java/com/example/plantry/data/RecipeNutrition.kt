@@ -18,11 +18,12 @@ data class RecipeNutrition(
      */
     val topContributors: Map<Nutrient, List<Contributor>>,
 ) {
-    val proteinRating: ProteinRating get() = ProteinRating.of(perPortion.protein)
-
     companion object {
         const val TOP_CONTRIBUTOR_COUNT = 3
         const val MIN_CONTRIBUTOR_SHARE = 0.1
+
+        /** Grams of protein per portion the plan aims for. */
+        const val PROTEIN_MIN = 30.0
 
         fun calculate(lines: List<NutritionLine>, servings: Int): RecipeNutrition {
             require(servings > 0) { "servings must be positive, was $servings" }
@@ -43,26 +44,6 @@ data class RecipeNutrition(
                     .take(TOP_CONTRIBUTOR_COUNT)
             }
             return RecipeNutrition(perPortion, topContributors)
-        }
-    }
-}
-
-/** Only protein is rated; the other nutrients are shown without judgement. */
-enum class ProteinRating {
-    GREEN,
-    YELLOW,
-    RED,
-    ;
-
-    companion object {
-        /** Grams of protein per portion the plan aims for. */
-        const val GREEN_MIN = 30.0
-        const val YELLOW_MIN = 20.0
-
-        fun of(proteinPerPortion: Double) = when {
-            proteinPerPortion >= GREEN_MIN -> GREEN
-            proteinPerPortion >= YELLOW_MIN -> YELLOW
-            else -> RED
         }
     }
 }

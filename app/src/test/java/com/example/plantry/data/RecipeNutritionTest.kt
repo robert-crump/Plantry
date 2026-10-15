@@ -44,7 +44,6 @@ class RecipeNutritionTest {
 
         assertNutrition(Nutrition(), nutrition.perPortion)
         assertTrue(nutrition.topContributors.values.all { it.isEmpty() })
-        assertEquals(ProteinRating.RED, nutrition.proteinRating)
     }
 
     @Test
@@ -128,25 +127,6 @@ class RecipeNutritionTest {
         val protein = nutrition.topContributors.getValue(Nutrient.PROTEIN)
         assertEquals(listOf("Tofu", "Linsen"), protein.map { it.name })
         assertEquals(34.6, protein.first().amount, 1e-9)
-    }
-
-    @Test
-    fun proteinRating_isGreenFromThirtyGrams() {
-        assertEquals(ProteinRating.GREEN, ProteinRating.of(30.0))
-        assertEquals(ProteinRating.GREEN, ProteinRating.of(45.0))
-        assertEquals(ProteinRating.YELLOW, ProteinRating.of(29.9))
-        assertEquals(ProteinRating.YELLOW, ProteinRating.of(20.0))
-        assertEquals(ProteinRating.RED, ProteinRating.of(19.9))
-    }
-
-    @Test
-    fun proteinRating_followsPerPortionValue() {
-        // 600 g tofu = 103.8 g protein: 3 portions are green, 4 yellow, 6 red.
-        val lines = listOf(line(1, "Tofu", 600.0, tofu))
-
-        assertEquals(ProteinRating.GREEN, RecipeNutrition.calculate(lines, servings = 3).proteinRating)
-        assertEquals(ProteinRating.YELLOW, RecipeNutrition.calculate(lines, servings = 4).proteinRating)
-        assertEquals(ProteinRating.RED, RecipeNutrition.calculate(lines, servings = 6).proteinRating)
     }
 
     @Test

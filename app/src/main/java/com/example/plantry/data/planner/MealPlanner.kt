@@ -1,6 +1,6 @@
 package com.example.plantry.data.planner
 
-import com.example.plantry.data.ProteinRating
+import com.example.plantry.data.RecipeNutrition
 import kotlin.random.Random
 
 /** What the planner knows about a recipe. */
@@ -38,7 +38,7 @@ class CooldownTerm(private val cooldownDays: Int) : ScoreTerm {
 }
 
 /** 1 at [targetGrams] protein per portion or more; below, lower in proportion to the shortfall. */
-class ProteinTerm(private val targetGrams: Double = ProteinRating.GREEN_MIN) : ScoreTerm {
+class ProteinTerm(private val targetGrams: Double = RecipeNutrition.PROTEIN_MIN) : ScoreTerm {
     override fun weight(candidate: Candidate): Double =
         (candidate.proteinPerPortion / targetGrams).coerceIn(ScoreTerm.MIN_WEIGHT, 1.0)
 }

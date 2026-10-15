@@ -3,6 +3,7 @@
 
     <!-- Common actions -->
     <string name="action_back">Zurück</string>
+    <string name="action_close">Schließen</string>
     <string name="action_save">Speichern</string>
     <string name="action_edit">Bearbeiten</string>
     <string name="action_delete">Löschen</string>
@@ -69,6 +70,7 @@
     <!-- Recipe edit -->
     <string name="recipe_new">Neues Rezept</string>
     <string name="recipe_edit">Rezept bearbeiten</string>
+    <string name="recipe_discard_title">Änderungen verwerfen?</string>
     <string name="error_title_required">Bitte einen Titel eingeben</string>
     <string name="error_positive_number">Bitte eine ganze Zahl größer 0 eingeben</string>
     <string name="error_active_time_exceeds_total">Höchstens die Gesamtzeit</string>
@@ -199,10 +201,6 @@
     <string name="recipe_section_nutrition">Nährwerte je Portion</string>
     <string name="nutrition_expand">Größte Beiträge anzeigen</string>
     <string name="nutrition_collapse">Größte Beiträge ausblenden</string>
-    <string name="nutrition_protein_per_portion">%1$s g Eiweiß je Portion</string>
-    <string name="protein_rating_green">Ziel erreicht (ab 30 g)</string>
-    <string name="protein_rating_yellow">Etwas wenig (unter 30 g)</string>
-    <string name="protein_rating_red">Zu wenig (unter 20 g)</string>
     <string name="nutrient_name_kcal">Energie</string>
     <string name="nutrient_name_protein">Eiweiß</string>
     <string name="nutrient_name_carbs">Kohlenhydrate</string>

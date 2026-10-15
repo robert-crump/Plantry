@@ -22,7 +22,7 @@ enum class RecipeHighlight {
     ;
 
     companion object {
-        val PROTEIN_MIN = ProteinRating.GREEN_MIN.toInt()
+        val PROTEIN_MIN = RecipeNutrition.PROTEIN_MIN.toInt()
         const val CARBS_MIN = 50
         const val PLANT_POINTS_MIN = 5
         const val KCAL_MAX = 600
