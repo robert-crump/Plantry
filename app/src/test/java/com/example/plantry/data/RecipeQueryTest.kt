@@ -13,8 +13,10 @@ class RecipeQueryTest {
     private val cumin = ingredient(5, "Kreuzkümmel").copy(plantPoints = PlantPoints.QUARTER)
     private val salt = ingredient(6, "Salz")
     private val oil = ingredient(7, "Olivenöl")
+    private val proteinPowder = ingredient(8, "Proteinpulver", Nutrition(protein = 80.0))
+    private val oats = ingredient(9, "Haferflocken", Nutrition(carbs = 60.0))
 
-    private val ingredients = listOf(riceDry, riceCooked, lentils, tofu, cumin, salt, oil).associateBy { it.id }
+    private val ingredients = listOf(riceDry, riceCooked, lentils, tofu, cumin, salt, oil, proteinPowder, oats).associateBy { it.id }
 
     private fun recipe(id: Long, title: String, minutes: Int? = 30, active: Int? = null) = Recipe(
         id = id, title = title, source = "", page = null,
@@ -92,6 +94,18 @@ class RecipeQueryTest {
 
         assertEquals(listOf("Dal", "Tofu", "Reis"), result.titles())
         assertEquals(12.5, result.first().proteinPerPortion, 1e-9)
+    }
+
+    @Test
+    fun carbs_mostFirst() {
+        val result = run(
+            listOf(recipe(1, "Dal"), recipe(2, "Porridge"), recipe(3, "Tofu")),
+            listOf(line(1, oats, grams = 50.0), line(2, oats, grams = 200.0), line(3, tofu)),
+            sort = RecipeSort.CARBS,
+        )
+
+        assertEquals(listOf("Porridge", "Dal", "Tofu"), result.titles())
+        assertEquals(60.0, result.first().carbsPerPortion, 1e-9)
     }
 
     @Test
@@ -274,6 +288,42 @@ class RecipeQueryTest {
 
         assertEquals(listOf("Skyr mit Banane"), run(recipes, filter = RecipeFilter(dish = Dish.SNACK)).titles())
         assertEquals(listOf("Dal"), run(recipes, filter = RecipeFilter(dish = Dish.MAIN)).titles())
+    }
+
+    @Test
+    fun highlightFilter_needsEveryChosenHighlight() {
+        // Per portion: Shake 40 g protein; Porridge 60 g carbs; Kraftriegel both; Reis neither.
+        val recipes = listOf(recipe(1, "Shake"), recipe(2, "Porridge"), recipe(3, "Kraftriegel"), recipe(4, "Reis"))
+        val lines = listOf(
+            line(1, proteinPowder),
+            line(2, oats, grams = 200.0),
+            line(3, proteinPowder), line(3, oats, grams = 200.0),
+            line(4, riceDry),
+        )
+        val highProtein = RecipeFilter(highlights = setOf(RecipeHighlight.HIGH_PROTEIN))
+        val highCarb = RecipeFilter(highlights = setOf(RecipeHighlight.HIGH_CARB))
+        val both = RecipeFilter(highlights = setOf(RecipeHighlight.HIGH_PROTEIN, RecipeHighlight.HIGH_CARB))
+
+        assertEquals(listOf("Kraftriegel", "Shake"), run(recipes, lines, highProtein).titles())
+        assertEquals(listOf("Kraftriegel", "Porridge"), run(recipes, lines, highCarb).titles())
+        assertEquals(listOf("Kraftriegel"), run(recipes, lines, both).titles())
+    }
+
+    @Test
+    fun highlightAndDishFilter_findHighProteinSnacks() {
+        val recipes = listOf(recipe(1, "Shake").copy(dish = Dish.SNACK), recipe(2, "Seitan"), recipe(3, "Apfel").copy(dish = Dish.SNACK))
+        val lines = listOf(line(1, proteinPowder), line(2, proteinPowder), line(3, riceDry))
+        val chips = listOf(RecipeChip.OfDish(Dish.SNACK), RecipeChip.WithHighlight(RecipeHighlight.HIGH_PROTEIN))
+
+        assertEquals(listOf("Shake"), run(recipes, lines, RecipeFilter.of(chips)).titles())
+    }
+
+    @Test
+    fun filterOfChips_highlightsCombine() {
+        val chips = RecipeChip.HIGHLIGHTS.fold(ChipSelection<RecipeChip>()) { selection, chip -> selection.toggle(chip) }
+
+        assertEquals(RecipeChip.HIGHLIGHTS, chips.active)
+        assertEquals(setOf(RecipeHighlight.HIGH_PROTEIN, RecipeHighlight.HIGH_CARB), RecipeFilter.of(chips.active).highlights)
     }
 
     @Test

@@ -11,6 +11,9 @@ enum class RecipeSort {
     /** Most protein per portion first. */
     PROTEIN,
 
+    /** Most carbs per portion first. */
+    CARBS,
+
     /** Shortest Gesamtzeit first. */
     TOTAL_TIME,
 
@@ -24,7 +27,7 @@ enum class RecipeSort {
     LAST_COOKED,
 }
 
-/** The recipe list's filter chips: any number of ingredients, the two times and at most one dish. */
+/** The recipe list's filter chips: any number of ingredients and highlights, the two times and at most one dish. */
 sealed interface RecipeChip : FilterChoice {
 
     data class WithIngredient(val ingredientId: Long) : RecipeChip {
@@ -41,6 +44,11 @@ sealed interface RecipeChip : FilterChoice {
         override val group: Any get() = MaxActiveTime::class
     }
 
+    /** Only recipes with this highlight, e.g. "High-Protein"; with "Snack" the high-protein snacks. */
+    data class WithHighlight(val highlight: RecipeHighlight) : RecipeChip {
+        override val group: Any? get() = null
+    }
+
     data class OfDish(val dish: Dish) : RecipeChip {
         override val group: Any get() = OfDish::class
     }
@@ -51,6 +59,9 @@ sealed interface RecipeChip : FilterChoice {
 
         /** "Wenig Arbeit". */
         val EASY = MaxActiveTime(20)
+
+        /** "High-Protein" and "High-Carb", in this order. */
+        val HIGHLIGHTS = listOf(RecipeHighlight.HIGH_PROTEIN, RecipeHighlight.HIGH_CARB).map(::WithHighlight)
 
         /** "Hauptgericht" and "Snack", only when [recipes] hold both; else either chip would match them all. */
         fun dishes(recipes: List<Recipe>): List<OfDish> {
@@ -67,6 +78,8 @@ data class RecipeFilter(
     val maxTotalMinutes: Int? = null,
     val maxActiveMinutes: Int? = null,
     val dish: Dish? = null,
+    /** Recipes must have all of these. */
+    val highlights: Set<RecipeHighlight> = emptySet(),
 ) {
     companion object {
         /** The filter the [chips] stand for; the ingredients keep the chips' order. */
@@ -75,6 +88,7 @@ data class RecipeFilter(
             maxTotalMinutes = chips.filterIsInstance<RecipeChip.MaxTotalTime>().firstOrNull()?.minutes,
             maxActiveMinutes = chips.filterIsInstance<RecipeChip.MaxActiveTime>().firstOrNull()?.minutes,
             dish = chips.filterIsInstance<RecipeChip.OfDish>().firstOrNull()?.dish,
+            highlights = chips.filterIsInstance<RecipeChip.WithHighlight>().mapTo(mutableSetOf()) { it.highlight },
         )
     }
 }
@@ -89,6 +103,7 @@ data class RecipeListItem(
     val highlights: Set<RecipeHighlight> = emptySet(),
 ) {
     val proteinPerPortion: Double get() = stats.proteinPerPortion
+    val carbsPerPortion: Double get() = stats.carbsPerPortion
 
     /** Sum of [PlantPoints] over the recipe's distinct ingredients. */
     val plantPoints: Double get() = stats.plantPoints
@@ -120,6 +135,7 @@ object RecipeQuery {
             .filter { recipe -> filter.dish == null || recipe.dish == filter.dish }
             .map { recipe -> item(recipe, linesByRecipe[recipe.id].orEmpty(), ingredients, lastCooked, wanted) }
             .filter { wanted.isEmpty() || it.matchedIngredients > 0 }
+            .filter { it.highlights.containsAll(filter.highlights) }
             .sortedWith(
                 compareByDescending<RecipeListItem> { it.matchedIngredients }
                     .then(comparator(sort))
@@ -162,6 +178,7 @@ object RecipeQuery {
     private fun comparator(sort: RecipeSort): Comparator<RecipeListItem> = when (sort) {
         RecipeSort.TITLE -> compareBy(titleCollator) { it.recipe.title }
         RecipeSort.PROTEIN -> compareByDescending { it.proteinPerPortion }
+        RecipeSort.CARBS -> compareByDescending { it.carbsPerPortion }
         // nullsLast: recipes without a time can't claim to be quick.
         RecipeSort.TOTAL_TIME -> compareBy(nullsLast()) { it.recipe.totalTimeMinutes }
         RecipeSort.ACTIVE_TIME -> compareBy(nullsLast()) { it.recipe.activeTimeMinutes }

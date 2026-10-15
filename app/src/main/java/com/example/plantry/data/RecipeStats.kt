@@ -8,7 +8,6 @@ data class RecipeStats(
     /** Sum of [PlantPoints] over the recipe's distinct ingredients. */
     val plantPoints: Double,
     val proteinPerPortion: Double,
-    /** Still stored and backed up, but no longer shown. */
     val carbsPerPortion: Double,
     /** Null in cooking log entries logged before kcal were snapshotted. */
     val kcalPerPortion: Double? = null,
@@ -18,6 +17,7 @@ data class RecipeStats(
     /** Rounded to whole numbers for compact display, e.g. on Kochen. */
     val roundedPlantPoints: Int get() = plantPoints.roundToInt()
     val roundedProtein: Int get() = proteinPerPortion.roundToInt()
+    val roundedCarbs: Int get() = carbsPerPortion.roundToInt()
     val roundedKcal: Int? get() = kcalPerPortion?.roundToInt()
     val roundedFibre: Int? get() = fibrePerPortion?.roundToInt()
 

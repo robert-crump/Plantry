@@ -30,7 +30,6 @@
     <string name="recipe_page">Seite</string>
     <string name="recipe_book_servings">Portionen laut Buch</string>
     <string name="recipe_our_servings">Unsere Portionen</string>
-    <string name="recipe_cooking_time">Kochzeit</string>
     <string name="recipe_active_time">Arbeitszeit</string>
     <string name="recipe_total_time">Gesamtzeit</string>
     <string name="recipe_active_time_minutes">Arbeitszeit (Min.)</string>
@@ -43,12 +42,14 @@
     <string name="recipe_page_only">S. %1$d</string>
     <string name="recipe_no_source">Keine Quelle</string>
     <string name="recipe_minutes">%1$d Min.</string>
-    <string name="recipe_minutes_active_total">%1$d / %2$d Min.</string>
-    <string name="recipe_minutes_active_only">%1$d / ? Min.</string>
+    <string name="recipe_minutes_compact">%1$d\'</string>
+    <string name="recipe_minutes_compact_missing">?</string>
+    <string name="recipe_total_time_spoken">Gesamtzeit: %1$s</string>
     <string name="recipe_cooking_time_missing">Unbekannt</string>
     <string name="recipe_sort">Sortieren</string>
     <string name="recipe_sort_title">A–Z</string>
     <string name="recipe_sort_protein">Eiweiß je Portion</string>
+    <string name="recipe_sort_carbs">Kohlenhydrate je Portion</string>
     <string name="recipe_sort_plant_points">Pflanzenpunkte</string>
     <string name="recipe_sort_last_cooked">Am längsten nicht gekocht</string>
     <string name="recipe_filter_add_ingredient">Zutat</string>
@@ -148,7 +149,8 @@
     <string name="recipe_stats_grams">%1$dg</string>
     <string name="recipe_stats_kcal">%1$dkcal</string>
     <string name="recipe_stats_missing">–</string>
-    <string name="highlight_high_protein">Proteinreich</string>
+    <string name="highlight_high_protein">High-Protein</string>
+    <string name="highlight_high_carb">High-Carb</string>
     <string name="highlight_plant_point_power">Pflanzenpunkte-Power</string>
     <string name="highlight_low_calorie">Kalorienarm</string>
     <string name="highlight_high_fibre">Ballaststoffreich</string>

@@ -8,13 +8,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -50,7 +48,7 @@ import com.example.plantry.data.planner.RecipeSuggester
 import com.example.plantry.data.planner.SuggestionRounds
 import com.example.plantry.ui.cooklog.PlanDatePickerDialog
 import com.example.plantry.ui.cooklog.RecipeStatsRow
-import com.example.plantry.ui.recipe.cookingTimeLabel
+import com.example.plantry.ui.recipe.CompactCookingTimeChip
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -63,7 +61,6 @@ import java.time.LocalDate
 data class SuggestionCard(
     val recipeId: Long,
     val snapshot: RecipeSnapshot,
-    val activeTimeMinutes: Int?,
     val totalTimeMinutes: Int?,
     /** The lines' original wording in recipe order, e.g. "1 Dose Kichererbsen, 2 TL Zucker". */
     val ingredients: String,
@@ -75,7 +72,6 @@ data class SuggestionCard(
             return SuggestionCard(
                 recipeId = recipe.id,
                 snapshot = RecipeSnapshot.of(recipe, recipeLines, ingredients),
-                activeTimeMinutes = recipe.activeTimeMinutes,
                 totalTimeMinutes = recipe.totalTimeMinutes,
                 ingredients = recipeLines.sortedBy { it.position }.joinToString(", ") { it.originalText },
             )
@@ -200,19 +196,9 @@ private fun SuggestionCardView(card: SuggestionCard, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(card.snapshot.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                RecipeStatsRow(card.snapshot.stats)
-                cookingTimeLabel(card.activeTimeMinutes, card.totalTimeMinutes)?.let { time ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Filled.Schedule,
-                            contentDescription = stringResource(R.string.recipe_cooking_time),
-                            Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(time, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RecipeStatsRow(card.snapshot.stats, Modifier.weight(1f))
+                CompactCookingTimeChip(card.totalTimeMinutes, Modifier.padding(start = 8.dp))
             }
             if (card.ingredients.isNotEmpty()) {
                 Text(

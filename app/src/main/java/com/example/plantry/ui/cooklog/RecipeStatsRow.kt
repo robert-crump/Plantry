@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BakeryDining
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Grass
 import androidx.compose.material.icons.filled.LocalFireDepartment
@@ -29,9 +30,10 @@ import com.example.plantry.ui.theme.highlightGreen
 
 /**
  * Per portion and rounded: leaf with plant points, flame with kcal, [ProteinIcon] with protein,
- * grass with fibre, e.g. "5  520kcal  27g  9g". Kcal and fibre missing (old cooking log entries) show "–".
- * The stats behind [highlights] are green and bold. Compact, meant for its own line below a title;
- * [large] makes it half as big again and spreads the stats over the width, see [EqualExtraSpace].
+ * croissant with carbs, grass with fibre, e.g. "5  520kcal  27g  64g  9g". Kcal and fibre missing (old
+ * cooking log entries) show "–". The stats behind [highlights] are green and bold. Compact, meant for
+ * its own line below a title; [large] makes it a quarter bigger and spreads the stats over the width,
+ * see [EqualExtraSpace].
  */
 @Composable
 fun RecipeStatsRow(
@@ -41,10 +43,10 @@ fun RecipeStatsRow(
     large: Boolean = false,
 ) {
     val missing = stringResource(R.string.recipe_stats_missing)
-    val scale = if (large) 1.5f else 1f
+    val scale = if (large) 1.25f else 1f
     Row(
         modifier,
-        horizontalArrangement = if (large) EqualExtraSpace else Arrangement.spacedBy(12.dp),
+        horizontalArrangement = if (large) EqualExtraSpace else Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Stat(
@@ -66,6 +68,13 @@ fun RecipeStatsRow(
             stringResource(R.string.nutrient_name_protein),
             stringResource(R.string.recipe_stats_grams, stats.roundedProtein),
             RecipeHighlight.HIGH_PROTEIN.takeIf { it in highlights },
+            scale,
+        )
+        Stat(
+            rememberVectorPainter(Icons.Filled.BakeryDining),
+            stringResource(R.string.nutrient_name_carbs),
+            stringResource(R.string.recipe_stats_grams, stats.roundedCarbs),
+            RecipeHighlight.HIGH_CARB.takeIf { it in highlights },
             scale,
         )
         Stat(
@@ -109,7 +118,7 @@ private fun Stat(
     val label = highlight?.let { "$description, ${stringResource(it.label)}" } ?: description
     val green = highlightGreen
     val style = MaterialTheme.typography.bodySmall.let { it.copy(fontSize = it.fontSize * scale, lineHeight = it.lineHeight * scale) }
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp * scale), verticalAlignment = Alignment.CenterVertically) {
+    Row(horizontalArrangement = Arrangement.spacedBy(3.dp * scale), verticalAlignment = Alignment.CenterVertically) {
         Icon(
             icon,
             contentDescription = label,
@@ -121,14 +130,17 @@ private fun Stat(
             style = style,
             color = if (highlight != null) green else Color.Unspecified,
             fontWeight = if (highlight != null) FontWeight.Bold else null,
+            // Clipped rather than broken into a column of single digits when space runs out.
+            softWrap = false,
         )
     }
 }
 
-/** The highlight's name, e.g. "Proteinreich". */
+/** The highlight's name, e.g. "High-Protein". */
 val RecipeHighlight.label: Int
     get() = when (this) {
         RecipeHighlight.HIGH_PROTEIN -> R.string.highlight_high_protein
+        RecipeHighlight.HIGH_CARB -> R.string.highlight_high_carb
         RecipeHighlight.PLANT_POINT_POWER -> R.string.highlight_plant_point_power
         RecipeHighlight.LOW_CALORIE -> R.string.highlight_low_calorie
         RecipeHighlight.HIGH_FIBRE -> R.string.highlight_high_fibre

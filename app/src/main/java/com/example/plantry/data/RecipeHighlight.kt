@@ -5,8 +5,11 @@ package com.example.plantry.data
  * highlighted number never contradicts its threshold.
  */
 enum class RecipeHighlight {
-    /** "Proteinreich": at least [PROTEIN_MIN] g protein per portion. */
+    /** "High-Protein": at least [PROTEIN_MIN] g protein per portion. */
     HIGH_PROTEIN,
+
+    /** "High-Carb": at least [CARBS_MIN] g carbs per portion, e.g. before a long ride. */
+    HIGH_CARB,
 
     /** "Pflanzenpunkte-Power": at least [PLANT_POINTS_MIN] plant points. */
     PLANT_POINT_POWER,
@@ -20,6 +23,7 @@ enum class RecipeHighlight {
 
     companion object {
         val PROTEIN_MIN = ProteinRating.GREEN_MIN.toInt()
+        const val CARBS_MIN = 50
         const val PLANT_POINTS_MIN = 5
         const val KCAL_MAX = 600
         const val FIBRE_MIN = 10
@@ -29,6 +33,7 @@ enum class RecipeHighlight {
             if (!hasLines) return emptySet()
             return buildSet {
                 if (stats.roundedProtein >= PROTEIN_MIN) add(HIGH_PROTEIN)
+                if (stats.roundedCarbs >= CARBS_MIN) add(HIGH_CARB)
                 if (stats.roundedPlantPoints >= PLANT_POINTS_MIN) add(PLANT_POINT_POWER)
                 stats.roundedKcal?.let { if (it in 1..KCAL_MAX) add(LOW_CALORIE) }
                 stats.roundedFibre?.let { if (it >= FIBRE_MIN) add(HIGH_FIBRE) }

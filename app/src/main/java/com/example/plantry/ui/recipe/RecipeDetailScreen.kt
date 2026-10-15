@@ -56,6 +56,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -374,20 +376,20 @@ private fun MinutesValue(minutes: Int?) {
 internal fun MissingCookingTimeChip(modifier: Modifier = Modifier) =
     TimerChip(stringResource(R.string.recipe_cooking_time_missing), modifier)
 
-/** Timer icon and the [cookingTimeLabel], or [MissingCookingTimeChip] without any time. */
+/**
+ * Timer icon and only the Gesamtzeit, e.g. "60'", or "?" without one, even with an Arbeitszeit:
+ * narrow enough to share a line with the stats. Screen readers hear "Gesamtzeit: 60 Min.".
+ */
 @Composable
-internal fun CookingTimeChip(activeMinutes: Int?, totalMinutes: Int?, modifier: Modifier = Modifier) {
-    val label = cookingTimeLabel(activeMinutes, totalMinutes)
-    if (label != null) TimerChip(label, modifier) else MissingCookingTimeChip(modifier)
-}
-
-/** "20 / 65 Min." (Arbeitszeit / Gesamtzeit), "65 Min." with only the total, null without any time. */
-@Composable
-internal fun cookingTimeLabel(activeMinutes: Int?, totalMinutes: Int?): String? = when {
-    activeMinutes != null && totalMinutes != null -> stringResource(R.string.recipe_minutes_active_total, activeMinutes, totalMinutes)
-    activeMinutes != null -> stringResource(R.string.recipe_minutes_active_only, activeMinutes)
-    totalMinutes != null -> stringResource(R.string.recipe_minutes, totalMinutes)
-    else -> null
+internal fun CompactCookingTimeChip(totalMinutes: Int?, modifier: Modifier = Modifier) {
+    val spoken = stringResource(
+        R.string.recipe_total_time_spoken,
+        totalMinutes?.let { stringResource(R.string.recipe_minutes, it) } ?: stringResource(R.string.recipe_cooking_time_missing),
+    )
+    TimerChip(
+        totalMinutes?.let { stringResource(R.string.recipe_minutes_compact, it) } ?: stringResource(R.string.recipe_minutes_compact_missing),
+        modifier.clearAndSetSemantics { contentDescription = spoken },
+    )
 }
 
 @Composable

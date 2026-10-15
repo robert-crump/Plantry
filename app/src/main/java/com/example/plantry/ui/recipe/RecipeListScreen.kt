@@ -73,6 +73,7 @@ import com.example.plantry.ui.HideOnScrollFab
 import com.example.plantry.ui.rememberFabVisibility
 import com.example.plantry.ui.ToggleChip
 import com.example.plantry.ui.cooklog.RecipeStatsRow
+import com.example.plantry.ui.cooklog.label
 import com.example.plantry.ui.cooklog.lastCookedLabel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -125,7 +126,7 @@ class RecipeListViewModel(
             when (it) {
                 is RecipeChip.WithIngredient -> it.ingredientId in byId
                 is RecipeChip.OfDish -> it in dishChips
-                is RecipeChip.MaxTotalTime, is RecipeChip.MaxActiveTime -> true
+                is RecipeChip.MaxTotalTime, is RecipeChip.MaxActiveTime, is RecipeChip.WithHighlight -> true
             }
         }
         val filter = RecipeFilter.of(active)
@@ -245,7 +246,7 @@ private fun SortMenu(sort: RecipeSort, onSort: (RecipeSort) -> Unit) {
     }
 }
 
-/** The picked ingredients' chips, "+ Zutat", then the two time chips and the dish chips, each in a fixed place. */
+/** The picked ingredients' chips, "+ Zutat", then the two time chips, the highlight chips and the dish chips, each in a fixed place. */
 @Composable
 private fun FilterBar(state: RecipeListUiState, viewModel: RecipeListViewModel) {
     var pickIngredients by rememberSaveable { mutableStateOf(false) }
@@ -264,6 +265,9 @@ private fun FilterBar(state: RecipeListUiState, viewModel: RecipeListViewModel) 
         }
         ToggleChip(stringResource(R.string.recipe_filter_easy), selected = RecipeChip.EASY in state.activeChips) {
             viewModel.toggleChip(RecipeChip.EASY)
+        }
+        RecipeChip.HIGHLIGHTS.forEach { chip ->
+            ToggleChip(stringResource(chip.highlight.label), selected = chip in state.activeChips) { viewModel.toggleChip(chip) }
         }
         state.dishChips.forEach { chip ->
             ToggleChip(stringResource(chip.dish.label), selected = chip in state.activeChips) { viewModel.toggleChip(chip) }
@@ -349,7 +353,7 @@ private fun RecipeRow(item: RecipeListItem, sort: RecipeSort, ingredientCount: I
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             RecipeStatsRow(item.stats, Modifier.weight(1f), highlights = item.highlights)
-            CookingTimeChip(item.recipe.activeTimeMinutes, item.recipe.totalTimeMinutes, Modifier.padding(start = 8.dp))
+            CompactCookingTimeChip(item.recipe.totalTimeMinutes, Modifier.padding(start = 8.dp))
         }
         if (details.isNotEmpty()) {
             Text(
@@ -377,6 +381,7 @@ private val RecipeSort.label: Int
     get() = when (this) {
         RecipeSort.TITLE -> R.string.recipe_sort_title
         RecipeSort.PROTEIN -> R.string.recipe_sort_protein
+        RecipeSort.CARBS -> R.string.recipe_sort_carbs
         RecipeSort.TOTAL_TIME -> R.string.recipe_total_time
         RecipeSort.ACTIVE_TIME -> R.string.recipe_active_time
         RecipeSort.PLANT_POINTS -> R.string.recipe_sort_plant_points

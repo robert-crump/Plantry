@@ -56,6 +56,7 @@ class RecipeStatsTest {
 
         assertEquals(5, stats.roundedPlantPoints)
         assertEquals(28, stats.roundedProtein)
+        assertEquals(47, stats.roundedCarbs)
         assertEquals(520, stats.roundedKcal)
         assertEquals(8, stats.roundedFibre)
         assertEquals(6, RecipeStats(5.75, 0.0, 0.0).roundedPlantPoints)
