@@ -23,17 +23,8 @@ interface IngredientDao {
     @Insert
     suspend fun insert(ingredient: Ingredient): Long
 
-    @Query("SELECT * FROM ingredients WHERE id IN (:ids)")
-    suspend fun getByIds(ids: List<Long>): List<Ingredient>
-
     @Update
     suspend fun update(ingredient: Ingredient)
-
-    @Update
-    suspend fun updateAll(ingredients: List<Ingredient>)
-
-    @Query("UPDATE ingredients SET reviewed = 1 WHERE id IN (:ids) AND storeSectionUndecided = 0 AND plantPointsUndecided = 0")
-    suspend fun markReviewed(ids: List<Long>)
 
     /** Titles of the recipes with a line of [id]; while there are any, the ingredient can't be deleted. */
     @Query(

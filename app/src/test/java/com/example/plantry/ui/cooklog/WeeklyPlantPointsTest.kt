@@ -70,6 +70,5 @@ class WeeklyPlantPointsTest {
         nutrition = Nutrition(),
         storeSection = StoreSection.OTHER,
         plantPoints = points,
-        reviewed = true,
     )
 }

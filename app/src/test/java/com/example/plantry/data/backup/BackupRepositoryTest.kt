@@ -3,7 +3,6 @@ package com.example.plantry.data.backup
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
-import com.example.plantry.data.IngredientOrigin
 import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrition
@@ -76,7 +75,8 @@ class BackupRepositoryTest {
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
         assertTrue(json.contains("\"formatVersion\": 1"))
         assertTrue(json.contains("\"dish\": \"MAIN\""))
-        assertTrue(json.contains("\"origin\": \"SEED\""))
+        assertFalse(json.contains("\"reviewed\""))
+        assertFalse(json.contains("\"origin\""))
         assertFalse(json.contains("\"staple\""))
         assertFalse(json.contains("\"buyAsIngredientId\""))
     }
@@ -139,17 +139,6 @@ class BackupRepositoryTest {
         assertTrue(json.contains("\"unit\": \"ML\""))
         assertTrue(json.contains("\"wording\": \"1 Tasse Reis\""))
         assertFalse(json.contains("\"grams\""))
-    }
-
-    @Test
-    fun origin_survivesExportAndImport() = runTest {
-        val added = source.store.data.ingredients.map { it.copy(origin = IngredientOrigin.BARCODE) }
-        source.store.data = source.store.data.copy(ingredients = added)
-        val target = Device()
-
-        target.repository.import(target.repository.read(source.export()))
-
-        assertTrue(target.store.data.ingredients.all { it.origin == IngredientOrigin.BARCODE })
     }
 
     @Test
@@ -267,7 +256,6 @@ class BackupRepositoryTest {
                 ),
                 ingredient(id = 5, name = "Reis, trocken").copy(
                     storeSection = StoreSection.DRY_GOODS,
-                    reviewed = false,
                 ),
                 ingredient(id = 6, name = "Kichererbsen (Dose)").copy(
                     labelSource = LabelSource("Bio Kichererbsen (Alnatura)", "4104420208117"),
@@ -308,7 +296,6 @@ class BackupRepositoryTest {
         nutrition = Nutrition(kcal = 130.5, protein = 2.7, carbs = 28.2, sugar = 0.1, fat = 0.3, fibre = 0.4),
         storeSection = StoreSection.OTHER,
         plantPoints = PlantPoints.ZERO,
-        reviewed = true,
     )
 }
 

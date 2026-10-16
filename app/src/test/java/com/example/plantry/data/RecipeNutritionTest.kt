@@ -177,5 +177,4 @@ internal fun ingredient(id: Long, name: String, nutrition: Nutrition = Nutrition
     nutrition = nutrition,
     storeSection = StoreSection.OTHER,
     plantPoints = PlantPoints.ZERO,
-    reviewed = true,
 )

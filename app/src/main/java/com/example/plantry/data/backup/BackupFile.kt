@@ -4,7 +4,6 @@ import com.example.plantry.data.CookLog
 import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
-import com.example.plantry.data.IngredientOrigin
 import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.LabelSource
 import com.example.plantry.data.LineUnit
@@ -121,15 +120,9 @@ data class BackupIngredient(
     val nutrition: BackupNutrition,
     val storeSection: StoreSection,
     val plantPoints: PlantPoints,
-    val reviewed: Boolean,
     /** Both null unless the nutrition came from a scanned package. */
     val labelProduct: String?,
     val labelBarcode: String?,
-    val origin: IngredientOrigin,
-    /** True while [storeSection] is only a fallback the user has yet to replace. */
-    val storeSectionUndecided: Boolean,
-    /** Like [storeSectionUndecided], for [plantPoints]. */
-    val plantPointsUndecided: Boolean,
     /** Besides g and ml, which every ingredient has. */
     val units: List<BackupUnit>,
 )
@@ -276,12 +269,8 @@ private fun Ingredient.toBackup(units: List<IngredientUnit>) = BackupIngredient(
     nutrition = with(nutrition) { BackupNutrition(kcal, protein, carbs, sugar, fat, fibre) },
     storeSection = storeSection,
     plantPoints = plantPoints,
-    reviewed = reviewed,
     labelProduct = labelSource?.labelProduct,
     labelBarcode = labelSource?.labelBarcode,
-    origin = origin,
-    storeSectionUndecided = storeSectionUndecided,
-    plantPointsUndecided = plantPointsUndecided,
     units = units.map { BackupUnit(it.unit, it.gramsPerUnit, it.packageGrams, it.packageCount) },
 )
 
@@ -293,11 +282,7 @@ private fun BackupIngredient.toEntity() = Ingredient(
     nutrition = with(nutrition) { Nutrition(kcal, protein, carbs, sugar, fat, fibre) },
     storeSection = storeSection,
     plantPoints = plantPoints,
-    reviewed = reviewed,
     labelSource = if (labelProduct != null && labelBarcode != null) LabelSource(labelProduct, labelBarcode) else null,
-    origin = origin,
-    storeSectionUndecided = storeSectionUndecided,
-    plantPointsUndecided = plantPointsUndecided,
 )
 
 private fun Recipe.toBackup(photo: String?, lines: List<RecipeIngredient>) = BackupRecipe(

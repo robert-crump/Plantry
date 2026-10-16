@@ -27,24 +27,16 @@ class IngredientFormTest {
         nutrition = Nutrition(86.0, 1.57, 20.12, 4.18, 0.05, 3.0),
         storeSection = StoreSection.PRODUCE,
         plantPoints = PlantPoints.ONE,
-        reviewed = false,
     )
 
     private val valid = IngredientForm.from(ingredient)
 
     @Test
-    fun undecidedProperties_areErrorsUntilChosen() {
-        val undecided = IngredientForm.from(
-            ingredient.copy(storeSectionUndecided = true, plantPointsUndecided = true),
-        )
+    fun newForm_defaultsToOtherAndZeroPoints() {
+        val form = IngredientForm(name = "Tofu", nutrition = valid.nutrition)
 
-        assertNull(undecided.storeSection)
-        assertNull(undecided.plantPoints)
-        assertTrue(undecided.errors().storeSection && undecided.errors().plantPoints)
-        assertNull(undecided.toDraft())
-
-        val chosen = undecided.copy(storeSection = StoreSection.PRODUCE, plantPoints = PlantPoints.ONE)
-        assertEquals(valid.toDraft(), chosen.toDraft())
+        assertEquals(StoreSection.OTHER, form.toDraft()?.storeSection)
+        assertEquals(PlantPoints.ZERO, form.toDraft()?.plantPoints)
     }
 
     @Test

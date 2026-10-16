@@ -9,7 +9,6 @@ import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.anthropic.models.messages.StopReason
 import com.example.plantry.data.Ingredient
-import com.example.plantry.data.IngredientOrigin
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.PlantPoints
@@ -64,14 +63,11 @@ data class IngredientProposal(
     val pieceWeight: IngredientUnit? = null,
     /** Units the user defined for it in the line editor, created with it. */
     val addedUnits: List<IngredientUnit> = emptyList(),
-    /** Claude gave no valid store section / plant points, so the value above is a fallback to replace. */
-    val storeSectionUndecided: Boolean = false,
-    val plantPointsUndecided: Boolean = false,
 ) {
     /** The USDA entry, if the nutrition comes from one. */
     val food: UsdaFood? get() = (source as? NutritionSource.Usda)?.food
 
-    /** The unreviewed ingredient to create. Requires [source]. */
+    /** The ingredient to create. Requires [source]. */
     fun toIngredient(id: Long = 0): Ingredient {
         val source = checkNotNull(source) { "a new ingredient needs a nutrition source" }
         return Ingredient(
@@ -82,10 +78,6 @@ data class IngredientProposal(
             nutrition = source.nutrition,
             storeSection = storeSection,
             plantPoints = plantPoints,
-            reviewed = false,
-            origin = IngredientOrigin.CLAUDE,
-            storeSectionUndecided = storeSectionUndecided,
-            plantPointsUndecided = plantPointsUndecided,
         )
     }
 
@@ -345,10 +337,9 @@ object ProposalParser {
     }
 
     /**
-     * One proposal per food. Invalid or missing fields fall back to neutral values the user reviews
-     * later: a USDA entry that was not a candidate counts as none and unknown enums become
-     * OTHER / ZERO, marked undecided so they can't be reviewed unseen; a piece unit Claude may not
-     * propose or grams ≤ 0 mean no piece weight. A food Claude left out gets only defaults.
+     * One proposal per food. Invalid or missing fields fall back to neutral values: a USDA entry
+     * that was not a candidate counts as none and unknown enums become OTHER / ZERO; a piece unit
+     * Claude may not propose or grams ≤ 0 mean no piece weight. A food Claude left out gets only defaults.
      */
     fun proposals(text: String?, foods: List<FoodCandidates>): ClaudeResult<Map<Long, IngredientProposal>> {
         val parsed = decode<ProposalsJson>(text) ?: return ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE)
@@ -364,18 +355,14 @@ object ProposalParser {
 
     private fun toProposal(answer: ProposalJson, candidates: FoodCandidates): IngredientProposal {
         val food = candidates.food
-        val storeSection = enumOrNull<StoreSection>(answer.storeSection)
-        val plantPoints = enumOrNull<PlantPoints>(answer.plantPoints)
         return IngredientProposal(
             name = answer.name.trim().ifEmpty { food.name.trim() },
             source = candidates.candidates.firstOrNull { it.fdcId == answer.fdcId }?.let(NutritionSource::Usda),
             searchTerms = food.searchTerms,
-            storeSection = storeSection ?: StoreSection.OTHER,
-            plantPoints = plantPoints ?: PlantPoints.ZERO,
+            storeSection = enumOrNull<StoreSection>(answer.storeSection) ?: StoreSection.OTHER,
+            plantPoints = enumOrNull<PlantPoints>(answer.plantPoints) ?: PlantPoints.ZERO,
             pieceWeight = MatchingRules.PIECE_UNITS.firstOrNull { it.name == answer.pieceUnit.trim().uppercase() }
                 ?.let { IngredientUnit.perUnit(it, answer.pieceGrams) },
-            storeSectionUndecided = storeSection == null,
-            plantPointsUndecided = plantPoints == null,
         )
     }
 

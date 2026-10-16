@@ -226,29 +226,14 @@
         <item quantity="one">%1$d/%2$d Zutat</item>
         <item quantity="other">%1$d/%2$d Zutaten</item>
     </plurals>
-    <string name="filter_added">Selbst hinzugefügt</string>
-    <string name="filter_unreviewed">Ungeprüft</string>
     <string name="filter_used">Verwendet</string>
     <string name="ingredient_fab">Zutat</string>
     <string name="ingredient_add">Zutat hinzufügen</string>
-    <string name="ingredient_unreviewed">Ungeprüft</string>
     <plurals name="ingredient_recipe_count">
         <item quantity="one">%d Rezept</item>
         <item quantity="other">%d Rezepte</item>
     </plurals>
     <string name="ingredient_summary">%1$s kcal · %2$s g Protein je 100 g</string>
-
-    <!-- Sortieren: bulk-classify ingredients -->
-    <string name="sort_view_plant_points">Pflanzenpunkte</string>
-    <string name="sort_view_store_section">Supermarktkategorien</string>
-    <string name="sort_only_unreviewed">Nur ungeprüft (%1$d)</string>
-    <string name="sort_confirm_all">Alle bestätigen</string>
-    <plurals name="sort_selection_hint">
-        <item quantity="one">%d ausgewählt – Gruppe antippen zum Verschieben</item>
-        <item quantity="other">%d ausgewählt – Gruppe antippen zum Verschieben</item>
-    </plurals>
-    <string name="sort_clear_selection">Auswahl aufheben</string>
-    <string name="sort_move_here">Hierher verschieben</string>
 
     <!-- USDA search -->
     <string name="usda_search_title">Neue Zutat</string>
@@ -284,11 +269,6 @@
     <string name="ingredient_usda_source">USDA: %1$s (FDC %2$d)</string>
     <string name="ingredient_no_usda_source">Keine USDA-Quelle</string>
     <string name="ingredient_label_source">Etikett: %1$s (Barcode %2$s)</string>
-    <string name="ingredient_reviewed_hint">Mit „Geprüft“ unten bestätigst du die Zutat.</string>
-    <string name="ingredient_mark_reviewed">Geprüft</string>
-    <string name="ingredient_choose">Bitte wählen</string>
-    <string name="ingredient_undecided_hint">Wähle erst Abteilung und Pflanzenpunkte, dann kannst du die Zutat bestätigen.</string>
-    <string name="ingredient_marked_reviewed">Als geprüft markiert</string>
     <string name="ingredient_discard_title">Änderungen verwerfen?</string>
     <string name="ingredient_discard_message">Deine Änderungen an dieser Zutat gehen verloren.</string>
     <string name="ingredient_section_nutrition">Nährwerte je 100 g</string>

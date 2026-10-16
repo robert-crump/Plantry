@@ -20,8 +20,6 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [
                 {
                     "unit": "PIECE",
@@ -31,9 +29,7 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 2,
@@ -50,8 +46,6 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [
                 {
                     "unit": "CLOVE",
@@ -61,9 +55,7 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 3,
@@ -80,13 +72,9 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 4,
@@ -103,13 +91,9 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 5,
@@ -126,13 +110,9 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 6,
@@ -149,13 +129,9 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 7,
@@ -172,8 +148,6 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [
                 {
                     "unit": "PIECE",
@@ -183,9 +157,7 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 8,
@@ -202,13 +174,9 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 9,
@@ -225,13 +193,9 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 10,
@@ -248,8 +212,6 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [
                 {
                     "unit": "PIECE",
@@ -259,9 +221,7 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 11,
@@ -278,13 +238,9 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 12,
@@ -301,8 +257,6 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [
                 {
                     "unit": "PIECE",
@@ -312,9 +266,7 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 13,
@@ -331,8 +283,6 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "CLAUDE",
             "units": [
                 {
                     "unit": "PIECE",
@@ -342,9 +292,7 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 14,
@@ -361,8 +309,6 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "QUARTER",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [
                 {
                     "unit": "BUNCH",
@@ -372,9 +318,7 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 15,
@@ -391,13 +335,9 @@
             },
             "storeSection": "PRODUCE",
             "plantPoints": "QUARTER",
-            "reviewed": true,
-            "origin": "CLAUDE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 16,
@@ -414,8 +354,6 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [
                 {
                     "unit": "CAN",
@@ -425,9 +363,7 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 17,
@@ -444,8 +380,6 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [
                 {
                     "unit": "CAN",
@@ -455,9 +389,7 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 18,
@@ -474,13 +406,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 19,
@@ -497,13 +425,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 20,
@@ -520,13 +444,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 21,
@@ -543,13 +463,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 22,
@@ -566,13 +482,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 23,
@@ -589,13 +501,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "MANUAL",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 24,
@@ -612,13 +520,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 25,
@@ -635,13 +539,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 26,
@@ -658,13 +558,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 27,
@@ -681,13 +577,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 28,
@@ -704,13 +596,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "QUARTER",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 29,
@@ -727,13 +615,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "QUARTER",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 30,
@@ -750,13 +634,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "QUARTER",
-            "reviewed": false,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 31,
@@ -773,13 +653,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ZERO",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 32,
@@ -796,13 +672,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ZERO",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 33,
@@ -819,13 +691,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ZERO",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 34,
@@ -842,10 +710,6 @@
             },
             "storeSection": "OTHER",
             "plantPoints": "ZERO",
-            "reviewed": false,
-            "origin": "CLAUDE",
-            "storeSectionUndecided": true,
-            "plantPointsUndecided": true,
             "units": [],
             "labelProduct": null,
             "labelBarcode": null
@@ -865,8 +729,6 @@
             },
             "storeSection": "DAIRY_CHILLED",
             "plantPoints": "ZERO",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [
                 {
                     "unit": "PIECE",
@@ -876,9 +738,7 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 36,
@@ -895,13 +755,9 @@
             },
             "storeSection": "DAIRY_CHILLED",
             "plantPoints": "ZERO",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 37,
@@ -918,13 +774,9 @@
             },
             "storeSection": "DAIRY_CHILLED",
             "plantPoints": "ZERO",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 38,
@@ -941,13 +793,9 @@
             },
             "storeSection": "DAIRY_CHILLED",
             "plantPoints": "ZERO",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 39,
@@ -964,13 +812,9 @@
             },
             "storeSection": "FROZEN",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "SEED",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         },
         {
             "id": 40,
@@ -987,8 +831,6 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
-            "reviewed": true,
-            "origin": "BARCODE",
             "labelProduct": "Testmarke Vollkorn-Toast",
             "labelBarcode": "4000000000017",
             "units": [
@@ -998,9 +840,7 @@
                     "packageGrams": 500.0,
                     "packageCount": 20
                 }
-            ],
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            ]
         },
         {
             "id": 41,
@@ -1017,13 +857,9 @@
             },
             "storeSection": "DRY_GOODS",
             "plantPoints": "ZERO",
-            "reviewed": true,
-            "origin": "MANUAL",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null,
-            "storeSectionUndecided": false,
-            "plantPointsUndecided": false
+            "labelBarcode": null
         }
     ],
     "recipes": [

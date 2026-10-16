@@ -18,10 +18,8 @@ import java.util.Locale
 data class IngredientForm(
     val name: String = "",
     val nutrition: Map<Nutrient, String> = Nutrient.entries.associateWith { "" },
-    /** Null while undecided, which is an error until the user chooses. */
-    val storeSection: StoreSection? = StoreSection.OTHER,
-    /** Null while undecided, like [storeSection]. */
-    val plantPoints: PlantPoints? = PlantPoints.ZERO,
+    val storeSection: StoreSection = StoreSection.OTHER,
+    val plantPoints: PlantPoints = PlantPoints.ZERO,
     /** One row per unit in [PieceUnit] order, each already validated by [UnitForm] in its dialog. */
     val units: List<IngredientUnit> = emptyList(),
     /** The package applied from a barcode scan; replaces the USDA reference on save. */
@@ -50,8 +48,6 @@ data class IngredientForm(
         nutrients = Nutrient.entries.filterTo(mutableSetOf()) { nutrient ->
             nutrition[nutrient].orEmpty().toDecimalOrNull().let { it == null || it < 0 }
         },
-        storeSection = storeSection == null,
-        plantPoints = plantPoints == null,
     )
 
     /** Returns the validated draft, or null if any field is invalid. */
@@ -60,8 +56,8 @@ data class IngredientForm(
         return IngredientDraft(
             name = name,
             nutrition = Nutrition.of(nutrition.mapValues { it.value.toDecimalOrNull()!! }),
-            storeSection = storeSection!!,
-            plantPoints = plantPoints!!,
+            storeSection = storeSection,
+            plantPoints = plantPoints,
             units = units,
             scannedLabel = scannedLabel,
         )
@@ -71,8 +67,8 @@ data class IngredientForm(
         fun from(ingredient: Ingredient, units: List<IngredientUnit> = emptyList()) = IngredientForm(
             name = ingredient.name,
             nutrition = Nutrient.entries.associateWith { formatDecimal(ingredient.nutrition[it]) },
-            storeSection = ingredient.storeSection.takeUnless { ingredient.storeSectionUndecided },
-            plantPoints = ingredient.plantPoints.takeUnless { ingredient.plantPointsUndecided },
+            storeSection = ingredient.storeSection,
+            plantPoints = ingredient.plantPoints,
             units = units.sortedBy { it.unit },
         )
     }
@@ -118,10 +114,8 @@ data class UnitForm(
 data class IngredientFormErrors(
     val name: Boolean,
     val nutrients: Set<Nutrient>,
-    val storeSection: Boolean = false,
-    val plantPoints: Boolean = false,
 ) {
-    val hasAny: Boolean get() = name || nutrients.isNotEmpty() || storeSection || plantPoints
+    val hasAny: Boolean get() = name || nutrients.isNotEmpty()
 }
 
 /** Formats with the decimal separator of [locale] and without trailing zeros, e.g. 0.40 -> "0,4" (German). */

@@ -37,7 +37,6 @@ class IngredientDaoTest {
         nutrition = Nutrition(365.0, 7.13, 79.95, 0.12, 0.66, 1.3),
         storeSection = StoreSection.DRY_GOODS,
         plantPoints = PlantPoints.ZERO,
-        reviewed = true,
     )
 
     private fun recipe(title: String) = Recipe(
@@ -107,24 +106,6 @@ class IngredientDaoTest {
         assertNull(dao.getById(dry))
         assertEquals("Reis, gekocht", dao.getById(cooked)?.name)
         assertEquals(emptyList<IngredientAlias>(), dao.observeAliases().first())
-    }
-
-    @Test
-    fun bulkUpdate_getByIdsUpdateAllAndMarkReviewed() = runTest {
-        val dry = dao.insert(ingredient("Reis, trocken").copy(reviewed = false))
-        val cooked = dao.insert(ingredient("Reis, gekocht").copy(reviewed = false))
-        val other = dao.insert(ingredient("Basmati").copy(reviewed = false))
-
-        val selected = dao.getByIds(listOf(dry, cooked))
-        assertEquals(setOf(dry, cooked), selected.map { it.id }.toSet())
-        dao.updateAll(selected.map { it.copy(plantPoints = PlantPoints.ONE) })
-        dao.markReviewed(listOf(cooked, other))
-
-        val all = dao.observeAll().first().associateBy { it.id }
-        assertEquals(PlantPoints.ONE, all.getValue(dry).plantPoints)
-        assertEquals(PlantPoints.ONE, all.getValue(cooked).plantPoints)
-        assertEquals(PlantPoints.ZERO, all.getValue(other).plantPoints)
-        assertEquals(listOf(false, true, true), listOf(dry, cooked, other).map { all.getValue(it).reviewed })
     }
 
     @Test

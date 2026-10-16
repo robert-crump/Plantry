@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -23,7 +22,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -39,9 +37,7 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -54,7 +50,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -76,7 +71,6 @@ import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.NewIngredientSeed
 import com.example.plantry.data.StoreSection
-import com.example.plantry.data.hasUndecided
 import com.example.plantry.data.openfoodfacts.OffLookup
 import com.example.plantry.data.openfoodfacts.OffProduct
 import com.example.plantry.data.openfoodfacts.ProductLookup
@@ -253,13 +247,6 @@ class IngredientDetailViewModel(
         _state.update { it.copy(unitInUse = null) }
     }
 
-    fun setReviewed(reviewed: Boolean) {
-        viewModelScope.launch {
-            repository.setReviewed(ingredientId, reviewed)
-            _state.update { it.copy(ingredient = it.ingredient?.copy(reviewed = reviewed)) }
-        }
-    }
-
     fun lookUp(barcode: String) {
         lookupJob?.cancel()
         _state.update { it.copy(barcode = BarcodeLookup.Searching) }
@@ -337,8 +324,6 @@ fun IngredientDetailScreen(
     val errors = if (state.showErrors) form.errors() else null
     val onChange = viewModel::onFormChange
     val editing = state.editing
-    val reviewedMessage = stringResource(R.string.ingredient_marked_reviewed)
-    val undoLabel = stringResource(R.string.action_undo)
 
     Scaffold(
         topBar = {
@@ -374,25 +359,6 @@ fun IngredientDetailScreen(
                     }
                 },
             )
-        },
-        bottomBar = {
-            if (ingredient != null && !ingredient.reviewed && !editing) {
-                Button(
-                    enabled = !ingredient.hasUndecided,
-                    onClick = {
-                        viewModel.setReviewed(true)
-                        scope.launch {
-                            snackbar.currentSnackbarData?.dismiss()
-                            val result = snackbar.showSnackbar(reviewedMessage, actionLabel = undoLabel, duration = SnackbarDuration.Short)
-                            if (result == SnackbarResult.ActionPerformed) viewModel.setReviewed(false)
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(16.dp),
-                ) { Text(stringResource(R.string.ingredient_mark_reviewed)) }
-            }
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
@@ -445,16 +411,6 @@ fun IngredientDetailScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (!ingredient.reviewed && !state.isNew) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    UnreviewedBadge()
-                    Text(
-                        stringResource(if (ingredient.hasUndecided) R.string.ingredient_undecided_hint else R.string.ingredient_reviewed_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
             Field(
                 editing = editing,
                 value = form.name,
@@ -478,7 +434,6 @@ fun IngredientDetailScreen(
             SectionTitle(R.string.ingredient_section_properties)
             PropertiesGroup(
                 form = form,
-                errors = errors,
                 onStoreSection = { onChange { copy(storeSection = it) } },
                 onPlantPoints = { onChange { copy(plantPoints = it) } },
                 editable = editing,
@@ -587,8 +542,6 @@ private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_IN
 @Composable
 private fun PropertiesGroup(
     form: IngredientForm,
-    /** Null until a save failed; an undecided property is then shown as an error. */
-    errors: IngredientFormErrors?,
     onStoreSection: (StoreSection) -> Unit,
     onPlantPoints: (PlantPoints) -> Unit,
     editable: Boolean,
@@ -599,8 +552,7 @@ private fun PropertiesGroup(
             SettingsRow(
                 icon = null,
                 title = stringResource(R.string.ingredient_section_store_section),
-                summary = form.storeSection?.let { stringResource(it.label) } ?: stringResource(R.string.ingredient_choose),
-                summaryColor = undecidedColor(form.storeSection == null, errors?.storeSection == true),
+                summary = stringResource(form.storeSection.label),
                 onClick = if (editable) ({ dialog = PropertyDialog.STORE_SECTION }) else null,
             )
         },
@@ -608,8 +560,7 @@ private fun PropertiesGroup(
             SettingsRow(
                 icon = null,
                 title = stringResource(R.string.ingredient_section_plant_points),
-                summary = form.plantPoints?.let { plantPointsLabel(it) } ?: stringResource(R.string.ingredient_choose),
-                summaryColor = undecidedColor(form.plantPoints == null, errors?.plantPoints == true),
+                summary = plantPointsLabel(form.plantPoints),
                 onClick = if (editable) ({ dialog = PropertyDialog.PLANT_POINTS }) else null,
                 trailing = {
                     IconButton(onClick = { dialog = PropertyDialog.PLANT_POINTS_INFO }) {
@@ -642,14 +593,6 @@ private fun PropertiesGroup(
         PropertyDialog.PLANT_POINTS_INFO -> PlantPointsInfoDialog(onDismiss = dismiss)
         null -> Unit
     }
-}
-
-/** Primary while a property still waits for a choice, error once a save was refused for it. */
-@Composable
-private fun undecidedColor(undecided: Boolean, error: Boolean): Color = when {
-    error -> MaterialTheme.colorScheme.error
-    undecided -> MaterialTheme.colorScheme.primary
-    else -> Color.Unspecified
 }
 
 /**

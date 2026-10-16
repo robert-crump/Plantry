@@ -54,7 +54,6 @@ class BackupDaoTest {
         nutrition = Nutrition(kcal = 130.0, protein = 2.7),
         storeSection = StoreSection.OTHER,
         plantPoints = PlantPoints.ONE,
-        reviewed = true,
     )
 
     private val snapshot = BackupSnapshot(

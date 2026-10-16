@@ -17,8 +17,6 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -30,7 +28,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -57,7 +54,6 @@ import com.example.plantry.data.LabelSource
 import com.example.plantry.data.NewIngredientSeed
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
-import com.example.plantry.data.SortView
 import com.example.plantry.ui.cooklog.CookingScreen
 import com.example.plantry.ui.cooklog.CookingViewModel
 import com.example.plantry.ui.cooklog.JustPlanned
@@ -65,8 +61,6 @@ import com.example.plantry.ui.ingredient.IngredientDetailScreen
 import com.example.plantry.ui.ingredient.IngredientDetailViewModel
 import com.example.plantry.ui.ingredient.IngredientListScreen
 import com.example.plantry.ui.ingredient.IngredientListViewModel
-import com.example.plantry.ui.ingredient.IngredientSortScreen
-import com.example.plantry.ui.ingredient.IngredientSortViewModel
 import com.example.plantry.ui.ingredient.UsdaSearchScreen
 import com.example.plantry.ui.ingredient.UsdaSearchViewModel
 import com.example.plantry.ui.recipe.RecipeDetailScreen
@@ -80,7 +74,6 @@ import com.example.plantry.ui.settings.SettingsScreen
 import com.example.plantry.ui.settings.SettingsViewModel
 import com.example.plantry.ui.suggest.SuggestionsScreen
 import com.example.plantry.ui.suggest.SuggestionsViewModel
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
@@ -113,9 +106,6 @@ data class RecipeEditRoute(val recipeId: Long? = null)
 
 @Serializable
 object IngredientListRoute
-
-@Serializable
-data class IngredientSortRoute(val view: SortView)
 
 /**
  * The three ways to a new ingredient. From a recipe's line editor, [recipeLineName] is the typed
@@ -198,9 +188,6 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
     val showBackupReminder = backupReminder && !backupReminderDismissed && currentTopLevel != null
     val scope = rememberCoroutineScope()
 
-    val unreviewedCount by remember {
-        ingredientRepository.observeIngredients().map { all -> all.count { !it.reviewed } }
-    }.collectAsStateWithLifecycle(0)
     // A notification's recipe, on top of Kochen; if it is gone by now, Kochen stays.
     LaunchedEffect(openRecipeId) {
         if (openRecipeId != null && recipeRepository.getRecipe(openRecipeId) != null) {
@@ -233,15 +220,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                                         .savedStateHandle[RESET_INGREDIENT_FILTERS] = true
                                 }
                             },
-                            icon = {
-                                if (top == TopLevelDestination.INGREDIENTS && unreviewedCount > 0) {
-                                    BadgedBox(badge = { Badge { Text(unreviewedCount.toString()) } }) {
-                                        Icon(top.icon, contentDescription = null)
-                                    }
-                                } else {
-                                    Icon(top.icon, contentDescription = null)
-                                }
-                            },
+                            icon = { Icon(top.icon, contentDescription = null) },
                             label = { Text(stringResource(top.label)) },
                         )
                     }
@@ -385,14 +364,6 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
                         onRecipesClick = { navController.navigate(RecipeListRoute(ingredientId = it)) },
                         onAddIngredient = { navController.navigate(UsdaSearchRoute()) },
-                        onOpenSort = { navController.navigate(IngredientSortRoute(it)) },
-                    )
-                }
-                composable<IngredientSortRoute> { entry ->
-                    val view = entry.toRoute<IngredientSortRoute>().view
-                    IngredientSortScreen(
-                        viewModel = viewModel { IngredientSortViewModel(ingredientRepository, view) },
-                        onBack = { navController.popBackStack() },
                     )
                 }
                 composable<UsdaSearchRoute> { entry ->

@@ -9,9 +9,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class IngredientRepositoryTest {
@@ -64,8 +62,6 @@ class IngredientRepositoryTest {
         assertEquals(StoreSection.DRY_GOODS, ingredient.storeSection)
         assertEquals(PlantPoints.ONE, ingredient.plantPoints)
         assertEquals(riceCooked.fdcId, ingredient.fdcId)
-        assertFalse(ingredient.hasUndecided)
-        assertFalse(ingredient.reviewed)
     }
 
     @Test
@@ -79,46 +75,10 @@ class IngredientRepositoryTest {
         assertEquals(label, ingredient.labelSource)
         assertNull(ingredient.fdcId)
         assertNull(ingredient.usdaDescription)
-        assertEquals(IngredientOrigin.BARCODE, ingredient.origin)
     }
 
     @Test
-    fun undecidedIngredient_cannotBeReviewedUntilItIsSaved() = runTest {
-        val id = dao.insert(
-            riceIngredient().copy(storeSectionUndecided = true, plantPointsUndecided = true),
-        )
-
-        repository.setReviewed(id, true)
-        repository.markReviewed(listOf(id))
-        assertFalse(repository.getIngredient(id)!!.reviewed)
-
-        repository.update(id, decided.copy(name = "Reis", nutrition = riceCooked.nutrition))
-        assertFalse(repository.getIngredient(id)!!.hasUndecided)
-        repository.setReviewed(id, true)
-        assertTrue(repository.getIngredient(id)!!.reviewed)
-    }
-
-    @Test
-    fun moveTo_settlesAnUndecidedProperty() = runTest {
-        val id = dao.insert(riceIngredient().copy(plantPointsUndecided = true))
-
-        repository.moveTo(setOf(id), SortGroup.Points(PlantPoints.ZERO))
-
-        assertFalse(repository.getIngredient(id)!!.plantPointsUndecided)
-    }
-
-    private fun riceIngredient() = Ingredient(
-        name = "Reis",
-        fdcId = null,
-        usdaDescription = null,
-        nutrition = riceCooked.nutrition,
-        storeSection = StoreSection.OTHER,
-        plantPoints = PlantPoints.ZERO,
-        reviewed = false,
-    )
-
-    @Test
-    fun createFromUsda_copiesUsdaDataAndIsUnreviewed() = runTest {
+    fun createFromUsda_copiesUsdaData() = runTest {
         val id = repository.createFromUsda(riceCooked, " Reis, gekocht ")
 
         val ingredient = repository.getIngredient(id)!!
@@ -126,12 +86,10 @@ class IngredientRepositoryTest {
         assertEquals(168878L, ingredient.fdcId)
         assertEquals(riceCooked.description, ingredient.usdaDescription)
         assertEquals(riceCooked.nutrition, ingredient.nutrition)
-        assertFalse(ingredient.reviewed)
-        assertEquals(IngredientOrigin.MANUAL, ingredient.origin)
     }
 
     @Test
-    fun createFromLabel_hasNoUsdaReferenceAndIsUnreviewed() = runTest {
+    fun createFromLabel_hasNoUsdaReference() = runTest {
         val label = Nutrition(52.0, 1.0, 9.0, 4.0, 1.5, 0.0)
 
         val ingredient = repository.getIngredient(repository.createFromLabel(" Haferdrink ", label))!!
@@ -140,7 +98,6 @@ class IngredientRepositoryTest {
         assertNull(ingredient.fdcId)
         assertNull(ingredient.usdaDescription)
         assertEquals(label, ingredient.nutrition)
-        assertFalse(ingredient.reviewed)
     }
 
     @Test
@@ -152,14 +109,6 @@ class IngredientRepositoryTest {
 
         assertEquals(source, ingredient.labelSource)
         assertNull(ingredient.fdcId)
-        assertEquals(IngredientOrigin.BARCODE, ingredient.origin)
-    }
-
-    @Test
-    fun createFromLabel_withoutScannedPackageIsManual() = runTest {
-        val id = repository.createFromLabel("Haferdrink", Nutrition(52.0, 1.0, 9.0, 4.0, 1.5, 0.0))
-
-        assertEquals(IngredientOrigin.MANUAL, repository.getIngredient(id)!!.origin)
     }
 
     @Test
@@ -197,7 +146,6 @@ class IngredientRepositoryTest {
         assertNull(ingredient.fdcId)
         assertNull(ingredient.usdaDescription)
         assertEquals(label, ingredient.nutrition)
-        assertFalse(ingredient.reviewed)
     }
 
     @Test
@@ -285,29 +233,17 @@ class IngredientRepositoryTest {
     }
 
     @Test
-    fun update_savesEditsAndKeepsReviewed() = runTest {
+    fun update_savesEdits() = runTest {
         val id = repository.createFromUsda(riceCooked, "Reis, gekocht")
 
         repository.update(id, draft(repository.getIngredient(id)!!))
 
         val updated = repository.getIngredient(id)!!
-        assertFalse(updated.reviewed)
         assertEquals("Reis, gekocht", updated.name)
         assertEquals(3.0, updated.nutrition.protein, 0.0)
         assertEquals(StoreSection.DRY_GOODS, updated.storeSection)
         assertEquals(PlantPoints.QUARTER, updated.plantPoints)
         assertEquals(168878L, updated.fdcId)
-    }
-
-    @Test
-    fun setReviewed_marksAndUnmarks() = runTest {
-        val id = repository.createFromUsda(riceCooked, "Reis, gekocht")
-
-        repository.setReviewed(id, true)
-        assertTrue(repository.getIngredient(id)!!.reviewed)
-
-        repository.setReviewed(id, false)
-        assertFalse(repository.getIngredient(id)!!.reviewed)
     }
 
     private fun proposal(food: UsdaFood, name: String) = IngredientProposal(
@@ -319,7 +255,7 @@ class IngredientRepositoryTest {
     )
 
     @Test
-    fun createProposed_createsUnreviewedIngredients() = runTest {
+    fun createProposed_createsTheIngredients() = runTest {
         val ids = repository.createProposed(
             mapOf(
                 -1L to proposal(riceCooked, "Reis, gekocht"),
@@ -328,7 +264,6 @@ class IngredientRepositoryTest {
         )
 
         val cooked = repository.getIngredient(ids.getValue(-1))!!
-        assertFalse(cooked.reviewed)
         assertEquals("Reis, gekocht", cooked.name)
         assertEquals(168878L, cooked.fdcId)
         assertEquals(StoreSection.DRY_GOODS, cooked.storeSection)
@@ -341,34 +276,6 @@ class IngredientRepositoryTest {
         repository.learnAliases(listOf("kichererbsen abgetropft" to 4L, "" to 6L))
 
         assertEquals(mapOf("kichererbsen abgetropft" to 4L, "reis" to 5L), repository.observeAliases().first())
-    }
-
-    @Test
-    fun moveTo_savesTheGroupValueForEachSelectedIngredient() = runTest {
-        val cooked = repository.createFromUsda(riceCooked, "Reis, gekocht")
-        val dry = repository.createFromUsda(riceDry, "Reis")
-        val other = repository.createFromUsda(riceDry, "Naturreis")
-
-        repository.moveTo(setOf(cooked, dry), SortGroup.Section(StoreSection.DRY_GOODS))
-        repository.moveTo(setOf(cooked), SortGroup.Points(PlantPoints.ONE))
-
-        assertEquals(StoreSection.DRY_GOODS, repository.getIngredient(cooked)!!.storeSection)
-        assertEquals(PlantPoints.ONE, repository.getIngredient(cooked)!!.plantPoints)
-        assertEquals(StoreSection.DRY_GOODS, repository.getIngredient(dry)!!.storeSection)
-        assertEquals(PlantPoints.ZERO, repository.getIngredient(dry)!!.plantPoints)
-        assertEquals(StoreSection.OTHER, repository.getIngredient(other)!!.storeSection)
-        assertFalse(repository.getIngredient(cooked)!!.reviewed)
-    }
-
-    @Test
-    fun markReviewed_marksOnlyTheGivenIngredients() = runTest {
-        val cooked = repository.createFromUsda(riceCooked, "Reis, gekocht")
-        val dry = repository.createFromUsda(riceDry, "Reis")
-
-        repository.markReviewed(listOf(cooked))
-
-        assertTrue(repository.getIngredient(cooked)!!.reviewed)
-        assertFalse(repository.getIngredient(dry)!!.reviewed)
     }
 
     @Test
@@ -407,18 +314,8 @@ private class FakeIngredientDao : IngredientDao {
         return id
     }
 
-    override suspend fun getByIds(ids: List<Long>): List<Ingredient> = ids.mapNotNull { ingredients.value[it] }
-
     override suspend fun update(ingredient: Ingredient) {
         if (ingredient.id in ingredients.value) ingredients.value += ingredient.id to ingredient
-    }
-
-    override suspend fun updateAll(ingredients: List<Ingredient>) = ingredients.forEach { update(it) }
-
-    override suspend fun markReviewed(ids: List<Long>) {
-        ingredients.value = ingredients.value.mapValues { (id, it) ->
-            if (id in ids && !it.hasUndecided) it.copy(reviewed = true) else it
-        }
     }
 
     /** Recipe titles by ingredient id. */

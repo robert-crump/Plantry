@@ -85,7 +85,6 @@ class RecipeDaoTest {
             nutrition = Nutrition(protein = 10.0),
             storeSection = StoreSection.OTHER,
             plantPoints = PlantPoints.ZERO,
-            reviewed = true,
         ),
     )
 

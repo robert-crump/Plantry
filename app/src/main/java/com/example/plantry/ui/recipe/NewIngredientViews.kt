@@ -38,8 +38,7 @@ import com.example.plantry.ui.ingredient.nutritionSummary
 
 /**
  * The USDA entry proposed for a new ingredient, e.g. "Räuchertofu → Tofu, smoked (USDA)", which the
- * user confirms, changes, or replaces with the package's values. The rest of the proposal is
- * reviewed later on the ingredient screen.
+ * user confirms, changes, or replaces with the package's values.
  */
 @Composable
 fun NewIngredientMatch(

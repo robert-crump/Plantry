@@ -20,14 +20,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -37,9 +33,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -66,7 +60,6 @@ import com.example.plantry.data.IngredientSorting
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
-import com.example.plantry.data.SortView
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -127,7 +120,6 @@ fun IngredientListScreen(
     onIngredientClick: (Long) -> Unit,
     onRecipesClick: (Long) -> Unit,
     onAddIngredient: () -> Unit,
-    onOpenSort: (SortView) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val fab = rememberFabVisibility()
@@ -135,12 +127,7 @@ fun IngredientListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.ingredients_title)) },
-                actions = {
-                    SortMenu(onOpenSort)
-                },
-            )
+            TopAppBar(title = { Text(stringResource(R.string.ingredients_title)) })
         },
         floatingActionButton = {
             HideOnScrollFab(fab) {
@@ -238,12 +225,10 @@ private fun CountRow(state: IngredientListUiState) {
 
 private val IngredientChip.label: Int
     get() = when (this) {
-        IngredientChip.UNREVIEWED -> R.string.filter_unreviewed
         IngredientChip.USED -> R.string.filter_used
-        IngredientChip.ADDED -> R.string.filter_added
     }
 
-/** One line: name (ellipsized), unreviewed badge, and the recipes button aligned right. */
+/** One line: name (ellipsized) and the recipes button aligned right. */
 @Composable
 private fun IngredientRow(
     ingredient: Ingredient,
@@ -260,20 +245,13 @@ private fun IngredientRow(
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Text(
+            ingredient.name,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
-        ) {
-            Text(
-                ingredient.name,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            if (!ingredient.reviewed) UnreviewedBadge()
-        }
+        )
         if (onRecipesClick != null) {
             RecipesButton(pluralStringResource(R.plurals.ingredient_recipe_count, recipeCount, recipeCount), onRecipesClick)
         }
@@ -307,40 +285,3 @@ internal fun nutritionSummary(nutrition: Nutrition): String = stringResource(
     formatDecimal(Math.round(nutrition.kcal).toDouble(), currentLocale()),
     formatDecimal(Math.round(nutrition.protein * 10) / 10.0, currentLocale()),
 )
-
-@Composable
-internal fun UnreviewedBadge() {
-    Surface(
-        color = MaterialTheme.colorScheme.tertiaryContainer,
-        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-        shape = MaterialTheme.shapes.small,
-    ) {
-        Text(
-            stringResource(R.string.ingredient_unreviewed),
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-        )
-    }
-}
-
-/** The ⋮ menu: each entry opens the Sortieren screen locked to that grouping. */
-@Composable
-private fun SortMenu(onOpenSort: (SortView) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more))
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            SortView.entries.forEach { view ->
-                DropdownMenuItem(
-                    text = { Text(stringResource(view.label)) },
-                    onClick = {
-                        expanded = false
-                        onOpenSort(view)
-                    },
-                )
-            }
-        }
-    }
-}

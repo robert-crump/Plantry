@@ -7,9 +7,7 @@ import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.usda.UsdaFood
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProposalParserTest {
@@ -85,16 +83,6 @@ class ProposalParserTest {
         assertEquals("Räuchertofu", result.name)
         assertEquals(StoreSection.OTHER, result.storeSection)
         assertEquals(PlantPoints.ZERO, result.plantPoints)
-        assertTrue(result.storeSectionUndecided)
-        assertTrue(result.plantPointsUndecided)
-    }
-
-    @Test
-    fun validEnums_areDecided() {
-        val result = parse(answer(proposal("N1", "storeSection" to "\"PRODUCE\"", "plantPoints" to "\"ONE\"")), tofu).getValue(-1)
-
-        assertFalse(result.storeSectionUndecided)
-        assertFalse(result.plantPointsUndecided)
     }
 
     @Test
@@ -170,7 +158,7 @@ class ProposalParserTest {
     }
 
     @Test
-    fun toIngredient_isUnreviewedWithUsdaNutrition() {
+    fun toIngredient_takesUsdaNutrition() {
         val proposal = parse(
             answer(proposal("N1", "fdcId" to "172476", "name" to "\"Räuchertofu\"")),
             tofu,
@@ -178,7 +166,6 @@ class ProposalParserTest {
 
         val ingredient = proposal.toIngredient()
 
-        assertFalse(ingredient.reviewed)
         assertEquals("Räuchertofu", ingredient.name)
         assertEquals(172476L, ingredient.fdcId)
         assertEquals("Tofu, smoked", ingredient.usdaDescription)

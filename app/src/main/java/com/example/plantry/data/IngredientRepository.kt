@@ -29,9 +29,9 @@ class IngredientRepository(private val dao: IngredientDao) {
     }
 
     /**
-     * Creates the unreviewed ingredient from [seed] with the user's decisions in [draft] (which also
-     * holds the nutrition, as the user may have edited it) and returns its id. A scanned label in
-     * the draft replaces the seed's source and is what makes the ingredient a barcode one.
+     * Creates the ingredient from [seed] with the user's values in [draft] (which also holds the
+     * nutrition, as the user may have edited it) and returns its id. A scanned label in the draft
+     * replaces the seed's source.
      */
     suspend fun create(seed: NewIngredientSeed, draft: IngredientDraft): Long {
         val label = draft.scannedLabel ?: seed.labelSource
@@ -44,32 +44,18 @@ class IngredientRepository(private val dao: IngredientDao) {
                 nutrition = draft.nutrition,
                 storeSection = draft.storeSection,
                 plantPoints = draft.plantPoints,
-                reviewed = false,
                 labelSource = label,
-                origin = if (label != null) IngredientOrigin.BARCODE else IngredientOrigin.MANUAL,
             ),
             draft.units,
         )
     }
 
     /**
-     * Creates the unreviewed ingredients Claude proposed, keyed by their temporary (negative) ids,
+     * Creates the ingredients Claude proposed, keyed by their temporary (negative) ids,
      * and returns the new id for each. Every proposal needs a nutrition source.
      */
     suspend fun createProposed(proposals: Map<Long, IngredientProposal>): Map<Long, Long> =
         proposals.mapValues { (_, proposal) -> dao.insertWithUnits(proposal.toIngredient(), proposal.units()) }
-
-    /** Sets the plant points or store section of [group] on each of [ids]; reviewed stays as it is. */
-    suspend fun moveTo(ids: Set<Long>, group: SortGroup) {
-        if (ids.isEmpty()) return
-        val changed = IngredientSorting.move(dao.getByIds(ids.toList()), ids, group)
-        if (changed.isNotEmpty()) dao.updateAll(changed)
-    }
-
-    /** Ingredients with an undecided property stay unreviewed. */
-    suspend fun markReviewed(ids: Collection<Long>) {
-        if (ids.isNotEmpty()) dao.markReviewed(ids.toList())
-    }
 
     /** Titles of the recipes that use the ingredient, see [delete]. */
     suspend fun recipesUsing(id: Long): List<String> = dao.getRecipeTitlesUsing(id)
@@ -85,8 +71,7 @@ class IngredientRepository(private val dao: IngredientDao) {
     }
 
     /**
-     * Saves the user's edits; reviewed stays as it is, see [setReviewed]. A
-     * [IngredientDraft.scannedLabel] becomes the source and clears the USDA reference. Recipes
+     * Saves the user's edits. A [IngredientDraft.scannedLabel] becomes the source and clears the USDA reference. Recipes
      * using one of the ingredient's units follow a changed weight right away.
      *
      * Nothing is saved when the edit would remove a unit a recipe line still uses; returns the
@@ -101,8 +86,6 @@ class IngredientRepository(private val dao: IngredientDao) {
                 nutrition = draft.nutrition,
                 storeSection = draft.storeSection,
                 plantPoints = draft.plantPoints,
-                storeSectionUndecided = false,
-                plantPointsUndecided = false,
             ),
             draft.units,
         )
@@ -113,10 +96,4 @@ class IngredientRepository(private val dao: IngredientDao) {
 
     /** Titles of the recipes with a line in [unit] of ingredient [id]; while there are any, the unit can't be removed. */
     suspend fun recipesUsingUnit(id: Long, unit: PieceUnit): List<String> = dao.getRecipeTitlesUsingUnit(id, unit)
-
-    suspend fun setReviewed(id: Long, reviewed: Boolean) {
-        val existing = dao.getById(id) ?: return
-        if (reviewed && existing.hasUndecided) return
-        if (existing.reviewed != reviewed) dao.update(existing.copy(reviewed = reviewed))
-    }
 }

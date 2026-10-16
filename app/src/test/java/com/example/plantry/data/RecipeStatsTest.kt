@@ -93,6 +93,5 @@ class RecipeStatsTest {
             nutrition = nutrition,
             storeSection = StoreSection.OTHER,
             plantPoints = points,
-            reviewed = true,
         )
 }
