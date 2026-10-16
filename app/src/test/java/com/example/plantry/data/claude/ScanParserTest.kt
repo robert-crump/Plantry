@@ -1,5 +1,7 @@
 package com.example.plantry.data.claude
 
+import com.example.plantry.data.LineUnit
+import com.example.plantry.data.PieceUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -10,8 +12,16 @@ class ScanParserTest {
 
     private val known = setOf(3L, 7L)
 
-    private fun line(text: String, grams: Double, id: Long, uncertain: Boolean = false) =
-        """{"originalText":"$text","grams":$grams,"ingredientId":$id,"ingredientName":"x","uncertain":$uncertain}"""
+    private fun line(
+        text: String,
+        amount: Double,
+        id: Long,
+        uncertain: Boolean = false,
+        unit: String = "g",
+        wording: String = "",
+        unitGrams: Double = 0.0,
+    ) = """{"originalText":"$text","amount":$amount,"unit":"$unit","wording":"$wording","unitGrams":$unitGrams,""" +
+        """"ingredientId":$id,"ingredientName":"x","uncertain":$uncertain}"""
 
     private fun answer(title: String = "Dal", servings: Int = 4, active: Int = 15, time: Int = 40, page: Int = 112, vararg lines: String) =
         """{"title":"$title","servings":$servings,"activeMinutes":$active,"totalMinutes":$time,"page":$page,"lines":[${lines.joinToString(",")}]}"""
@@ -27,7 +37,41 @@ class ScanParserTest {
         assertEquals(15, recipe.activeTimeMinutes)
         assertEquals(40, recipe.totalTimeMinutes)
         assertEquals(112, recipe.page)
-        assertEquals(ScannedLine("200 g rote Linsen", 200.0, 3, "x", uncertain = false), recipe.lines.single())
+        assertEquals(ScannedLine("200 g rote Linsen", 200.0, LineUnit.Grams, 3, "x", uncertain = false), recipe.lines.single())
+    }
+
+    @Test
+    fun readsUnitWordingAndProposedUnitGrams() {
+        val recipe = success(
+            answer(
+                lines = arrayOf(
+                    line("2 Scheiben Toast", 2.0, 3, unit = "Scheibe", unitGrams = 37.5),
+                    line("1 Handvoll Rucola", 20.0, 0, uncertain = true, wording = " 1 Handvoll Rucola "),
+                    line("½ TL Salz", 0.5, 7, unit = "tl"),
+                    line("100 ml Hafermilch", 100.0, 7, unit = "ml", unitGrams = 100.0),
+                ),
+            ),
+        )
+
+        assertEquals(LineUnit.Of(PieceUnit.SLICE), recipe.lines[0].unit)
+        assertEquals(2.0, recipe.lines[0].amount, 0.0)
+        assertEquals(37.5, recipe.lines[0].unitGrams)
+        assertNull(recipe.lines[0].wording)
+        assertEquals(LineUnit.Grams, recipe.lines[1].unit)
+        assertEquals("1 Handvoll Rucola", recipe.lines[1].wording)
+        assertNull(recipe.lines[1].unitGrams)
+        assertEquals(LineUnit.Of(PieceUnit.TSP), recipe.lines[2].unit)
+        // g and ml need no unit grams.
+        assertEquals(LineUnit.Milliliters, recipe.lines[3].unit)
+        assertNull(recipe.lines[3].unitGrams)
+    }
+
+    @Test
+    fun unknownUnit_isGramsAndUncertain() {
+        val line = success(answer(lines = arrayOf(line("1 Prise Salz", 1.0, 7, unit = "Prise")))).lines.single()
+
+        assertEquals(LineUnit.Grams, line.unit)
+        assertTrue(line.uncertain)
     }
 
     @Test
@@ -65,7 +109,7 @@ class ScanParserTest {
     }
 
     @Test
-    fun lineWithoutWeight_isUncertain() {
+    fun lineWithoutAmount_isUncertain() {
         val recipe = success(answer(lines = arrayOf(line("Salz", 0.0, 7), line("Linsen", 200.0, 3))))
 
         assertTrue(recipe.lines[0].uncertain)

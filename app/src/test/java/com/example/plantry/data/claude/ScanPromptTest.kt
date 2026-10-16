@@ -3,7 +3,10 @@ package com.example.plantry.data.claude
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.ingredient
+import com.example.plantry.data.LineUnit
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -15,6 +18,24 @@ class ScanPromptTest {
 
         assertTrue(system.contains("Canned goods that are drained count in drained grams"))
         assertFalse(system.contains("net weight"))
+    }
+
+    @Test
+    fun `lines come as amount and one of the units, with unit grams for a missing unit`() {
+        val system = ScanPrompt.system(emptyList())
+
+        assertTrue(system.contains("in one of the units g, ml, Stück, Scheibe, Zehe, Bund, Dose, Packung, TL, EL, Tasse."))
+        assertTrue(system.contains("- unitGrams: only when unit is neither g nor ml and the matched ingredient below"))
+        assertTrue(system.contains("best estimate in g, with the printed line as wording."))
+        assertFalse(system.contains("- grams:"))
+    }
+
+    @Test
+    fun `units are read back from their words`() {
+        assertEquals(LineUnit.Grams, ScanPrompt.unitOf("g"))
+        assertEquals(LineUnit.Milliliters, ScanPrompt.unitOf("ML"))
+        assertEquals(PieceUnit.entries.map(LineUnit::Of), PieceUnit.entries.map { ScanPrompt.unitOf(it.singular) })
+        assertNull(ScanPrompt.unitOf("Handvoll"))
     }
 
     @Test

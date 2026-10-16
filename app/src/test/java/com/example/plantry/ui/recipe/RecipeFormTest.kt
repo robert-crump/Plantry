@@ -187,8 +187,8 @@ class RecipeFormTest {
             page = 112,
             activeTimeMinutes = 15,
             lines = listOf(
-                ScannedLine("200 g rote Linsen", 200.0, ingredientId = 3, ingredientName = "Linsen", uncertain = false),
-                ScannedLine("1 Bund Koriander", 30.0, ingredientId = null, ingredientName = "Koriander", uncertain = true),
+                ScannedLine("200 g rote Linsen", 200.0, LineUnit.Grams, ingredientId = 3, ingredientName = "Linsen", uncertain = false),
+                ScannedLine("1 Bund Koriander", 1.0, LineUnit.Of(PieceUnit.BUNCH), ingredientId = null, ingredientName = "Koriander", uncertain = true),
             ),
         )
 
@@ -200,7 +200,7 @@ class RecipeFormTest {
         assertEquals("4", form.servings)
         assertEquals("40", form.totalTime)
         assertEquals("15", form.activeTime)
-        assertEquals(RecipeFormLine(30.0, LineUnit.Grams, null, wording = "1 Bund Koriander", ingredientName = "Koriander", uncertain = true), form.lines[1])
+        assertEquals(RecipeFormLine(1.0, LineUnit.Of(PieceUnit.BUNCH), null, ingredientName = "Koriander", uncertain = true), form.lines[1])
     }
 
     @Test
@@ -211,13 +211,20 @@ class RecipeFormTest {
             totalTimeMinutes = 10,
             page = null,
             lines = listOf(
-                ScannedLine("1 Dose Kichererbsen", 240.0, ingredientId = 3, ingredientName = "Kichererbsen, abgetropft", uncertain = false),
-                ScannedLine("2 EL Tahin", 30.0, ingredientId = null, ingredientName = "Tahin", uncertain = false, searchTerms = listOf("tahini")),
-                ScannedLine("Salz", 2.0, ingredientId = null, ingredientName = "Salz", uncertain = false, searchTerms = listOf("salt")),
+                ScannedLine("1 Dose Kichererbsen", 1.0, LineUnit.Of(PieceUnit.CAN), ingredientId = 3, ingredientName = "Kichererbsen, abgetropft", uncertain = false),
+                ScannedLine("2 EL Tahin", 2.0, LineUnit.Of(PieceUnit.TBSP), ingredientId = null, ingredientName = "Tahin", uncertain = false, searchTerms = listOf("tahini")),
+                ScannedLine("Salz", 2.0, LineUnit.Grams, ingredientId = null, ingredientName = "Salz", uncertain = false, searchTerms = listOf("salt")),
             ),
         )
 
-        val form = RecipeForm().withScan(scan, aliases = mapOf("kichererbsen abgetropft" to 7L, "tahin" to 8L))
+        val form = RecipeForm().withScan(
+            scan,
+            aliases = mapOf("kichererbsen abgetropft" to 7L, "tahin" to 8L),
+            units = listOf(
+                IngredientUnit.perUnit(PieceUnit.CAN, 240.0, ingredientId = 7)!!,
+                IngredientUnit.perUnit(PieceUnit.TBSP, 15.0, ingredientId = 8)!!,
+            ).groupBy { it.ingredientId },
+        )
 
         assertEquals(listOf(7L, 8L, null), form.lines.map { it.ingredientId })
         assertEquals(emptyList<String>(), form.lines[1].searchTerms)
@@ -488,24 +495,74 @@ class RecipeFormTest {
     }
 
     @Test
-    fun withScan_deliversEachLineAsGramsWithTheBookTextAsWording() {
+    fun withScan_deliversAmountUnitAndWording() {
         val scan = ScannedRecipe(
             title = "Snack",
             servings = 1,
             totalTimeMinutes = 5,
             page = null,
             lines = listOf(
-                ScannedLine("4 Scheiben Toast", 120.0, ingredientId = 5, ingredientName = "Toast", uncertain = false),
-                ScannedLine("1 Handvoll Rucola", 20.0, ingredientId = null, ingredientName = "Rucola", uncertain = true),
+                ScannedLine("4 Scheiben Toast", 4.0, LineUnit.Of(PieceUnit.SLICE), ingredientId = 5, ingredientName = "Toast", uncertain = false),
+                ScannedLine(
+                    "1 Handvoll Rucola", 20.0, LineUnit.Grams, ingredientId = null, ingredientName = "Rucola", uncertain = true,
+                    wording = "1 Handvoll Rucola",
+                ),
             ),
         )
 
-        val lines = RecipeForm().withScan(scan).lines
+        val lines = RecipeForm().withScan(scan, units = mapOf(5L to listOf(IngredientUnit.perUnit(PieceUnit.SLICE, 37.5, ingredientId = 5)!!))).lines
 
-        assertEquals(listOf(120.0, 20.0), lines.map { it.amount })
-        assertEquals(listOf(LineUnit.Grams, LineUnit.Grams), lines.map { it.unit })
-        assertEquals(listOf("4 Scheiben Toast", "1 Handvoll Rucola"), lines.map { it.wording })
-        assertEquals(RecipeIngredientDraft(120.0, LineUnit.Grams, 5, "4 Scheiben Toast"), lines.first().toDraft())
+        assertEquals(listOf(4.0, 20.0), lines.map { it.amount })
+        assertEquals(listOf(LineUnit.Of(PieceUnit.SLICE), LineUnit.Grams), lines.map { it.unit })
+        assertEquals(listOf(null, "1 Handvoll Rucola"), lines.map { it.wording })
+        assertEquals(listOf(false, false), lines.map { it.missingUnit })
+        assertEquals(RecipeIngredientDraft(4.0, LineUnit.Of(PieceUnit.SLICE), 5, null), lines.first().toDraft())
+    }
+
+    @Test
+    fun withScan_aUnitTheIngredientLacksMustBeConfirmed() {
+        val scan = ScannedRecipe(
+            title = "Toast",
+            servings = 1,
+            totalTimeMinutes = null,
+            page = null,
+            lines = listOf(
+                ScannedLine("2 Scheiben Toast", 2.0, LineUnit.Of(PieceUnit.SLICE), 5, "Toast", uncertain = false, unitGrams = 37.5),
+                ScannedLine("2 Scheiben Toast", 2.0, LineUnit.Of(PieceUnit.SLICE), 5, "Toast", uncertain = false, unitGrams = 40.0),
+                ScannedLine("20 g Butter", 20.0, LineUnit.Grams, 6, "Butter", uncertain = false),
+            ),
+        )
+
+        val form = valid.copy(lines = emptyList()).withScan(scan).copy(servings = "1")
+
+        assertEquals(listOf(true, true, false), form.lines.map { it.missingUnit })
+        assertEquals(37.5, form.lines[0].unitGrams)
+        assertEquals(LineProblem.MISSING_UNIT, form.problem(form.lines[0]))
+        assertNull(form.problem(form.lines[2]))
+        assertNull(form.toDraft())
+
+        // Defining it in the editor of one line resolves the other line in that unit, too.
+        val defined = form.withUnitDefined(IngredientUnit.perUnit(PieceUnit.SLICE, 37.5, ingredientId = 5)!!)
+        assertEquals(listOf(false, false, false), defined.lines.map { it.missingUnit })
+    }
+
+    @Test
+    fun withProposals_marksAUnitTheProposalLacks() {
+        val form = valid.copy(
+            lines = listOf(
+                RecipeFormLine(2.0, LineUnit.Of(PieceUnit.PIECE), null, ingredientName = "Ei"),
+                RecipeFormLine(1.0, LineUnit.Of(PieceUnit.TSP), null, ingredientName = "Kurkuma", unitGrams = 3.0),
+            ),
+        )
+        val foods = form.unmatchedFoods(ids())
+        val proposals = mapOf(
+            foods[0].id to proposal("Ei").copy(pieceWeight = IngredientUnit.perUnit(PieceUnit.PIECE, 60.0)),
+            foods[1].id to proposal("Kurkuma"),
+        )
+
+        val lines = form.withProposals(foods, proposals).lines
+
+        assertEquals(listOf(false, true), lines.map { it.missingUnit })
     }
 
     @Test

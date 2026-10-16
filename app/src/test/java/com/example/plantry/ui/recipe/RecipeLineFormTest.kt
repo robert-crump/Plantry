@@ -109,6 +109,17 @@ class RecipeLineFormTest {
     }
 
     @Test
+    fun aScannedMissingUnit_startsWithClaudesGrams_confirmingDefinesIt() {
+        val line = RecipeFormLine(2.0, sliceUnit, 5, ingredientName = "Toast", unitGrams = 37.5, missingUnit = true)
+
+        val form = RecipeLineForm.from(line, "Toast")
+
+        assertEquals(PieceUnit.SLICE, form.missingUnit)
+        assertEquals(IngredientUnit(5, PieceUnit.SLICE, 37.5), form.newUnit())
+        assertEquals(RecipeFormLine(2.0, sliceUnit, 5, ingredientName = "Toast", confirmed = true), form.toFormLine())
+    }
+
+    @Test
     fun aMissingUnitThatComesInPackages_isDefinedAsPackageDividedByCount() {
         val form = RecipeLineForm(amount = "2").withIngredient(toast, emptyList()).withUnit(sliceUnit)
             .withDefinition { copy(inPackage = true, grams = "750") }

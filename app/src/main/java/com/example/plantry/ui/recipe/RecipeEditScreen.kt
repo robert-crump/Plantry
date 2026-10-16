@@ -368,7 +368,8 @@ class RecipeEditViewModel(
                     is ScanResult.Success -> {
                         // Claude never reads the book, so the source always comes from the session.
                         val book = bookSession.defaults(BookPage(source = "", page = result.recipe.page))
-                        state.copy(form = RecipeForm().withScan(result.recipe, book, aliases.value), scan = ScanState.Done)
+                        val form = RecipeForm().withScan(result.recipe, book, aliases.value, storedUnits.value)
+                        state.copy(form = form, scan = ScanState.Done)
                     }
                     is ScanResult.Failure -> state.copy(scan = ScanState.Failed(result.reason))
                 }
@@ -582,7 +583,8 @@ class RecipeEditViewModel(
             newUnit.ingredientId > 0 -> state.form.also { viewModelScope.launch { ingredientRepository.addUnit(newUnit) } }
             else -> state.form.withNewIngredientUnit(newUnit)
         }
-        val form = withUnit.withLine(editor.index, line)
+        // Other lines in the same unit no longer miss it.
+        val form = (newUnit?.let(withUnit::withUnitDefined) ?: withUnit).withLine(editor.index, line)
         val next = editor.index?.takeIf { editor.toNextProblem }?.let(form::nextProblem)
         _state.update { it.copy(form = form, lineEditor = next?.let { index -> lineEditor(form, index) }) }
     }
@@ -1177,6 +1179,7 @@ private fun LineItem(
     val (container, label) = when (problem) {
         LineProblem.NO_INGREDIENT -> colors.errorContainer to R.string.recipe_line_problem_ingredient
         LineProblem.NO_GRAMS -> colors.errorContainer to R.string.recipe_line_problem_grams
+        LineProblem.MISSING_UNIT -> colors.tertiaryContainer to R.string.recipe_line_missing_unit
         LineProblem.NEW_INGREDIENT -> colors.tertiaryContainer to R.string.recipe_line_new_ingredient
         LineProblem.UNCERTAIN -> colors.tertiaryContainer to R.string.recipe_line_uncertain
         null -> Color.Transparent to null

@@ -125,7 +125,10 @@ data class RecipeLineForm(
         fun from(line: RecipeIngredientDraft, ingredientName: String, units: List<IngredientUnit> = emptyList()) =
             from(RecipeFormLine.from(line), ingredientName, units)
 
-        /** An unmatched line starts with Claude's name for the food as the search term. */
+        /**
+         * An unmatched line starts with Claude's name for the food as the search term, a unit the
+         * ingredient lacks with Claude's grams for it.
+         */
         fun from(line: RecipeFormLine, ingredientName: String?, units: List<IngredientUnit> = emptyList()) = RecipeLineForm(
             amount = if (line.amount > 0.0) formatDecimal(line.amount) else "",
             unit = line.unit,
@@ -134,6 +137,7 @@ data class RecipeLineForm(
             wording = line.wording.orEmpty(),
             scannedName = line.ingredientName,
             units = units,
+            definition = UnitForm(grams = line.unitGrams?.let { formatDecimal(it) }.orEmpty()),
         )
     }
 }

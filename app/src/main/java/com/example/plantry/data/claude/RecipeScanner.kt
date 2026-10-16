@@ -13,6 +13,8 @@ import com.anthropic.models.messages.OutputConfig
 import com.anthropic.models.messages.StopReason
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientUnit
+import com.example.plantry.data.LineUnit
+import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.settings.ScanModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -26,13 +28,20 @@ import kotlin.math.roundToLong
 /** One ingredient line as Claude read it from the photo. */
 data class ScannedLine(
     val originalText: String,
-    val grams: Double,
+    /** In [unit], for the whole recipe. */
+    val amount: Double,
+    /** g, ml or one of the [PieceUnit]s; a line that fits none ("1 Handvoll") comes as grams. */
+    val unit: LineUnit,
     /** Null when no ingredient of the user's table matches. */
     val ingredientId: Long?,
     /** Claude's German name for the food, e.g. "Petersilie". */
     val ingredientName: String,
-    /** Hard to read, or a vague amount such as "1 Bund", so [grams] is a rough guess. */
+    /** Hard to read, or a vague amount such as "1 Handvoll", so [amount] is a rough guess. */
     val uncertain: Boolean,
+    /** The line as printed, when it says more than amount, unit and food; null shows the generated text. */
+    val wording: String? = null,
+    /** Claude's grams for one [unit], for when the ingredient lacks it; null for g and ml. */
+    val unitGrams: Double? = null,
     /** English USDA search terms, only for lines without [ingredientId]. */
     val searchTerms: List<String> = emptyList(),
 )
@@ -128,6 +137,9 @@ class AnthropicRecipeScanner(private val models: ModelCatalog = ModelCatalog.sha
 
 object ScanPrompt {
 
+    private const val GRAMS = "g"
+    private const val MILLILITERS = "ml"
+
     fun system(ingredients: List<Ingredient>, units: Map<Long, List<IngredientUnit>> = emptyMap()): String = buildString {
         appendLine(
             """
@@ -150,18 +162,29 @@ object ScanPrompt {
               "Für den Teig:" are not lines. If a line offers alternatives, use the first.
               - originalText: the line exactly as printed, with amount and unit,
                 e.g. "1 Bund glatte Petersilie".
-              - grams: your best estimate of the weight in grams of the amount as printed, for
-                the whole recipe (not per serving). Use typical weights for pieces, bunches
-                and spoons. Canned goods that are drained count in drained grams (about 240 g
-                for "1 Dose Kichererbsen"). If the matched ingredient lists the weight of one
-                piece or can, use it for amounts in that unit.
+              - amount and unit: the amount as printed, for the whole recipe (not per serving),
+                in one of the units ${UNIT_WORDS.joinToString(", ")}. Fractions as decimals
+                ("½ TL" is 0.5 TL); for a range such as "2-3" the higher number. kg and l become
+                g and ml (times 1000). A bare count ("2 Zwiebeln") is Stück, as is "Kopf" or
+                "Knolle"; "Päckchen" is Packung, "Cup" is Tasse. An amount that fits none of
+                these units ("1 Handvoll", "1 Prise", "etwas", "1 daumengroßes Stück") is your
+                best estimate in g, with the printed line as wording.
+              - wording: the line as printed when it says more than amount, unit and food name:
+                an amount given in g instead of its own unit, a size ("1 große Zwiebel") or a
+                preparation ("fein gehackt", "abgetropft"). Empty when the line reads just
+                like amount, unit and food ("200 g rote Linsen", "2 EL Olivenöl").
+              - unitGrams: only when unit is neither g nor ml and the matched ingredient below
+                does not list that unit (or ingredientId is 0): your best estimate of the
+                grams of one unit, using typical weights for pieces, bunches and spoons.
+                Canned goods that are drained count in drained grams (about 240 g for
+                "1 Dose Kichererbsen"). 0 otherwise.
               - ingredientId: the id of the matching entry in the user's ingredient table below,
                 or 0 if none fits. Match the same food in an equivalent form (fresh vs. fresh,
                 cooked vs. cooked); do not match a different food just because it is similar.
               - ingredientName: a short German name of the food, e.g. "Petersilie".
               - uncertain: true when the line was hard to read (handwriting, blur, cut off) or
-                its amount is vague ("1 Bund", "etwas", "nach Geschmack", "1 Dose"), so the
-                grams are a rough guess; false otherwise.
+                its amount is vague ("1 Handvoll", "etwas", "nach Geschmack"), so the amount is
+                a rough guess; false otherwise.
               - searchTerms: only when ingredientId is 0: 1 to 3 ${ProposalPrompt.SEARCH_TERMS_RULE}.
                 Empty otherwise.
 
@@ -179,6 +202,16 @@ object ScanPrompt {
         }
     }
 
+    /** The words Claude answers a line's unit with: "g", "ml" and each [PieceUnit]'s singular. */
+    val UNIT_WORDS: List<String> = listOf(GRAMS, MILLILITERS) + PieceUnit.entries.map { it.singular }
+
+    /** The unit Claude answered with, or null for a word not in [UNIT_WORDS]. */
+    fun unitOf(word: String): LineUnit? = when (word.trim().lowercase()) {
+        GRAMS -> LineUnit.Grams
+        MILLILITERS -> LineUnit.Milliliters
+        else -> PieceUnit.entries.find { it.singular.equals(word.trim(), ignoreCase = true) }?.let(LineUnit::Of)
+    }
+
     private fun formatGrams(grams: Double) = BigDecimal.valueOf(grams).stripTrailingZeros().toPlainString()
 
     fun schema(): JsonOutputFormat.Schema {
@@ -186,13 +219,18 @@ object ScanPrompt {
             "type" to "object",
             "properties" to mapOf(
                 "originalText" to mapOf("type" to "string"),
-                "grams" to mapOf("type" to "number"),
+                "amount" to mapOf("type" to "number"),
+                "unit" to mapOf("type" to "string", "enum" to UNIT_WORDS),
+                "wording" to mapOf("type" to "string"),
+                "unitGrams" to mapOf("type" to "number"),
                 "ingredientId" to mapOf("type" to "integer"),
                 "ingredientName" to mapOf("type" to "string"),
                 "uncertain" to mapOf("type" to "boolean"),
                 "searchTerms" to mapOf("type" to "array", "items" to mapOf("type" to "string")),
             ),
-            "required" to listOf("originalText", "grams", "ingredientId", "ingredientName", "uncertain", "searchTerms"),
+            "required" to listOf(
+                "originalText", "amount", "unit", "wording", "unitGrams", "ingredientId", "ingredientName", "uncertain", "searchTerms",
+            ),
             "additionalProperties" to false,
         )
         val properties = mapOf(
@@ -228,7 +266,10 @@ object ScanParser {
     @Serializable
     private data class LineJson(
         val originalText: String,
-        val grams: Double,
+        val amount: Double,
+        val unit: String,
+        val wording: String = "",
+        val unitGrams: Double = 0.0,
         val ingredientId: Long,
         val ingredientName: String,
         val uncertain: Boolean,
@@ -238,8 +279,9 @@ object ScanParser {
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * Ids not in [knownIngredientIds] count as "no match". A line without a positive weight is
-     * marked uncertain, since its grams must be corrected.
+     * Ids not in [knownIngredientIds] count as "no match". A line without a positive amount, or in
+     * a unit not in [ScanPrompt.UNIT_WORDS] (then read as grams), is marked uncertain, since its
+     * amount must be corrected.
      */
     fun toResult(text: String?, knownIngredientIds: Set<Long>): ScanResult {
         val parsed = try {
@@ -259,12 +301,16 @@ object ScanParser {
                 page = parsed.page.takeIf { it > 0 },
                 lines = parsed.lines.filter { it.originalText.isNotBlank() }.map { line ->
                     val ingredientId = line.ingredientId.takeIf { it in knownIngredientIds }
+                    val unit = ScanPrompt.unitOf(line.unit)
                     ScannedLine(
                         originalText = line.originalText.trim(),
-                        grams = line.grams.coerceAtLeast(0.0),
+                        amount = line.amount.coerceAtLeast(0.0),
+                        unit = unit ?: LineUnit.Grams,
                         ingredientId = ingredientId,
                         ingredientName = line.ingredientName.trim(),
-                        uncertain = line.uncertain || line.grams <= 0.0,
+                        uncertain = line.uncertain || line.amount <= 0.0 || unit == null,
+                        wording = line.wording.trim().ifEmpty { null },
+                        unitGrams = line.unitGrams.takeIf { unit is LineUnit.Of && it > 0.0 },
                         searchTerms = if (ingredientId == null) ProposalParser.cleanTerms(line.searchTerms) else emptyList(),
                     )
                 },

@@ -106,6 +106,7 @@
     <string name="recipe_line_uncertain">Unsicher – bitte prüfen</string>
     <string name="recipe_line_problem_ingredient">Zutat fehlt</string>
     <string name="recipe_line_problem_grams">Menge fehlt</string>
+    <string name="recipe_line_missing_unit">Neue Einheit – Gramm bestätigen</string>
     <string name="recipe_line_resolved">Geklärt</string>
     <plurals name="recipe_lines_to_check">
         <item quantity="one">Noch %1$d Zeile prüfen</item>
