@@ -22,6 +22,10 @@ together. Refined during the calibration round.
 8. **Not in USDA at all** (branded or composite products such as Halloumi, Gnocchi, Kokosjoghurt,
    protein pastas, Avocadocreme): nutrition from a typical German package label, no USDA link.
    Don't stretch a base food to cover a product, even a single-ingredient one.
+   **Products the user photographed** (`input/Ingredients/`) always take their package's label
+   values, even where USDA has the base food (Chiasamen, Tofu), and record product name and barcode
+   as the nutrition source. A photo showing only the barcode: the values from Open Food Facts for
+   that barcode, flagged. No readable barcode: label values without a source, flagged.
 9. **What German shops sell**: farmed Atlantic salmon, firm tofu, Greek yogurt whole milk,
    80 % margarine, parmesan as a block.
 10. **Juice** is its own ingredient: Zitronensaft, not Zitrone.
@@ -39,7 +43,10 @@ together. Refined during the calibration round.
     nuts and seeds measured in cups: the grams of one level spoon or cup of that food
     (Kreuzkümmel: TL = 2 g, EL = 6 g; Olivenöl: TL = 4 g, EL = 12 g; Haferflocken: Tasse = 90 g).
     Dose as in rule 12. Scheibe, Packung and the Stück of a packaged product come from its package
-    (750 g ÷ 20 Scheiben). Foods recipes only weigh or measure (Mehl, Reis, Öl, Milch) need none.
+    (750 g ÷ 20 Scheiben), the count from the photo's file name when the package doesn't print it;
+    a missing count is flagged, never guessed. A spoon the user measured wins over the level spoon
+    (Erdnussmus: EL = 33 g). Foods recipes only weigh or measure (Mehl, Reis, Öl, Milch, cereals)
+    need none.
 
 ## Plant points
 
