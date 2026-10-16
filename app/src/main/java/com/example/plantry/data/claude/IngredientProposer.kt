@@ -59,8 +59,8 @@ data class IngredientProposal(
     val searchTerms: List<String>,
     val storeSection: StoreSection,
     val plantPoints: PlantPoints,
-    /** Only for naturally counted foods and canned goods; always the weight of one piece or can. */
-    val pieceWeight: IngredientUnit? = null,
+    /** Claude's units with the grams of one unit, at most one per unit. */
+    val proposedUnits: List<IngredientUnit> = emptyList(),
     /** Units the user defined for it in the line editor, created with it. */
     val addedUnits: List<IngredientUnit> = emptyList(),
 ) {
@@ -81,9 +81,12 @@ data class IngredientProposal(
         )
     }
 
-    /** The unit rows to create with the ingredient, with [ingredientId] (its temporary id before that). */
+    /**
+     * The unit rows to create with the ingredient, with [ingredientId] (its temporary id before that);
+     * a unit the user defined replaces Claude's.
+     */
     fun units(ingredientId: Long = 0): List<IngredientUnit> =
-        (listOfNotNull(pieceWeight) + addedUnits).map { it.copy(ingredientId = ingredientId) }.sortedBy { it.unit }
+        (addedUnits + proposedUnits).distinctBy { it.unit }.map { it.copy(ingredientId = ingredientId) }.sortedBy { it.unit }
 
     /** Adds [unit] to [addedUnits], replacing a row with the same unit. */
     fun withUnit(unit: IngredientUnit) = copy(addedUnits = addedUnits.filter { it.unit != unit.unit } + unit)
@@ -225,8 +228,7 @@ object ProposalPrompt {
               food just because it is similar.
             - name: see the name rule below.
             - storeSection, plantPoints: see the rules below.
-            - pieceUnit, pieceGrams: see the piece weight rule below; NONE and 0 if it does not
-              apply.
+            - units: see the units rule below.
             """.trimIndent(),
         )
         appendLine()
@@ -235,7 +237,7 @@ object ProposalPrompt {
         appendRule("Name", MatchingRules.NAME)
         appendRule("storeSection", MatchingRules.STORE_SECTION)
         appendRule("plantPoints", MatchingRules.PLANT_POINTS)
-        append("Piece weight: ${MatchingRules.PIECE_WEIGHT}")
+        append("Units: ${MatchingRules.UNITS}")
     }
 
     private fun StringBuilder.appendRule(title: String, rule: String) {
@@ -277,14 +279,15 @@ object ProposalPrompt {
                 "name" to mapOf("type" to "string"),
                 "storeSection" to enumSchema(StoreSection.entries),
                 "plantPoints" to enumSchema(PlantPoints.entries),
-                "pieceUnit" to mapOf("type" to "string", "enum" to listOf(NO_PIECE_UNIT) + MatchingRules.PIECE_UNITS.map { it.name }),
-                "pieceGrams" to mapOf("type" to "number"),
+                "units" to arraySchema(
+                    objectSchema(
+                        "unit" to enumSchema(MatchingRules.PROPOSED_UNITS),
+                        "grams" to mapOf("type" to "number"),
+                    ),
+                ),
             ),
         ),
     )
-
-    /** What Claude answers for a food without a piece weight. */
-    const val NO_PIECE_UNIT = "NONE"
 
     private fun enumSchema(values: List<Enum<*>>) = mapOf("type" to "string", "enum" to values.map { it.name })
 
@@ -323,9 +326,11 @@ object ProposalParser {
         val name: String = "",
         val storeSection: String = "",
         val plantPoints: String = "",
-        val pieceUnit: String = "",
-        val pieceGrams: Double = 0.0,
+        val units: List<UnitJson> = emptyList(),
     )
+
+    @Serializable
+    private data class UnitJson(val unit: String = "", val grams: Double = 0.0)
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -338,8 +343,8 @@ object ProposalParser {
 
     /**
      * One proposal per food. Invalid or missing fields fall back to neutral values: a USDA entry
-     * that was not a candidate counts as none and unknown enums become OTHER / ZERO; a piece unit
-     * Claude may not propose or grams ≤ 0 mean no piece weight. A food Claude left out gets only defaults.
+     * that was not a candidate counts as none and unknown enums become OTHER / ZERO; units Claude
+     * may not propose, grams ≤ 0 and repeats of a unit are dropped. A food Claude left out gets only defaults.
      */
     fun proposals(text: String?, foods: List<FoodCandidates>): ClaudeResult<Map<Long, IngredientProposal>> {
         val parsed = decode<ProposalsJson>(text) ?: return ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE)
@@ -361,8 +366,10 @@ object ProposalParser {
             searchTerms = food.searchTerms,
             storeSection = enumOrNull<StoreSection>(answer.storeSection) ?: StoreSection.OTHER,
             plantPoints = enumOrNull<PlantPoints>(answer.plantPoints) ?: PlantPoints.ZERO,
-            pieceWeight = MatchingRules.PIECE_UNITS.firstOrNull { it.name == answer.pieceUnit.trim().uppercase() }
-                ?.let { IngredientUnit.perUnit(it, answer.pieceGrams) },
+            proposedUnits = answer.units.mapNotNull { proposed ->
+                MatchingRules.PROPOSED_UNITS.firstOrNull { it.name == proposed.unit.trim().uppercase() }
+                    ?.let { IngredientUnit.perUnit(it, proposed.grams) }
+            }.distinctBy { it.unit },
         )
     }
 

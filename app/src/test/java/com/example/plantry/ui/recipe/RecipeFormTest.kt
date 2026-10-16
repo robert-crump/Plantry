@@ -556,7 +556,7 @@ class RecipeFormTest {
         )
         val foods = form.unmatchedFoods(ids())
         val proposals = mapOf(
-            foods[0].id to proposal("Ei").copy(pieceWeight = IngredientUnit.perUnit(PieceUnit.PIECE, 60.0)),
+            foods[0].id to proposal("Ei").copy(proposedUnits = listOfNotNull(IngredientUnit.perUnit(PieceUnit.PIECE, 60.0))),
             foods[1].id to proposal("Kurkuma"),
         )
 
@@ -569,7 +569,7 @@ class RecipeFormTest {
     fun newIngredientUnits_theProposedPieceWeightByTemporaryId() {
         val egg = IngredientProposal(
             name = "Ei", source = null, searchTerms = emptyList(), storeSection = StoreSection.DAIRY_CHILLED,
-            plantPoints = PlantPoints.ZERO, pieceWeight = IngredientUnit(0, PieceUnit.PIECE, 55.0),
+            plantPoints = PlantPoints.ZERO, proposedUnits = listOf(IngredientUnit(0, PieceUnit.PIECE, 55.0)),
         )
 
         val form = RecipeForm().withNewIngredient(-3, egg)
@@ -581,7 +581,7 @@ class RecipeFormTest {
     fun withNewIngredientUnit_addsTheUnitTheLineEditorDefined_createdWithTheIngredient() {
         val egg = IngredientProposal(
             name = "Ei", source = null, searchTerms = emptyList(), storeSection = StoreSection.DAIRY_CHILLED,
-            plantPoints = PlantPoints.ZERO, pieceWeight = IngredientUnit(0, PieceUnit.PIECE, 55.0),
+            plantPoints = PlantPoints.ZERO, proposedUnits = listOf(IngredientUnit(0, PieceUnit.PIECE, 55.0)),
         )
         val form = RecipeForm().withNewIngredient(-3, egg)
             .withNewIngredientUnit(IngredientUnit(-3, PieceUnit.PACKET, 60.0, packageGrams = 600.0, packageCount = 10))

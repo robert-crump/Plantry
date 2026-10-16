@@ -64,7 +64,7 @@ class ProposalPromptTest {
 
     @Test
     fun `a can of a drained product weighs its drained grams`() {
-        val rule = MatchingRules.PIECE_WEIGHT
+        val rule = MatchingRules.UNITS
 
         assertTrue(rule.contains("the drained weight"))
         assertTrue(rule.contains("Kichererbsen (Dose) CAN 240"))
@@ -72,22 +72,23 @@ class ProposalPromptTest {
     }
 
     @Test
-    fun `propose prompt and schema ask for piece weights of naturally counted foods and cans only`() {
-        assertTrue(ProposalPrompt.PROPOSE_SYSTEM.endsWith("Piece weight: " + MatchingRules.PIECE_WEIGHT))
-        val rule = MatchingRules.PIECE_WEIGHT
-        assertTrue(rule.contains("Ei PIECE 55, Knoblauch CLOVE 4"))
-        assertTrue(rule.contains("on the package (Toast, sliced cheese, jars)"))
+    fun `propose prompt and schema ask for a list of units with grams`() {
+        assertTrue(ProposalPrompt.PROPOSE_SYSTEM.endsWith("Units: " + MatchingRules.UNITS))
+        val rule = MatchingRules.UNITS
+        assertTrue(rule.contains("Knoblauch CLOVE 3"))
+        assertTrue(rule.contains("Kreuzkümmel TSP 2 and TBSP 6"))
+        assertTrue(rule.contains("(Toast, sliced cheese, jars)"))
         val schema = ProposalPrompt.proposeSchema().toString()
-        assertTrue(schema.contains("pieceUnit"))
-        assertTrue(schema.contains("pieceGrams"))
-        assertTrue(schema.contains("CAN"))
-        listOf("SLICE", "PACKET", "TSP", "TBSP", "CUP").forEach { assertFalse(it, schema.contains(it)) }
+        assertTrue(schema.contains("units"))
+        assertTrue(schema.contains("grams"))
+        listOf("CAN", "TSP", "TBSP", "CUP").forEach { assertTrue(it, schema.contains(it)) }
+        listOf("SLICE", "PACKET", "pieceUnit", "pieceGrams", "NONE").forEach { assertFalse(it, schema.contains(it)) }
     }
 
     @Test
-    fun `piece weight rule names only the units Claude may propose`() {
-        val words = Regex("\\b[A-Z]{2,}\\b").findAll(MatchingRules.PIECE_WEIGHT).map { it.value }.toSet()
-        val known = MatchingRules.PIECE_UNITS.map { it.name } + ProposalPrompt.NO_PIECE_UNIT
+    fun `units rule names only the units Claude may propose`() {
+        val words = Regex("\\b[A-Z]{2,}\\b").findAll(MatchingRules.UNITS).map { it.value }.toSet()
+        val known = MatchingRules.PROPOSED_UNITS.map { it.name }
 
         assertTrue(words.toString(), known.containsAll(words))
         assertTrue(words.containsAll(known))

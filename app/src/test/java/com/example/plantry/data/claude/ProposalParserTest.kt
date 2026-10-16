@@ -28,7 +28,7 @@ class ProposalParserTest {
         val all = linkedMapOf(
             "key" to "\"$key\"", "fdcId" to "0", "name" to "\"\"", "storeSection" to "\"OTHER\"",
             "plantPoints" to "\"ZERO\"",
-            "pieceUnit" to "\"NONE\"", "pieceGrams" to "0",
+            "units" to "[]",
         )
         all.putAll(fields)
         return all.entries.joinToString(",", "{", "}") { (name, value) -> "\"$name\":$value" }
@@ -112,42 +112,70 @@ class ProposalParserTest {
         assertEquals(StoreSection.OTHER, result.storeSection)
     }
 
+    /** A units array, e.g. units("PIECE" to "55"). */
+    private fun units(vararg units: Pair<String, String>) =
+        units.joinToString(",", "[", "]") { (unit, grams) -> """{"unit":"$unit","grams":$grams}""" }
+
     @Test
-    fun pieceWeight_isKeptForOnePieceAndBecomesAUnit() {
-        val egg = FoodCandidates(NewFood(-1, "Ei", "2 Eier", emptyList()), listOf(firmTofu))
+    fun units_areKeptWithTheirGrams() {
+        val garlic = FoodCandidates(NewFood(-1, "Knoblauch", "2 Zehen Knoblauch", emptyList()), listOf(firmTofu))
 
-        val result = parse(answer(proposal("N1", "pieceUnit" to "\" piece \"", "pieceGrams" to "55")), egg).getValue(-1)
+        val result = parse(answer(proposal("N1", "units" to units(" clove " to "3"))), garlic).getValue(-1)
 
-        assertEquals(IngredientUnit(0, PieceUnit.PIECE, 55.0), result.pieceWeight)
-        assertEquals(listOf(IngredientUnit(-1, PieceUnit.PIECE, 55.0)), result.units(-1))
+        assertEquals(listOf(IngredientUnit(0, PieceUnit.CLOVE, 3.0)), result.proposedUnits)
+        assertEquals(listOf(IngredientUnit(-1, PieceUnit.CLOVE, 3.0)), result.units(-1))
     }
 
     @Test
-    fun clove_isKeptWithFractionalGrams() {
-        val result = parse(answer(proposal("N1", "pieceUnit" to "\"CLOVE\"", "pieceGrams" to "3.5")), tofu).getValue(-1)
+    fun spoonUnits_areKeptTogetherInUnitOrder() {
+        val cumin = FoodCandidates(NewFood(-1, "Kreuzkümmel", "1 TL Kreuzkümmel", emptyList()), listOf(firmTofu))
 
-        assertEquals(IngredientUnit(0, PieceUnit.CLOVE, 3.5), result.pieceWeight)
+        val result = parse(answer(proposal("N1", "units" to units("TBSP" to "6", "TSP" to "2"))), cumin).getValue(-1)
+
+        assertEquals(
+            listOf(IngredientUnit(-1, PieceUnit.TSP, 2.0), IngredientUnit(-1, PieceUnit.TBSP, 6.0)),
+            result.units(-1),
+        )
     }
 
     @Test
     fun can_isKeptWithItsDrainedGrams() {
         val chickpeas = FoodCandidates(NewFood(-1, "Kichererbsen (Dose)", "1 Dose Kichererbsen", emptyList()), listOf(firmTofu))
 
-        val result = parse(answer(proposal("N1", "pieceUnit" to "\"CAN\"", "pieceGrams" to "240")), chickpeas).getValue(-1)
+        val result = parse(answer(proposal("N1", "units" to units("CAN" to "240"))), chickpeas).getValue(-1)
 
         assertEquals(listOf(IngredientUnit(-1, PieceUnit.CAN, 240.0)), result.units(-1))
     }
 
     @Test
-    fun noneUnknownOrPackageUnitsAndNonPositiveGrams_meanNoPieceWeight() {
-        listOf(
-            "NONE" to "60", "PIECE" to "0", "PIECE" to "-5", "EGG" to "60", "SLICE" to "37.5", "CAN" to "0",
-            "PACKET" to "500", "TBSP" to "15", "HEAD" to "500", "" to "60",
-        ).forEach { (unit, grams) ->
-            val result = parse(answer(proposal("N1", "pieceUnit" to "\"$unit\"", "pieceGrams" to grams)), tofu)
-            assertNull("$unit/$grams", result.getValue(-1).pieceWeight)
-        }
-        assertNull(parse("""{"ingredients":[{"key":"N1"}]}""", tofu).getValue(-1).pieceWeight)
+    fun unknownOrPackageUnitsNonPositiveGramsAndRepeats_areDropped() {
+        val result = parse(
+            answer(
+                proposal(
+                    "N1",
+                    "units" to units(
+                        "PIECE" to "0", "CLOVE" to "-5", "EGG" to "60", "SLICE" to "37.5", "PACKET" to "500",
+                        "HEAD" to "500", "" to "60", "TSP" to "2", "TSP" to "3",
+                    ),
+                ),
+            ),
+            tofu,
+        ).getValue(-1)
+
+        assertEquals(listOf(IngredientUnit(0, PieceUnit.TSP, 2.0)), result.proposedUnits)
+        assertEquals(emptyList<IngredientUnit>(), parse("""{"ingredients":[{"key":"N1"}]}""", tofu).getValue(-1).proposedUnits)
+    }
+
+    @Test
+    fun aUnitTheUserDefined_replacesClaudesUnit() {
+        val proposal = parse(answer(proposal("N1", "units" to units("PIECE" to "55", "CUP" to "90"))), tofu).getValue(-1)
+
+        val edited = proposal.withUnit(IngredientUnit(0, PieceUnit.PIECE, 60.0))
+
+        assertEquals(
+            listOf(IngredientUnit(-1, PieceUnit.PIECE, 60.0), IngredientUnit(-1, PieceUnit.CUP, 90.0)),
+            edited.units(-1),
+        )
     }
 
     @Test

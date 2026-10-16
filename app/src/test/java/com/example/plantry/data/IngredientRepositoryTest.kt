@@ -160,7 +160,7 @@ class IngredientRepositoryTest {
 
     @Test
     fun createProposed_storesTheProposedPieceWeightAsAUnit() = runTest {
-        val egg = proposal(riceDry, "Ei").copy(pieceWeight = IngredientUnit(0, PieceUnit.PIECE, 55.0))
+        val egg = proposal(riceDry, "Ei").copy(proposedUnits = listOf(IngredientUnit(0, PieceUnit.PIECE, 55.0)))
 
         val id = repository.createProposed(mapOf(-1L to egg)).getValue(-1)
 

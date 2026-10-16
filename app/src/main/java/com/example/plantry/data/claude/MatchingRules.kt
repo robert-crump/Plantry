@@ -61,24 +61,29 @@ object MatchingRules {
     """.trimIndent()
 
     /**
-     * Units a food is naturally counted in, plus the can of a "(Dose)" ingredient. Slices and
-     * packets depend on the user's package, so Claude never proposes them.
+     * Units Claude may propose: how foods are counted or spooned, plus the can of a "(Dose)"
+     * ingredient. Slices and packets depend on the user's package, so Claude never proposes them.
      */
-    val PIECE_UNITS = listOf(PieceUnit.PIECE, PieceUnit.CLOVE, PieceUnit.BUNCH, PieceUnit.CAN)
+    val PROPOSED_UNITS = listOf(
+        PieceUnit.PIECE, PieceUnit.CLOVE, PieceUnit.BUNCH, PieceUnit.CAN, PieceUnit.TSP, PieceUnit.TBSP, PieceUnit.CUP,
+    )
 
-    /** Lets recipes give the amount in pieces ("2 Eier", "3 Zehen Knoblauch"). */
-    val PIECE_WEIGHT = """
-        Only for foods that are naturally counted: pieceUnit is how a recipe counts it (PIECE for
-        an egg, onion, apple, carrot, lemon, leek, fennel, lettuce or cauliflower; CLOVE for
-        garlic; BUNCH for parsley, chives or radishes), pieceGrams the edible weight of one typical
-        medium piece in grams, without shell, peel or core, since the nutrition is per 100 g
-        edible, e.g. Ei PIECE 55, Knoblauch CLOVE 4, Zwiebel PIECE 100. CAN for canned goods
-        ("(Dose)"), pieceGrams what one typical German can yields in the recipe: for goods drained
-        before use (beans, chickpeas, corn) the drained weight, since the nutrition is per 100 g
-        drained ("canned, drained solids"), e.g. Kichererbsen (Dose) CAN 240, Mais (Dose) CAN 140;
-        for goods used with their liquid the full content, e.g. Kokosmilch CAN 400, stückige
-        Tomaten CAN 400. NONE and 0 for everything else: packaged goods whose piece size depends
-        on the package (Toast, sliced cheese, jars) and foods measured by weight or volume (Mehl,
-        Reis, Öl, Linsen, Milch, spices).
+    /** Lets recipes give the amount the way they count it ("2 Eier", "3 Zehen Knoblauch", "1 TL Kreuzkümmel"). */
+    val UNITS = """
+        Every unit a recipe commonly uses for the food besides g and ml, each with the grams of one
+        unit; an empty list if recipes only weigh or measure it (Mehl, Reis, Öl, Milch, Linsen,
+        Tofu). PIECE for foods counted whole (egg, onion, apple, carrot, lemon, leek, fennel,
+        lettuce, cauliflower), CLOVE for garlic, BUNCH for parsley, chives or radishes: the edible
+        weight of one typical medium piece, without shell, peel or core, since the nutrition is per
+        100 g edible, e.g. Ei PIECE 55, Knoblauch CLOVE 3, Zwiebel PIECE 100. TSP and TBSP for
+        spices, dried herbs, seeds, salt, sugar, oils, pastes and sauces used by the spoon, CUP for
+        grains, flakes, nuts and seeds a recipe may measure in cups: the grams of one level spoon or
+        cup of that food, e.g. Kreuzkümmel TSP 2 and TBSP 6, Olivenöl TSP 4 and TBSP 12, Haferflocken
+        CUP 90. CAN for canned goods ("(Dose)"), the grams one typical German can yields in the
+        recipe: for goods drained before use (beans, chickpeas, corn) the drained weight, since the
+        nutrition is per 100 g drained ("canned, drained solids"), e.g. Kichererbsen (Dose) CAN 240,
+        Mais (Dose) CAN 140; for goods used with their liquid the full content, e.g.
+        Kokosmilch CAN 400, stückige Tomaten CAN 400. Packaged goods whose piece size depends on
+        the package (Toast, sliced cheese, jars) get no PIECE unit; the user adds it from the package.
     """.trimIndent()
 }
