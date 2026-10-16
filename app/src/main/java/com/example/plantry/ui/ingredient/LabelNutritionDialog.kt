@@ -28,7 +28,7 @@ import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
 
 /**
- * Asks for the nutrition per 100 g from the package, for an ingredient without a USDA entry; the
+ * Asks for the nutrition per 100 g (or ml) from the package, for an ingredient without a USDA entry; the
  * confirm button stays disabled until all values are valid. With [askName] it also asks for the
  * German name, starting from [initial]'s name. [message] is shown above the values (what a barcode
  * scan found, or why not); [missing] values the scan lacked are marked while still blank.
@@ -56,7 +56,7 @@ fun LabelNutritionDialog(
                     OutlinedTextField(
                         value = form.name,
                         onValueChange = { form = form.copy(name = it) },
-                        label = { Text(stringResource(R.string.usda_create_name)) },
+                        label = { Text(stringResource(R.string.new_ingredient_name)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                         modifier = Modifier.fillMaxWidth(),

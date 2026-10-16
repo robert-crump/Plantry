@@ -106,7 +106,7 @@ data class IngredientDetailUiState(
     val createdId: Long? = null,
     /** The scanned barcode's lookup; null when there is none to show. */
     val barcode: BarcodeLookup? = null,
-    /** The stored units of [ingredient]. */
+    /** The stored units of [ingredient]; for a new one, those it started with. */
     val units: List<IngredientUnit> = emptyList(),
     /** Set after removing or saving was refused: the recipes still using a unit the edit removed. */
     val unitInUse: List<String>? = null,
@@ -133,7 +133,9 @@ class IngredientDetailViewModel(
             _state.update {
                 it.copy(
                     ingredient = ingredient,
-                    form = IngredientForm.from(ingredient),
+                    // As the starting point, so leaving it untouched asks nothing.
+                    units = seed.units,
+                    form = IngredientForm.from(ingredient, seed.units),
                     editing = true,
                     isNew = true,
                 )
@@ -652,6 +654,7 @@ private fun UnitsGroup(
         UnitDialog(
             initial = form.units.find { it.unit == editedUnit },
             options = form.availableUnits(editedUnit),
+            packageGrams = form.packageGrams,
             onConfirm = { onSave(it, editedUnit); dismiss() },
             onDismiss = dismiss,
         )
@@ -682,10 +685,12 @@ private fun UnitDialog(
     /** Null when adding. */
     initial: IngredientUnit?,
     options: List<PieceUnit>,
+    /** The ingredient's package, which a new row starts from, see [UnitForm.forNew]. */
+    packageGrams: Double?,
     onConfirm: (IngredientUnit) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val start = remember { initial?.let(UnitForm::from) ?: UnitForm(unit = options.first()) }
+    val start = remember { initial?.let(UnitForm::from) ?: UnitForm.forNew(options.first(), packageGrams) }
     var unit by rememberSaveable { mutableStateOf(start.unit) }
     var inPackage by rememberSaveable { mutableStateOf(start.inPackage) }
     var grams by rememberSaveable { mutableStateOf(start.grams) }

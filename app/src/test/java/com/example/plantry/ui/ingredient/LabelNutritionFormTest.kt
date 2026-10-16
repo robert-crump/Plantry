@@ -57,6 +57,7 @@ class LabelNutritionFormTest {
             nameSuggestion = "Kichererbsen, gegart",
             productName = "Bio Kichererbsen",
             quantity = null,
+            packageGrams = null,
             nutrition = mapOf(Nutrient.KCAL to 128.0, Nutrient.PROTEIN to 7.0, Nutrient.CARBS to 15.4, Nutrient.SUGAR to 0.5, Nutrient.FAT to 2.1),
         )
 

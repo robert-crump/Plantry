@@ -33,6 +33,9 @@ data class IngredientForm(
     fun withUnit(unit: IngredientUnit, replacing: PieceUnit? = null) =
         copy(units = (units.filter { it.unit != replacing && it.unit != unit.unit } + unit).sortedBy { it.unit })
 
+    /** The grams of the Packung row, if any: a new row in package mode starts from them. */
+    val packageGrams: Double? get() = units.find { it.unit == PieceUnit.PACKET }?.gramsPerUnit
+
     fun withoutUnit(unit: PieceUnit) = copy(units = units.filter { it.unit != unit })
 
     fun withNutrient(nutrient: Nutrient, value: String) = copy(nutrition = nutrition + (nutrient to value))
@@ -108,6 +111,13 @@ data class UnitForm(
             row.isPackage -> UnitForm(row.unit, inPackage = true, formatDecimal(row.packageGrams!!), row.packageCount.toString())
             else -> UnitForm(row.unit, inPackage = false, formatDecimal(row.gramsPerUnit))
         }
+
+        /**
+         * A new row of [unit]; with the ingredient's [packageGrams] known, it starts as that package
+         * so only the count is left ("400 g ÷ __").
+         */
+        fun forNew(unit: PieceUnit, packageGrams: Double?) =
+            if (packageGrams == null) UnitForm(unit) else UnitForm(unit, inPackage = true, grams = formatDecimal(packageGrams))
     }
 }
 

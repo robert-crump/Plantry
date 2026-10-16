@@ -24,6 +24,7 @@ class OpenFoodFactsTest {
         assertEquals("Kichererbsen, gegart", product.nameSuggestion)
         assertEquals("Bio Kichererbsen (Alnatura)", product.productName)
         assertEquals("400 g", product.quantity)
+        assertEquals(400.0, product.packageGrams!!, 0.0)
         assertEquals(
             mapOf(
                 Nutrient.KCAL to 128.0,
@@ -51,6 +52,7 @@ class OpenFoodFactsTest {
         assertEquals("Haferflocken zart", product.nameSuggestion)
         assertEquals("Haferflocken zart (ja!)", product.productName)
         assertNull(product.quantity)
+        assertNull(product.packageGrams)
         assertEquals(setOf(Nutrient.CARBS, Nutrient.SUGAR, Nutrient.FIBRE), product.missing)
         assertEquals(372.0, product.nutrition.getValue(Nutrient.KCAL), 0.0)
     }
@@ -69,6 +71,34 @@ class OpenFoodFactsTest {
         val product = OpenFoodFacts.parse("1", """{"status":1,"product":{"product_name":"Tofu natur"}}""")!!
 
         assertEquals(Nutrient.entries.toSet(), product.missing)
+    }
+
+    @Test
+    fun packageQuantity_prefersOffsNormalizedAmount() {
+        val body = """{"status":1,"product":{"product_name":"Hafermilch","quantity":"1 l",
+            "product_quantity":"1000","product_quantity_unit":"ml"}}"""
+
+        assertEquals(1000.0, OpenFoodFacts.parse("1", body)!!.packageGrams!!, 0.0)
+    }
+
+    @Test
+    fun packageQuantity_fromQuantityText() {
+        fun grams(quantity: String) =
+            OpenFoodFacts.parse("1", """{"status":1,"product":{"product_name":"X","quantity":"$quantity"}}""")!!.packageGrams
+
+        assertEquals(500.0, grams("500g")!!, 0.0)
+        assertEquals(750.0, grams("0,75 kg")!!, 0.0)
+        assertEquals(1500.0, grams("1.5 L")!!, 0.0)
+        assertEquals(330.0, grams("33 cl")!!, 0.0)
+        assertNull(grams("6 x 125 g"))
+        assertNull(grams("8 Stück"))
+    }
+
+    @Test
+    fun packageQuantity_inAnotherUnit_fallsBackToText() {
+        val body = """{"status":1,"product":{"product_name":"X","quantity":"250 g","product_quantity":"8","product_quantity_unit":"pcs"}}"""
+
+        assertEquals(250.0, OpenFoodFacts.parse("1", body)!!.packageGrams!!, 0.0)
     }
 
     @Test

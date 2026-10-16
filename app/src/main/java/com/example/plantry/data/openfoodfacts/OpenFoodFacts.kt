@@ -29,6 +29,8 @@ data class OffProduct(
     val productName: String,
     /** E.g. "400 g"; null if OFF has none. */
     val quantity: String?,
+    /** The package content in g (ml counting as g), e.g. 400.0; null if OFF has no single amount. */
+    val packageGrams: Double?,
     val nutrition: Map<Nutrient, Double>,
 ) {
     val missing: Set<Nutrient> get() = Nutrient.entries.toSet() - nutrition.keys
@@ -54,7 +56,7 @@ object OpenFoodFacts {
     private const val KJ_PER_KCAL = 4.184
 
     /** The fields [parse] reads, so OFF sends only those. */
-    const val FIELDS = "code,product_name,product_name_de,generic_name,generic_name_de,brands,quantity,nutriments"
+    const val FIELDS = "code,product_name,product_name_de,generic_name,generic_name_de,brands,quantity,product_quantity,product_quantity_unit,nutriments"
 
     private val nutrientKeys = mapOf(
         Nutrient.PROTEIN to "proteins_100g",
@@ -90,9 +92,31 @@ object OpenFoodFacts {
                 shownName
             },
             quantity = product.text("quantity"),
+            packageGrams = packageGrams(product),
             nutrition = nutrition,
         )
     }
+
+    /**
+     * OFF's normalized "product_quantity" (in g or ml), else a single amount in the "quantity" text
+     * ("500 g", "1 l", "0,5 kg"); a multipack text like "6 x 125 g" counts as unknown.
+     */
+    private fun packageGrams(product: JsonObject): Double? {
+        val unit = product.text("product_quantity_unit")?.lowercase()
+        if (unit == null || unit == "g" || unit == "ml") {
+            product.number("product_quantity")?.takeIf { it > 0 }?.let { return roundTo(it, 10.0) }
+        }
+        val match = QUANTITY.matchEntire(product.text("quantity") ?: return null) ?: return null
+        val amount = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
+        val factor = when (match.groupValues[2].lowercase()) {
+            "kg", "l" -> 1000.0
+            "cl" -> 10.0
+            else -> 1.0
+        }
+        return (amount * factor).takeIf { it > 0 }?.let { roundTo(it, 10.0) }
+    }
+
+    private val QUANTITY = Regex("""(\d+(?:[.,]\d+)?)\s*(g|gr|kg|ml|cl|l)\.?""", RegexOption.IGNORE_CASE)
 
     /** kcal per 100 g, from kJ when OFF lists only that (as "energy-kj_100g" or the kJ "energy_100g"). */
     private fun kcal(nutriments: JsonObject): Double? {

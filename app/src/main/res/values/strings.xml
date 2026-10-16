@@ -234,15 +234,18 @@
     </plurals>
     <string name="ingredient_summary">%1$s kcal · %2$s g Protein je 100 g</string>
 
-    <!-- USDA search -->
-    <string name="usda_search_title">Neue Zutat</string>
+    <!-- New ingredient; the USDA picker of a proposed one -->
+    <string name="new_ingredient_title">Neue Zutat</string>
     <string name="usda_search_hint">USDA-Datenbank durchsuchen</string>
-    <string name="new_ingredient_choose_search">Datenbank durchsuchen</string>
-    <string name="new_ingredient_choose_search_description">Nährwerte aus der USDA-Datenbank übernehmen</string>
-    <string name="new_ingredient_choose_manual">Manuell eingeben</string>
+    <string name="new_ingredient_choose_barcode">Barcode</string>
+    <string name="new_ingredient_choose_barcode_description">Packung scannen: Nährwerte und Packungsgröße aus Open Food Facts</string>
+    <string name="new_ingredient_choose_claude">Claude</string>
+    <string name="new_ingredient_choose_claude_description">Claude schlägt USDA-Eintrag, Abteilung, Pflanzenpunkte und Einheiten vor</string>
+    <string name="new_ingredient_choose_manual">Selbst eintragen</string>
     <string name="new_ingredient_choose_manual_description">Nährwerte von der Packung abtippen</string>
-    <string name="new_ingredient_choose_barcode">Barcode scannen</string>
-    <string name="new_ingredient_choose_barcode_description">Nährwerte aus Open Food Facts übernehmen</string>
+    <string name="new_ingredient_claude_propose">Vorschlagen</string>
+    <string name="new_ingredient_claude_no_usda">Claude hat keinen passenden USDA-Eintrag gefunden. Bitte die Nährwerte von der Packung eintragen.</string>
+    <string name="new_ingredient_claude_failed">Kein Vorschlag von Claude</string>
     <string name="barcode_searching">Produkt wird gesucht …</string>
     <string name="barcode_found">Gefunden: %1$s</string>
     <string name="barcode_found_quantity">Gefunden: %1$s, %2$s</string>
@@ -256,11 +259,9 @@
     <string name="barcode_compare_missing">%1$s (nicht gefunden)</string>
     <string name="usda_search_loading">USDA-Daten werden geladen …</string>
     <string name="usda_search_no_results">Keine Treffer</string>
-    <string name="usda_create_title">Zutat anlegen</string>
-    <string name="usda_create_name">Deutscher Name</string>
-    <string name="usda_search_without">Nicht gefunden? Ohne USDA anlegen</string>
+    <string name="new_ingredient_name">Deutscher Name</string>
     <string name="label_nutrition_title">Nährwerte von der Packung</string>
-    <string name="label_nutrition_hint">Je 100 g, wie auf der Packung. Fehlt eine Angabe (oft Ballaststoffe), trage 0 ein.</string>
+    <string name="label_nutrition_hint">Pro 100 g bzw. ml, wie auf der Packung. Fehlt eine Angabe (oft Ballaststoffe), trage 0 ein.</string>
     <string name="action_create">Anlegen</string>
 
     <!-- Ingredient detail -->
@@ -270,7 +271,7 @@
     <string name="ingredient_label_source">Etikett: %1$s (Barcode %2$s)</string>
     <string name="ingredient_discard_title">Änderungen verwerfen?</string>
     <string name="ingredient_discard_message">Deine Änderungen an dieser Zutat gehen verloren.</string>
-    <string name="ingredient_section_nutrition">Nährwerte je 100 g</string>
+    <string name="ingredient_section_nutrition">Nährwerte pro 100 g bzw. ml</string>
     <string name="ingredient_section_properties">Eigenschaften</string>
     <string name="ingredient_section_store_section">Abteilung</string>
     <string name="ingredient_section_plant_points">Pflanzenpunkte</string>

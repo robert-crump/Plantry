@@ -175,6 +175,20 @@ class IngredientFormTest {
     }
 
     @Test
+    fun newUnit_startsFromThePackungRow_whenThereIsOne() {
+        val withPacket = IngredientForm.from(ingredient, listOf(IngredientUnit(1, PieceUnit.PACKET, 320.0)))
+
+        assertEquals(320.0, withPacket.packageGrams!!, 0.0)
+        assertNull(IngredientForm.from(ingredient).packageGrams)
+        assertEquals(UnitForm(PieceUnit.PIECE, inPackage = true, grams = "320"), UnitForm.forNew(PieceUnit.PIECE, withPacket.packageGrams))
+        assertEquals(UnitForm(PieceUnit.PIECE), UnitForm.forNew(PieceUnit.PIECE, null))
+        assertEquals(
+            IngredientUnit(0, PieceUnit.PIECE, 40.0, packageGrams = 320.0, packageCount = 8),
+            UnitForm.forNew(PieceUnit.PIECE, 320.0).copy(count = "8").toUnit(),
+        )
+    }
+
+    @Test
     fun unitWords_areTheNineUnitsInGerman() {
         assertEquals(
             listOf("Stück", "Scheibe", "Zehe", "Bund", "Dose", "Packung", "TL", "EL", "Tasse"),

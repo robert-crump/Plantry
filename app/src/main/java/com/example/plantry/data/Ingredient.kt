@@ -1,8 +1,11 @@
 package com.example.plantry.data
 
+import androidx.annotation.Keep
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.example.plantry.data.claude.IngredientProposal
+import com.example.plantry.data.openfoodfacts.OffProduct
 
 @Entity(tableName = "ingredients")
 data class Ingredient(
@@ -39,13 +42,17 @@ enum class PieceUnit(val singular: String, val plural: String) {
     CUP("Tasse", "Tassen"),
 }
 
+/** Kept: a navigation route carries it, see IngredientCreateRoute. */
+@Keep
 enum class StoreSection { PRODUCE, DAIRY_CHILLED, DRY_GOODS, FROZEN, OTHER }
 
+@Keep
 enum class PlantPoints(val value: Double) { ONE(1.0), QUARTER(0.25), ZERO(0.0) }
 
 /**
- * What a new ingredient starts from: its name and where the nutrition came from. The ingredient is
- * only created once the user saves it, see [IngredientRepository.create].
+ * What a new ingredient starts from: its name, where the nutrition came from, and the other values
+ * pre-filled on its screen. The ingredient is only created once the user saves it, see
+ * [IngredientRepository.create].
  */
 data class NewIngredientSeed(
     val name: String,
@@ -53,17 +60,51 @@ data class NewIngredientSeed(
     val fdcId: Long? = null,
     val usdaDescription: String? = null,
     val labelSource: LabelSource? = null,
+    val storeSection: StoreSection = StoreSection.OTHER,
+    val plantPoints: PlantPoints = PlantPoints.ZERO,
+    /** One row per unit; their ingredient id is ignored. */
+    val units: List<IngredientUnit> = emptyList(),
 ) {
-    /** The unsaved ingredient the detail screen shows, with the default store section and plant points. */
+    /** The unsaved ingredient the detail screen shows. */
     fun toIngredient() = Ingredient(
         name = name,
         fdcId = fdcId,
         usdaDescription = usdaDescription,
         nutrition = nutrition,
-        storeSection = StoreSection.OTHER,
-        plantPoints = PlantPoints.ZERO,
+        storeSection = storeSection,
+        plantPoints = plantPoints,
         labelSource = labelSource,
     )
+
+    companion object {
+        /**
+         * A scanned package with the [name] and [nutrition] the user confirmed; a known package
+         * size becomes a Packung unit, which the units dialog also offers for "750 g ÷ 20".
+         */
+        fun fromProduct(product: OffProduct, name: String, nutrition: Nutrition) = NewIngredientSeed(
+            name = name,
+            nutrition = nutrition,
+            labelSource = product.labelSource,
+            units = listOfNotNull(product.packageGrams?.let { IngredientUnit.perUnit(PieceUnit.PACKET, it) }),
+        )
+
+        /**
+         * Claude's proposal; [labelNutrition] (with the user's [name]) stands in for a missing USDA
+         * entry. Requires one of the two.
+         */
+        fun fromProposal(proposal: IngredientProposal, name: String = proposal.name, labelNutrition: Nutrition? = null): NewIngredientSeed {
+            val food = proposal.food.takeIf { labelNutrition == null }
+            return NewIngredientSeed(
+                name = name,
+                nutrition = labelNutrition ?: checkNotNull(proposal.source) { "a new ingredient needs a nutrition source" }.nutrition,
+                fdcId = food?.fdcId,
+                usdaDescription = food?.description,
+                storeSection = proposal.storeSection,
+                plantPoints = proposal.plantPoints,
+                units = proposal.units(),
+            )
+        }
+    }
 }
 
 /** User-editable attributes of an [Ingredient]; the USDA reference is kept unless [scannedLabel] is set. */

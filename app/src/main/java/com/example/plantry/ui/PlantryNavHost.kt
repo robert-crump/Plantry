@@ -54,6 +54,10 @@ import com.example.plantry.data.LabelSource
 import com.example.plantry.data.NewIngredientSeed
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.PieceUnit
+import com.example.plantry.data.PlantPoints
+import com.example.plantry.data.StoreSection
+import com.example.plantry.data.IngredientUnit
 import com.example.plantry.ui.cooklog.CookingScreen
 import com.example.plantry.ui.cooklog.CookingViewModel
 import com.example.plantry.ui.cooklog.JustPlanned
@@ -61,8 +65,8 @@ import com.example.plantry.ui.ingredient.IngredientDetailScreen
 import com.example.plantry.ui.ingredient.IngredientDetailViewModel
 import com.example.plantry.ui.ingredient.IngredientListScreen
 import com.example.plantry.ui.ingredient.IngredientListViewModel
-import com.example.plantry.ui.ingredient.UsdaSearchScreen
-import com.example.plantry.ui.ingredient.UsdaSearchViewModel
+import com.example.plantry.ui.ingredient.NewIngredientScreen
+import com.example.plantry.ui.ingredient.NewIngredientViewModel
 import com.example.plantry.ui.recipe.RecipeDetailScreen
 import com.example.plantry.ui.recipe.RecipeDetailViewModel
 import com.example.plantry.ui.recipe.RecipeEditScreen
@@ -108,11 +112,11 @@ data class RecipeEditRoute(val recipeId: Long? = null)
 object IngredientListRoute
 
 /**
- * The three ways to a new ingredient. From a recipe's line editor, [recipeLineName] is the typed
- * name, and the created ingredient goes back to that editor.
+ * The three ways to a new ingredient: Barcode, Claude, Selbst eintragen. From a recipe's line
+ * editor, [recipeLineName] is the typed name, and the created ingredient goes back to that editor.
  */
 @Serializable
-data class UsdaSearchRoute(val recipeLineName: String? = null)
+data class NewIngredientRoute(val recipeLineName: String? = null)
 
 @Serializable
 data class IngredientDetailRoute(val ingredientId: Long)
@@ -126,6 +130,11 @@ data class IngredientCreateRoute(
     val usdaDescription: String? = null,
     val labelProduct: String? = null,
     val labelBarcode: String? = null,
+    val storeSection: StoreSection = StoreSection.OTHER,
+    val plantPoints: PlantPoints = PlantPoints.ZERO,
+    /** The starting units as [PieceUnit] names with the grams of one unit at the same index. */
+    val unitNames: List<String> = emptyList(),
+    val unitGrams: List<Double> = emptyList(),
     /** Saving returns the new ingredient's id to the recipe's line editor instead of showing it. */
     val forRecipe: Boolean = false,
 ) {
@@ -136,6 +145,10 @@ data class IngredientCreateRoute(
         usdaDescription = seed.usdaDescription,
         labelProduct = seed.labelSource?.labelProduct,
         labelBarcode = seed.labelSource?.labelBarcode,
+        storeSection = seed.storeSection,
+        plantPoints = seed.plantPoints,
+        unitNames = seed.units.map { it.unit.name },
+        unitGrams = seed.units.map { it.gramsPerUnit },
         forRecipe = forRecipe,
     )
 
@@ -145,6 +158,9 @@ data class IngredientCreateRoute(
         fdcId = fdcId,
         usdaDescription = usdaDescription,
         labelSource = if (labelProduct != null && labelBarcode != null) LabelSource(labelProduct, labelBarcode) else null,
+        storeSection = storeSection,
+        plantPoints = plantPoints,
+        units = unitNames.zip(unitGrams).mapNotNull { (unit, grams) -> IngredientUnit.perUnit(PieceUnit.valueOf(unit), grams) },
     )
 }
 
@@ -346,7 +362,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                     RecipeEditScreen(
                         viewModel = viewModel,
                         onBack = { navController.popBackStack() },
-                        onCreateIngredient = { name -> navController.navigate(UsdaSearchRoute(recipeLineName = name)) },
+                        onCreateIngredient = { name -> navController.navigate(NewIngredientRoute(recipeLineName = name)) },
                     )
                 }
                 composable<IngredientListRoute> { entry ->
@@ -363,13 +379,15 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         viewModel = viewModel,
                         onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
                         onRecipesClick = { navController.navigate(RecipeListRoute(ingredientId = it)) },
-                        onAddIngredient = { navController.navigate(UsdaSearchRoute()) },
+                        onAddIngredient = { navController.navigate(NewIngredientRoute()) },
                     )
                 }
-                composable<UsdaSearchRoute> { entry ->
-                    val recipeLineName = entry.toRoute<UsdaSearchRoute>().recipeLineName
-                    UsdaSearchScreen(
-                        viewModel = viewModel { UsdaSearchViewModel({ app.usdaCatalog }, app.productLookup) },
+                composable<NewIngredientRoute> { entry ->
+                    val recipeLineName = entry.toRoute<NewIngredientRoute>().recipeLineName
+                    NewIngredientScreen(
+                        viewModel = viewModel {
+                            NewIngredientViewModel(app.productLookup, app.newIngredientFinder, settingsRepository, app.connectionTester)
+                        },
                         onBack = { navController.popBackStack() },
                         onNew = { seed -> navController.navigate(IngredientCreateRoute(seed, forRecipe = recipeLineName != null)) },
                         initialName = recipeLineName.orEmpty(),
@@ -383,11 +401,11 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         onBack = { navController.popBackStack() },
                         onCreated = { id ->
                             if (route.forRecipe) {
-                                navController.popBackStack<UsdaSearchRoute>(inclusive = true)
+                                navController.popBackStack<NewIngredientRoute>(inclusive = true)
                                 navController.currentBackStackEntry?.savedStateHandle?.set(CREATED_INGREDIENT, id)
                             } else {
                                 navController.navigate(IngredientDetailRoute(id)) {
-                                    popUpTo<UsdaSearchRoute> { inclusive = true }
+                                    popUpTo<NewIngredientRoute> { inclusive = true }
                                 }
                             }
                         },
