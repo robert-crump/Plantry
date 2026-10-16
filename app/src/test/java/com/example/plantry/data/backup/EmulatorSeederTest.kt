@@ -89,7 +89,8 @@ class EmulatorSeederTest {
             settings = BackupSettings("opus", 21),
             ingredients = emptyList(),
             recipes = emptyList(),
-            cookLog = cooked.mapIndexed { i, date -> BackupCookLog(i + 1L, null, date, "Dal", 3.0, 10.0, 40.0) },
+            cookLog = cooked.mapIndexed { i, date -> BackupCookLog(i + 1L, null, date, "Dal", 3.0, 10.0, 40.0, null, null) },
+            aliases = emptyList(),
             planned = listOfNotNull(planned?.let { BackupPlanned(1, it) }),
         ),
     )

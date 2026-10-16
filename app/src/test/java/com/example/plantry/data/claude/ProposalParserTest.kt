@@ -3,6 +3,7 @@ package com.example.plantry.data.claude
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
+import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
@@ -145,13 +146,13 @@ class ProposalParserTest {
     }
 
     @Test
-    fun pieceWeight_isKeptForOnePieceAndPassedToTheIngredient() {
+    fun pieceWeight_isKeptForOnePieceAndBecomesAUnit() {
         val egg = FoodCandidates(NewFood(-1, "Ei", "2 Eier", emptyList()), listOf(firmTofu))
 
         val result = parse(answer(proposal("N1", "pieceUnit" to "\" piece \"", "pieceGrams" to "55")), egg).getValue(-1)
 
         assertEquals(PieceWeight(PieceUnit.PIECE, 55.0, 1), result.pieceWeight)
-        assertEquals(PieceWeight(PieceUnit.PIECE, 55.0, 1), result.copy(source = NutritionSource.Usda(firmTofu)).toIngredient().pieceWeight)
+        assertEquals(listOf(IngredientUnit(-1, PieceUnit.PIECE, 55.0)), result.units(-1))
     }
 
     @Test

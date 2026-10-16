@@ -1,5 +1,5 @@
 {
-    "formatVersion": 15,
+    "formatVersion": 1,
     "settings": {
         "scanModel": "opus",
         "cooldownDays": 21
@@ -22,9 +22,20 @@
             "plantPoints": "ONE",
             "reviewed": true,
             "origin": "SEED",
-            "pieceUnit": "PIECE",
-            "pieceGroupGrams": 100.0,
-            "pieceGroupCount": 1
+            "units": [
+                {
+                    "unit": "PIECE",
+                    "gramsPerUnit": 100.0,
+                    "packageGrams": null,
+                    "packageCount": null
+                }
+            ],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 2,
@@ -43,9 +54,20 @@
             "plantPoints": "ONE",
             "reviewed": true,
             "origin": "SEED",
-            "pieceUnit": "CLOVE",
-            "pieceGroupGrams": 4.0,
-            "pieceGroupCount": 1
+            "units": [
+                {
+                    "unit": "CLOVE",
+                    "gramsPerUnit": 4.0,
+                    "packageGrams": null,
+                    "packageCount": null
+                }
+            ],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 3,
@@ -63,7 +85,14 @@
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 4,
@@ -81,7 +110,14 @@
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 5,
@@ -99,7 +135,14 @@
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 6,
@@ -117,7 +160,14 @@
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 7,
@@ -136,9 +186,20 @@
             "plantPoints": "ONE",
             "reviewed": true,
             "origin": "SEED",
-            "pieceUnit": "HEAD",
-            "pieceGroupGrams": 500.0,
-            "pieceGroupCount": 1
+            "units": [
+                {
+                    "unit": "HEAD",
+                    "gramsPerUnit": 500.0,
+                    "packageGrams": null,
+                    "packageCount": null
+                }
+            ],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 8,
@@ -156,7 +217,14 @@
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 9,
@@ -174,7 +242,14 @@
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 10,
@@ -193,9 +268,20 @@
             "plantPoints": "ONE",
             "reviewed": true,
             "origin": "SEED",
-            "pieceUnit": "PIECE",
-            "pieceGroupGrams": 160.0,
-            "pieceGroupCount": 1
+            "units": [
+                {
+                    "unit": "PIECE",
+                    "gramsPerUnit": 160.0,
+                    "packageGrams": null,
+                    "packageCount": null
+                }
+            ],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 11,
@@ -213,7 +299,14 @@
             "storeSection": "PRODUCE",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 12,
@@ -232,9 +325,20 @@
             "plantPoints": "ONE",
             "reviewed": true,
             "origin": "SEED",
-            "pieceUnit": "PIECE",
-            "pieceGroupGrams": 120.0,
-            "pieceGroupCount": 1
+            "units": [
+                {
+                    "unit": "PIECE",
+                    "gramsPerUnit": 120.0,
+                    "packageGrams": null,
+                    "packageCount": null
+                }
+            ],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 13,
@@ -253,9 +357,20 @@
             "plantPoints": "ONE",
             "reviewed": true,
             "origin": "CLAUDE",
-            "pieceUnit": "PIECE",
-            "pieceGroupGrams": 60.0,
-            "pieceGroupCount": 1
+            "units": [
+                {
+                    "unit": "PIECE",
+                    "gramsPerUnit": 60.0,
+                    "packageGrams": null,
+                    "packageCount": null
+                }
+            ],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 14,
@@ -274,9 +389,20 @@
             "plantPoints": "QUARTER",
             "reviewed": true,
             "origin": "SEED",
-            "pieceUnit": "BUNCH",
-            "pieceGroupGrams": 30.0,
-            "pieceGroupCount": 1
+            "units": [
+                {
+                    "unit": "BUNCH",
+                    "gramsPerUnit": 30.0,
+                    "packageGrams": null,
+                    "packageCount": null
+                }
+            ],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 15,
@@ -294,7 +420,14 @@
             "storeSection": "PRODUCE",
             "plantPoints": "QUARTER",
             "reviewed": true,
-            "origin": "CLAUDE"
+            "origin": "CLAUDE",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 16,
@@ -313,9 +446,20 @@
             "plantPoints": "ONE",
             "reviewed": true,
             "origin": "SEED",
-            "pieceUnit": "CAN",
-            "pieceGroupGrams": 400.0,
-            "pieceGroupCount": 1
+            "units": [
+                {
+                    "unit": "CAN",
+                    "gramsPerUnit": 400.0,
+                    "packageGrams": null,
+                    "packageCount": null
+                }
+            ],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 17,
@@ -335,7 +479,12 @@
             "reviewed": true,
             "origin": "SEED",
             "netWeightGrams": 400.0,
-            "drainedWeightGrams": 240.0
+            "drainedWeightGrams": 240.0,
+            "units": [],
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 18,
@@ -353,7 +502,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 19,
@@ -371,7 +527,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 20,
@@ -389,7 +552,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 21,
@@ -407,7 +577,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 22,
@@ -425,7 +602,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 23,
@@ -443,7 +627,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "MANUAL"
+            "origin": "MANUAL",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 24,
@@ -461,7 +652,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 25,
@@ -479,7 +677,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 26,
@@ -497,7 +702,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 27,
@@ -515,7 +727,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 28,
@@ -533,7 +752,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "QUARTER",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 29,
@@ -551,7 +777,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "QUARTER",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 30,
@@ -569,7 +802,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "QUARTER",
             "reviewed": false,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 31,
@@ -587,7 +827,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ZERO",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 32,
@@ -605,7 +852,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ZERO",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 33,
@@ -623,7 +877,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ZERO",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 34,
@@ -643,7 +904,12 @@
             "reviewed": false,
             "origin": "CLAUDE",
             "storeSectionUndecided": true,
-            "plantPointsUndecided": true
+            "plantPointsUndecided": true,
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null
         },
         {
             "id": 35,
@@ -662,9 +928,20 @@
             "plantPoints": "ZERO",
             "reviewed": true,
             "origin": "SEED",
-            "pieceUnit": "PIECE",
-            "pieceGroupGrams": 55.0,
-            "pieceGroupCount": 1
+            "units": [
+                {
+                    "unit": "PIECE",
+                    "gramsPerUnit": 55.0,
+                    "packageGrams": null,
+                    "packageCount": null
+                }
+            ],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 36,
@@ -682,7 +959,14 @@
             "storeSection": "DAIRY_CHILLED",
             "plantPoints": "ZERO",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 37,
@@ -700,7 +984,14 @@
             "storeSection": "DAIRY_CHILLED",
             "plantPoints": "ZERO",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 38,
@@ -718,7 +1009,14 @@
             "storeSection": "DAIRY_CHILLED",
             "plantPoints": "ZERO",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 39,
@@ -736,7 +1034,14 @@
             "storeSection": "FROZEN",
             "plantPoints": "ONE",
             "reviewed": true,
-            "origin": "SEED"
+            "origin": "SEED",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 40,
@@ -757,9 +1062,18 @@
             "origin": "BARCODE",
             "labelProduct": "Testmarke Vollkorn-Toast",
             "labelBarcode": "4000000000017",
-            "pieceUnit": "SLICE",
-            "pieceGroupGrams": 500.0,
-            "pieceGroupCount": 20
+            "units": [
+                {
+                    "unit": "SLICE",
+                    "gramsPerUnit": 25.0,
+                    "packageGrams": 500.0,
+                    "packageCount": 20
+                }
+            ],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         },
         {
             "id": 41,
@@ -777,7 +1091,14 @@
             "storeSection": "DRY_GOODS",
             "plantPoints": "ZERO",
             "reviewed": true,
-            "origin": "MANUAL"
+            "origin": "MANUAL",
+            "units": [],
+            "netWeightGrams": null,
+            "drainedWeightGrams": null,
+            "labelProduct": null,
+            "labelBarcode": null,
+            "storeSectionUndecided": false,
+            "plantPointsUndecided": false
         }
     ],
     "recipes": [
@@ -788,73 +1109,83 @@
             "page": 12,
             "bookServings": 4,
             "ourServings": 2,
-            "cookingTimeMinutes": 40,
             "modified": false,
             "photo": null,
             "lines": [
                 {
                     "id": 1,
-                    "originalText": "1 Zwiebel",
-                    "grams": 100.0,
-                    "ingredientId": 1
+                    "amount": 1.0,
+                    "unit": "PIECE",
+                    "ingredientId": 1,
+                    "wording": "1 Zwiebel"
                 },
                 {
                     "id": 2,
-                    "originalText": "2 Zehen Knoblauch",
-                    "grams": 8.0,
-                    "ingredientId": 2
+                    "amount": 2.0,
+                    "unit": "CLOVE",
+                    "ingredientId": 2,
+                    "wording": null
                 },
                 {
                     "id": 3,
-                    "originalText": "1 Stück Ingwer (2 cm)",
-                    "grams": 10.0,
-                    "ingredientId": 3
+                    "amount": 10.0,
+                    "unit": "G",
+                    "ingredientId": 3,
+                    "wording": "1 Stück Ingwer (2 cm)"
                 },
                 {
                     "id": 4,
-                    "originalText": "1 TL Kreuzkümmel",
-                    "grams": 2.0,
-                    "ingredientId": 28
+                    "amount": 2.0,
+                    "unit": "G",
+                    "ingredientId": 28,
+                    "wording": "1 TL Kreuzkümmel"
                 },
                 {
                     "id": 5,
-                    "originalText": "1 TL Kurkuma",
-                    "grams": 3.0,
-                    "ingredientId": 29
+                    "amount": 3.0,
+                    "unit": "G",
+                    "ingredientId": 29,
+                    "wording": "1 TL Kurkuma"
                 },
                 {
                     "id": 6,
-                    "originalText": "200 g rote Linsen",
-                    "grams": 200.0,
-                    "ingredientId": 19
+                    "amount": 200.0,
+                    "unit": "G",
+                    "ingredientId": 19,
+                    "wording": "200 g rote Linsen"
                 },
                 {
                     "id": 7,
-                    "originalText": "1 Dose Kokosmilch",
-                    "grams": 400.0,
-                    "ingredientId": 34
+                    "amount": 400.0,
+                    "unit": "G",
+                    "ingredientId": 34,
+                    "wording": "1 Dose Kokosmilch"
                 },
                 {
                     "id": 8,
-                    "originalText": "150 g Blattspinat",
-                    "grams": 150.0,
-                    "ingredientId": 8
+                    "amount": 150.0,
+                    "unit": "G",
+                    "ingredientId": 8,
+                    "wording": null
                 },
                 {
                     "id": 9,
-                    "originalText": "Saft einer halben Zitrone",
-                    "grams": 30.0,
-                    "ingredientId": 13
+                    "amount": 30.0,
+                    "unit": "G",
+                    "ingredientId": 13,
+                    "wording": "Saft einer halben Zitrone"
                 },
                 {
                     "id": 10,
-                    "originalText": "1 EL Olivenöl",
-                    "grams": 10.0,
-                    "ingredientId": 31
+                    "amount": 10.0,
+                    "unit": "G",
+                    "ingredientId": 31,
+                    "wording": "1 EL Olivenöl"
                 }
             ],
             "dish": "MAIN",
-            "activeTimeMinutes": 15
+            "activeTimeMinutes": 15,
+            "totalTimeMinutes": 40
         },
         {
             "id": 2,
@@ -863,61 +1194,69 @@
             "page": 34,
             "bookServings": 2,
             "ourServings": 2,
-            "cookingTimeMinutes": 45,
             "modified": false,
             "photo": null,
             "lines": [
                 {
                     "id": 11,
-                    "originalText": "400 g Süßkartoffeln",
-                    "grams": 400.0,
-                    "ingredientId": 5
+                    "amount": 400.0,
+                    "unit": "G",
+                    "ingredientId": 5,
+                    "wording": null
                 },
                 {
                     "id": 12,
-                    "originalText": "1 Zucchini",
-                    "grams": 200.0,
-                    "ingredientId": 9
+                    "amount": 200.0,
+                    "unit": "G",
+                    "ingredientId": 9,
+                    "wording": "1 Zucchini"
                 },
                 {
                     "id": 13,
-                    "originalText": "1 rote Paprika",
-                    "grams": 160.0,
-                    "ingredientId": 10
+                    "amount": 1.0,
+                    "unit": "PIECE",
+                    "ingredientId": 10,
+                    "wording": "1 rote Paprika"
                 },
                 {
                     "id": 14,
-                    "originalText": "1 rote Zwiebel",
-                    "grams": 100.0,
-                    "ingredientId": 1
+                    "amount": 1.0,
+                    "unit": "PIECE",
+                    "ingredientId": 1,
+                    "wording": "1 rote Zwiebel"
                 },
                 {
                     "id": 15,
-                    "originalText": "2 EL Olivenöl",
-                    "grams": 20.0,
-                    "ingredientId": 31
+                    "amount": 20.0,
+                    "unit": "G",
+                    "ingredientId": 31,
+                    "wording": "2 EL Olivenöl"
                 },
                 {
                     "id": 16,
-                    "originalText": "1 TL Paprikapulver",
-                    "grams": 2.0,
-                    "ingredientId": 30
+                    "amount": 2.0,
+                    "unit": "G",
+                    "ingredientId": 30,
+                    "wording": "1 TL Paprikapulver"
                 },
                 {
                     "id": 17,
-                    "originalText": "100 g Feta",
-                    "grams": 100.0,
-                    "ingredientId": 36
+                    "amount": 100.0,
+                    "unit": "G",
+                    "ingredientId": 36,
+                    "wording": null
                 },
                 {
                     "id": 18,
-                    "originalText": "1/2 Bund Petersilie",
-                    "grams": 15.0,
-                    "ingredientId": 14
+                    "amount": 15.0,
+                    "unit": "G",
+                    "ingredientId": 14,
+                    "wording": "1/2 Bund Petersilie"
                 }
             ],
             "dish": "MAIN",
-            "activeTimeMinutes": 10
+            "activeTimeMinutes": 10,
+            "totalTimeMinutes": 45
         },
         {
             "id": 3,
@@ -926,73 +1265,83 @@
             "page": 56,
             "bookServings": 4,
             "ourServings": 4,
-            "cookingTimeMinutes": 60,
             "modified": false,
             "photo": null,
             "lines": [
                 {
                     "id": 19,
-                    "originalText": "2 Zwiebeln",
-                    "grams": 200.0,
-                    "ingredientId": 1
+                    "amount": 2.0,
+                    "unit": "PIECE",
+                    "ingredientId": 1,
+                    "wording": "2 Zwiebeln"
                 },
                 {
                     "id": 20,
-                    "originalText": "3 Zehen Knoblauch",
-                    "grams": 12.0,
-                    "ingredientId": 2
+                    "amount": 3.0,
+                    "unit": "CLOVE",
+                    "ingredientId": 2,
+                    "wording": null
                 },
                 {
                     "id": 21,
-                    "originalText": "2 Karotten",
-                    "grams": 160.0,
-                    "ingredientId": 4
+                    "amount": 160.0,
+                    "unit": "G",
+                    "ingredientId": 4,
+                    "wording": "2 Karotten"
                 },
                 {
                     "id": 22,
-                    "originalText": "1 rote Paprika",
-                    "grams": 160.0,
-                    "ingredientId": 10
+                    "amount": 1.0,
+                    "unit": "PIECE",
+                    "ingredientId": 10,
+                    "wording": "1 rote Paprika"
                 },
                 {
                     "id": 23,
-                    "originalText": "1 Dose gehackte Tomaten",
-                    "grams": 400.0,
-                    "ingredientId": 16
+                    "amount": 1.0,
+                    "unit": "CAN",
+                    "ingredientId": 16,
+                    "wording": "1 Dose gehackte Tomaten"
                 },
                 {
                     "id": 24,
-                    "originalText": "2 Dosen schwarze Bohnen",
-                    "grams": 800.0,
-                    "ingredientId": 18
+                    "amount": 800.0,
+                    "unit": "G",
+                    "ingredientId": 18,
+                    "wording": "2 Dosen schwarze Bohnen"
                 },
                 {
                     "id": 25,
-                    "originalText": "1 EL Paprikapulver",
-                    "grams": 7.0,
-                    "ingredientId": 30
+                    "amount": 7.0,
+                    "unit": "G",
+                    "ingredientId": 30,
+                    "wording": "1 EL Paprikapulver"
                 },
                 {
                     "id": 26,
-                    "originalText": "2 TL Kreuzkümmel",
-                    "grams": 4.0,
-                    "ingredientId": 28
+                    "amount": 4.0,
+                    "unit": "G",
+                    "ingredientId": 28,
+                    "wording": "2 TL Kreuzkümmel"
                 },
                 {
                     "id": 27,
-                    "originalText": "200 g Basmatireis",
-                    "grams": 200.0,
-                    "ingredientId": 20
+                    "amount": 200.0,
+                    "unit": "G",
+                    "ingredientId": 20,
+                    "wording": null
                 },
                 {
                     "id": 28,
-                    "originalText": "2 EL Olivenöl",
-                    "grams": 20.0,
-                    "ingredientId": 31
+                    "amount": 20.0,
+                    "unit": "G",
+                    "ingredientId": 31,
+                    "wording": "2 EL Olivenöl"
                 }
             ],
             "dish": "MAIN",
-            "activeTimeMinutes": 20
+            "activeTimeMinutes": 20,
+            "totalTimeMinutes": 60
         },
         {
             "id": 4,
@@ -1001,61 +1350,69 @@
             "page": 78,
             "bookServings": 4,
             "ourServings": 2,
-            "cookingTimeMinutes": 25,
             "modified": false,
             "photo": null,
             "lines": [
                 {
                     "id": 29,
-                    "originalText": "1 Zwiebel",
-                    "grams": 100.0,
-                    "ingredientId": 1
+                    "amount": 1.0,
+                    "unit": "PIECE",
+                    "ingredientId": 1,
+                    "wording": "1 Zwiebel"
                 },
                 {
                     "id": 30,
-                    "originalText": "1 Zehe Knoblauch",
-                    "grams": 4.0,
-                    "ingredientId": 2
+                    "amount": 1.0,
+                    "unit": "CLOVE",
+                    "ingredientId": 2,
+                    "wording": null
                 },
                 {
                     "id": 31,
-                    "originalText": "1 TL Kurkuma",
-                    "grams": 3.0,
-                    "ingredientId": 29
+                    "amount": 3.0,
+                    "unit": "G",
+                    "ingredientId": 29,
+                    "wording": "1 TL Kurkuma"
                 },
                 {
                     "id": 32,
-                    "originalText": "1 Dose Kichererbsen, abgetropft",
-                    "grams": 400.0,
-                    "ingredientId": 17
+                    "amount": 400.0,
+                    "unit": "G",
+                    "ingredientId": 17,
+                    "wording": "1 Dose Kichererbsen, abgetropft"
                 },
                 {
                     "id": 33,
-                    "originalText": "1 Dose Kokosmilch",
-                    "grams": 400.0,
-                    "ingredientId": 34
+                    "amount": 400.0,
+                    "unit": "G",
+                    "ingredientId": 34,
+                    "wording": "1 Dose Kokosmilch"
                 },
                 {
                     "id": 34,
-                    "originalText": "100 g Blattspinat",
-                    "grams": 100.0,
-                    "ingredientId": 8
+                    "amount": 100.0,
+                    "unit": "G",
+                    "ingredientId": 8,
+                    "wording": null
                 },
                 {
                     "id": 35,
-                    "originalText": "150 g Basmatireis",
-                    "grams": 150.0,
-                    "ingredientId": 20
+                    "amount": 150.0,
+                    "unit": "G",
+                    "ingredientId": 20,
+                    "wording": null
                 },
                 {
                     "id": 36,
-                    "originalText": "1/2 Bund Koriander",
-                    "grams": 15.0,
-                    "ingredientId": 15
+                    "amount": 15.0,
+                    "unit": "G",
+                    "ingredientId": 15,
+                    "wording": "1/2 Bund Koriander"
                 }
             ],
             "dish": "MAIN",
-            "activeTimeMinutes": 20
+            "activeTimeMinutes": 20,
+            "totalTimeMinutes": 25
         },
         {
             "id": 5,
@@ -1064,55 +1421,62 @@
             "page": 90,
             "bookServings": 2,
             "ourServings": 2,
-            "cookingTimeMinutes": 20,
             "modified": false,
             "photo": null,
             "lines": [
                 {
                     "id": 37,
-                    "originalText": "250 g Vollkornnudeln",
-                    "grams": 250.0,
-                    "ingredientId": 22
+                    "amount": 250.0,
+                    "unit": "G",
+                    "ingredientId": 22,
+                    "wording": null
                 },
                 {
                     "id": 38,
-                    "originalText": "1 Kopf Brokkoli",
-                    "grams": 500.0,
-                    "ingredientId": 7
+                    "amount": 1.0,
+                    "unit": "HEAD",
+                    "ingredientId": 7,
+                    "wording": null
                 },
                 {
                     "id": 39,
-                    "originalText": "2 Zehen Knoblauch",
-                    "grams": 8.0,
-                    "ingredientId": 2
+                    "amount": 2.0,
+                    "unit": "CLOVE",
+                    "ingredientId": 2,
+                    "wording": null
                 },
                 {
                     "id": 40,
-                    "originalText": "40 g Walnüsse",
-                    "grams": 40.0,
-                    "ingredientId": 24
+                    "amount": 40.0,
+                    "unit": "G",
+                    "ingredientId": 24,
+                    "wording": null
                 },
                 {
                     "id": 41,
-                    "originalText": "2 EL Olivenöl",
-                    "grams": 20.0,
-                    "ingredientId": 31
+                    "amount": 20.0,
+                    "unit": "G",
+                    "ingredientId": 31,
+                    "wording": "2 EL Olivenöl"
                 },
                 {
                     "id": 42,
-                    "originalText": "Abrieb einer Zitrone",
-                    "grams": 5.0,
-                    "ingredientId": 13
+                    "amount": 5.0,
+                    "unit": "G",
+                    "ingredientId": 13,
+                    "wording": "Abrieb einer Zitrone"
                 },
                 {
                     "id": 43,
-                    "originalText": "50 g Feta",
-                    "grams": 50.0,
-                    "ingredientId": 36
+                    "amount": 50.0,
+                    "unit": "G",
+                    "ingredientId": 36,
+                    "wording": null
                 }
             ],
             "dish": "MAIN",
-            "activeTimeMinutes": 20
+            "activeTimeMinutes": 20,
+            "totalTimeMinutes": 20
         },
         {
             "id": 6,
@@ -1121,61 +1485,69 @@
             "page": 102,
             "bookServings": 2,
             "ourServings": 2,
-            "cookingTimeMinutes": null,
             "modified": false,
             "photo": null,
             "lines": [
                 {
                     "id": 44,
-                    "originalText": "150 g Quinoa",
-                    "grams": 150.0,
-                    "ingredientId": 23
+                    "amount": 150.0,
+                    "unit": "G",
+                    "ingredientId": 23,
+                    "wording": null
                 },
                 {
                     "id": 45,
-                    "originalText": "2 Karotten",
-                    "grams": 160.0,
-                    "ingredientId": 4
+                    "amount": 160.0,
+                    "unit": "G",
+                    "ingredientId": 4,
+                    "wording": "2 Karotten"
                 },
                 {
                     "id": 46,
-                    "originalText": "1 rote Paprika",
-                    "grams": 160.0,
-                    "ingredientId": 10
+                    "amount": 1.0,
+                    "unit": "PIECE",
+                    "ingredientId": 10,
+                    "wording": "1 rote Paprika"
                 },
                 {
                     "id": 47,
-                    "originalText": "100 g Erbsen (TK)",
-                    "grams": 100.0,
-                    "ingredientId": 39
+                    "amount": 100.0,
+                    "unit": "G",
+                    "ingredientId": 39,
+                    "wording": null
                 },
                 {
                     "id": 48,
-                    "originalText": "2 EL Erdnussbutter",
-                    "grams": 30.0,
-                    "ingredientId": 27
+                    "amount": 30.0,
+                    "unit": "G",
+                    "ingredientId": 27,
+                    "wording": "2 EL Erdnussbutter"
                 },
                 {
                     "id": 49,
-                    "originalText": "1 EL Sesam",
-                    "grams": 8.0,
-                    "ingredientId": 26
+                    "amount": 8.0,
+                    "unit": "G",
+                    "ingredientId": 26,
+                    "wording": "1 EL Sesam"
                 },
                 {
                     "id": 50,
-                    "originalText": "1 Stück Ingwer",
-                    "grams": 10.0,
-                    "ingredientId": 3
+                    "amount": 10.0,
+                    "unit": "G",
+                    "ingredientId": 3,
+                    "wording": "1 Stück Ingwer"
                 },
                 {
                     "id": 51,
-                    "originalText": "1 TL Ahornsirup",
-                    "grams": 7.0,
-                    "ingredientId": 32
+                    "amount": 7.0,
+                    "unit": "G",
+                    "ingredientId": 32,
+                    "wording": "1 TL Ahornsirup"
                 }
             ],
             "dish": "MAIN",
-            "activeTimeMinutes": 25
+            "activeTimeMinutes": 25,
+            "totalTimeMinutes": null
         },
         {
             "id": 7,
@@ -1184,55 +1556,62 @@
             "page": 64,
             "bookServings": 2,
             "ourServings": 2,
-            "cookingTimeMinutes": 30,
             "modified": false,
             "photo": null,
             "lines": [
                 {
                     "id": 52,
-                    "originalText": "200 g Basmatireis",
-                    "grams": 200.0,
-                    "ingredientId": 20
+                    "amount": 200.0,
+                    "unit": "G",
+                    "ingredientId": 20,
+                    "wording": null
                 },
                 {
                     "id": 53,
-                    "originalText": "3 Eier",
-                    "grams": 165.0,
-                    "ingredientId": 35
+                    "amount": 3.0,
+                    "unit": "PIECE",
+                    "ingredientId": 35,
+                    "wording": "3 Eier"
                 },
                 {
                     "id": 54,
-                    "originalText": "150 g Erbsen (TK)",
-                    "grams": 150.0,
-                    "ingredientId": 39
+                    "amount": 150.0,
+                    "unit": "G",
+                    "ingredientId": 39,
+                    "wording": null
                 },
                 {
                     "id": 55,
-                    "originalText": "2 Karotten",
-                    "grams": 160.0,
-                    "ingredientId": 4
+                    "amount": 160.0,
+                    "unit": "G",
+                    "ingredientId": 4,
+                    "wording": "2 Karotten"
                 },
                 {
                     "id": 56,
-                    "originalText": "2 Zehen Knoblauch",
-                    "grams": 8.0,
-                    "ingredientId": 2
+                    "amount": 2.0,
+                    "unit": "CLOVE",
+                    "ingredientId": 2,
+                    "wording": null
                 },
                 {
                     "id": 57,
-                    "originalText": "1 EL Sesam",
-                    "grams": 8.0,
-                    "ingredientId": 26
+                    "amount": 8.0,
+                    "unit": "G",
+                    "ingredientId": 26,
+                    "wording": "1 EL Sesam"
                 },
                 {
                     "id": 58,
-                    "originalText": "1 EL Olivenöl",
-                    "grams": 10.0,
-                    "ingredientId": 31
+                    "amount": 10.0,
+                    "unit": "G",
+                    "ingredientId": 31,
+                    "wording": "1 EL Olivenöl"
                 }
             ],
             "dish": "MAIN",
-            "activeTimeMinutes": 15
+            "activeTimeMinutes": 15,
+            "totalTimeMinutes": 30
         },
         {
             "id": 8,
@@ -1241,61 +1620,69 @@
             "page": null,
             "bookServings": 2,
             "ourServings": 2,
-            "cookingTimeMinutes": null,
             "modified": false,
             "photo": null,
             "lines": [
                 {
                     "id": 59,
-                    "originalText": "1 Zwiebel",
-                    "grams": 100.0,
-                    "ingredientId": 1
+                    "amount": 1.0,
+                    "unit": "PIECE",
+                    "ingredientId": 1,
+                    "wording": "1 Zwiebel"
                 },
                 {
                     "id": 60,
-                    "originalText": "2 Knoblauchzehen",
-                    "grams": 8.0,
-                    "ingredientId": 2
+                    "amount": 8.0,
+                    "unit": "G",
+                    "ingredientId": 2,
+                    "wording": "2 Knoblauchzehen"
                 },
                 {
                     "id": 61,
-                    "originalText": "1 rote Paprika",
-                    "grams": 160.0,
-                    "ingredientId": 10
+                    "amount": 1.0,
+                    "unit": "PIECE",
+                    "ingredientId": 10,
+                    "wording": "1 rote Paprika"
                 },
                 {
                     "id": 62,
-                    "originalText": "1 Dose gehackte Tomaten",
-                    "grams": 400.0,
-                    "ingredientId": 16
+                    "amount": 1.0,
+                    "unit": "CAN",
+                    "ingredientId": 16,
+                    "wording": "1 Dose gehackte Tomaten"
                 },
                 {
                     "id": 63,
-                    "originalText": "4 Eier",
-                    "grams": 220.0,
-                    "ingredientId": 35
+                    "amount": 4.0,
+                    "unit": "PIECE",
+                    "ingredientId": 35,
+                    "wording": "4 Eier"
                 },
                 {
                     "id": 64,
-                    "originalText": "1 TL Kreuzkümmel",
-                    "grams": 2.0,
-                    "ingredientId": 28
+                    "amount": 2.0,
+                    "unit": "G",
+                    "ingredientId": 28,
+                    "wording": "1 TL Kreuzkümmel"
                 },
                 {
                     "id": 65,
-                    "originalText": "50 g Feta",
-                    "grams": 50.0,
-                    "ingredientId": 36
+                    "amount": 50.0,
+                    "unit": "G",
+                    "ingredientId": 36,
+                    "wording": null
                 },
                 {
                     "id": 66,
-                    "originalText": "etwas Petersilie",
-                    "grams": 10.0,
-                    "ingredientId": 14
+                    "amount": 10.0,
+                    "unit": "G",
+                    "ingredientId": 14,
+                    "wording": "etwas Petersilie"
                 }
             ],
             "dish": "MAIN",
-            "activeTimeMinutes": null
+            "activeTimeMinutes": null,
+            "totalTimeMinutes": null
         },
         {
             "id": 9,
@@ -1304,61 +1691,69 @@
             "page": null,
             "bookServings": 4,
             "ourServings": 4,
-            "cookingTimeMinutes": null,
             "modified": true,
             "photo": null,
             "lines": [
                 {
                     "id": 67,
-                    "originalText": "800 g Süßkartoffeln",
-                    "grams": 800.0,
-                    "ingredientId": 5
+                    "amount": 800.0,
+                    "unit": "G",
+                    "ingredientId": 5,
+                    "wording": null
                 },
                 {
                     "id": 68,
-                    "originalText": "2 Kartoffeln",
-                    "grams": 300.0,
-                    "ingredientId": 6
+                    "amount": 300.0,
+                    "unit": "G",
+                    "ingredientId": 6,
+                    "wording": "2 Kartoffeln"
                 },
                 {
                     "id": 69,
-                    "originalText": "1 Zwiebel",
-                    "grams": 100.0,
-                    "ingredientId": 1
+                    "amount": 1.0,
+                    "unit": "PIECE",
+                    "ingredientId": 1,
+                    "wording": "1 Zwiebel"
                 },
                 {
                     "id": 70,
-                    "originalText": "1 Stück Ingwer",
-                    "grams": 15.0,
-                    "ingredientId": 3
+                    "amount": 15.0,
+                    "unit": "G",
+                    "ingredientId": 3,
+                    "wording": "1 Stück Ingwer"
                 },
                 {
                     "id": 71,
-                    "originalText": "1 l Gemüsebrühe",
-                    "grams": 1000.0,
-                    "ingredientId": 41
+                    "amount": 1000.0,
+                    "unit": "G",
+                    "ingredientId": 41,
+                    "wording": "1 l Gemüsebrühe"
                 },
                 {
                     "id": 72,
-                    "originalText": "200 ml Kokosmilch",
-                    "grams": 200.0,
-                    "ingredientId": 34
+                    "amount": 200.0,
+                    "unit": "G",
+                    "ingredientId": 34,
+                    "wording": "200 ml Kokosmilch"
                 },
                 {
                     "id": 73,
-                    "originalText": "1 Prise Salz",
-                    "grams": 1.0,
-                    "ingredientId": 33
+                    "amount": 1.0,
+                    "unit": "G",
+                    "ingredientId": 33,
+                    "wording": "1 Prise Salz"
                 },
                 {
                     "id": 74,
-                    "originalText": "30 g Cashewkerne",
-                    "grams": 30.0,
-                    "ingredientId": 25
+                    "amount": 30.0,
+                    "unit": "G",
+                    "ingredientId": 25,
+                    "wording": null
                 }
             ],
             "dish": "MAIN",
-            "activeTimeMinutes": null
+            "activeTimeMinutes": null,
+            "totalTimeMinutes": null
         },
         {
             "id": 10,
@@ -1367,43 +1762,48 @@
             "page": 120,
             "bookServings": 1,
             "ourServings": 1,
-            "cookingTimeMinutes": 5,
             "modified": false,
             "photo": null,
             "lines": [
                 {
                     "id": 75,
-                    "originalText": "50 g Haferflocken",
-                    "grams": 50.0,
-                    "ingredientId": 21
+                    "amount": 50.0,
+                    "unit": "G",
+                    "ingredientId": 21,
+                    "wording": null
                 },
                 {
                     "id": 76,
-                    "originalText": "150 g griechischer Joghurt",
-                    "grams": 150.0,
-                    "ingredientId": 37
+                    "amount": 150.0,
+                    "unit": "G",
+                    "ingredientId": 37,
+                    "wording": "150 g griechischer Joghurt"
                 },
                 {
                     "id": 77,
-                    "originalText": "1 Banane",
-                    "grams": 120.0,
-                    "ingredientId": 12
+                    "amount": 1.0,
+                    "unit": "PIECE",
+                    "ingredientId": 12,
+                    "wording": "1 Banane"
                 },
                 {
                     "id": 78,
-                    "originalText": "1 EL Walnüsse",
-                    "grams": 10.0,
-                    "ingredientId": 24
+                    "amount": 10.0,
+                    "unit": "G",
+                    "ingredientId": 24,
+                    "wording": "1 EL Walnüsse"
                 },
                 {
                     "id": 79,
-                    "originalText": "1 TL Ahornsirup",
-                    "grams": 7.0,
-                    "ingredientId": 32
+                    "amount": 7.0,
+                    "unit": "G",
+                    "ingredientId": 32,
+                    "wording": "1 TL Ahornsirup"
                 }
             ],
             "dish": "SNACK",
-            "activeTimeMinutes": 5
+            "activeTimeMinutes": 5,
+            "totalTimeMinutes": 5
         },
         {
             "id": 11,
@@ -1412,104 +1812,186 @@
             "page": null,
             "bookServings": 1,
             "ourServings": 1,
-            "cookingTimeMinutes": 5,
             "modified": false,
             "photo": null,
             "lines": [
                 {
                     "id": 80,
-                    "originalText": "2 Scheiben Vollkorntoast",
-                    "grams": 50.0,
-                    "ingredientId": 40
+                    "amount": 2.0,
+                    "unit": "SLICE",
+                    "ingredientId": 40,
+                    "wording": null
                 },
                 {
                     "id": 81,
-                    "originalText": "1 EL Erdnussbutter",
-                    "grams": 15.0,
-                    "ingredientId": 27
+                    "amount": 15.0,
+                    "unit": "G",
+                    "ingredientId": 27,
+                    "wording": "1 EL Erdnussbutter"
                 },
                 {
                     "id": 82,
-                    "originalText": "1/2 Banane",
-                    "grams": 60.0,
-                    "ingredientId": 12
+                    "amount": 60.0,
+                    "unit": "G",
+                    "ingredientId": 12,
+                    "wording": "1/2 Banane"
                 },
                 {
                     "id": 83,
-                    "originalText": "1 TL Butter",
-                    "grams": 5.0,
-                    "ingredientId": 38
+                    "amount": 5.0,
+                    "unit": "G",
+                    "ingredientId": 38,
+                    "wording": "1 TL Butter"
                 }
             ],
             "dish": "SNACK",
-            "activeTimeMinutes": 5
+            "activeTimeMinutes": 5,
+            "totalTimeMinutes": 5
         }
     ],
     "cookLog": [
         {
             "id": 1,
             "recipeId": 3,
-            "cookedOn": "2026-09-24"
+            "cookedOn": "2026-09-24",
+            "title": "Chili sin Carne",
+            "plantPoints": 7.5,
+            "proteinPerPortion": 18.34935,
+            "carbsPerPortion": 89.83802500000002,
+            "kcalPerPortion": 484.655,
+            "fibrePerPortion": 19.93875
         },
         {
             "id": 2,
             "recipeId": 1,
-            "cookedOn": "2026-09-26"
+            "cookedOn": "2026-09-26",
+            "title": "Linsen-Dal mit Spinat",
+            "plantPoints": 6.5,
+            "proteinPerPortion": 31.478699999999996,
+            "carbsPerPortion": 81.1709,
+            "kcalPerPortion": 856.19,
+            "fibrePerPortion": 14.3495
         },
         {
             "id": 3,
             "recipeId": 10,
-            "cookedOn": "2026-09-28"
+            "cookedOn": "2026-09-28",
+            "title": "Overnight Oats mit Banane",
+            "plantPoints": 3.0,
+            "proteinPerPortion": 22.9088,
+            "carbsPerPortion": 73.29180000000001,
+            "kcalPerPortion": 525.4000000000001,
+            "fibrePerPortion": 8.84
         },
         {
             "id": 4,
             "recipeId": 5,
-            "cookedOn": "2026-09-29"
+            "cookedOn": "2026-09-29",
+            "title": "Brokkoli-Pasta mit Walnüssen",
+            "plantPoints": 5.0,
+            "proteinPerPortion": 31.267899999999997,
+            "carbsPerPortion": 113.57990000000001,
+            "kcalPerPortion": 817.135,
+            "fibrePerPortion": 19.494
         },
         {
             "id": 5,
             "recipeId": 4,
-            "cookedOn": "2026-10-01"
+            "cookedOn": "2026-10-01",
+            "title": "Kichererbsen-Curry",
+            "plantPoints": 5.5,
+            "proteinPerPortion": 20.25965,
+            "carbsPerPortion": 101.04705,
+            "kcalPerPortion": 875.4350000000001,
+            "fibrePerPortion": 11.1975
         },
         {
             "id": 6,
             "recipeId": 8,
-            "cookedOn": "2026-10-03"
+            "cookedOn": "2026-10-03",
+            "title": "Shakshuka",
+            "plantPoints": 4.5,
+            "proteinPerPortion": 20.871499999999997,
+            "carbsPerPortion": 20.277300000000004,
+            "kcalPerPortion": 307.86,
+            "fibrePerPortion": 6.684
         },
         {
             "id": 7,
             "recipeId": 2,
-            "cookedOn": "2026-10-05"
+            "cookedOn": "2026-10-05",
+            "title": "Ofengemüse mit Feta",
+            "plantPoints": 4.5,
+            "proteinPerPortion": 13.16115,
+            "carbsPerPortion": 55.79865,
+            "kcalPerPortion": 456.22,
+            "fibrePerPortion": 10.1265
         },
         {
             "id": 8,
             "recipeId": 11,
-            "cookedOn": "2026-10-06"
+            "cookedOn": "2026-10-06",
+            "title": "Erdnussbutter-Toast",
+            "plantPoints": 3.0,
+            "proteinPerPortion": 8.528,
+            "carbsPerPortion": 37.5535,
+            "kcalPerPortion": 302.45,
+            "fibrePerPortion": 5.5600000000000005
         },
         {
             "id": 9,
             "recipeId": 7,
-            "cookedOn": "2026-10-08"
+            "cookedOn": "2026-10-08",
+            "title": "Gebratener Reis mit Erbsen und Ei",
+            "plantPoints": 5.0,
+            "proteinPerPortion": 23.1146,
+            "carbsPerPortion": 100.6834,
+            "kcalPerPortion": 646.605,
+            "fibrePerPortion": 7.471
         },
         {
             "id": 10,
             "recipeId": 6,
-            "cookedOn": "2026-10-10"
+            "cookedOn": "2026-10-10",
+            "title": "Quinoa-Bowl mit Erdnusssoße",
+            "plantPoints": 7.0,
+            "proteinPerPortion": 18.8691,
+            "carbsPerPortion": 74.9374,
+            "kcalPerPortion": 493.82000000000005,
+            "fibrePerPortion": 12.741999999999999
         },
         {
             "id": 11,
             "recipeId": 9,
-            "cookedOn": "2026-10-12"
+            "cookedOn": "2026-10-12",
+            "title": "Süßkartoffel-Suppe",
+            "plantPoints": 5.0,
+            "proteinPerPortion": 7.89725,
+            "carbsPerPortion": 61.528125,
+            "kcalPerPortion": 395.225,
+            "fibrePerPortion": 8.5725
         },
         {
             "id": 12,
             "recipeId": 10,
-            "cookedOn": "2026-10-13"
+            "cookedOn": "2026-10-13",
+            "title": "Overnight Oats mit Banane",
+            "plantPoints": 3.0,
+            "proteinPerPortion": 22.9088,
+            "carbsPerPortion": 73.29180000000001,
+            "kcalPerPortion": 525.4000000000001,
+            "fibrePerPortion": 8.84
         },
         {
             "id": 13,
             "recipeId": 3,
-            "cookedOn": "2026-10-14"
+            "cookedOn": "2026-10-14",
+            "title": "Chili sin Carne",
+            "plantPoints": 7.5,
+            "proteinPerPortion": 18.34935,
+            "carbsPerPortion": 89.83802500000002,
+            "kcalPerPortion": 484.655,
+            "fibrePerPortion": 19.93875
         }
     ],
     "aliases": [

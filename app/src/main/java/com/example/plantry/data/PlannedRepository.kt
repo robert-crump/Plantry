@@ -88,7 +88,7 @@ data class PlannedItem(val planned: PlannedRecipe, val snapshot: RecipeSnapshot)
         fun of(
             planned: List<PlannedRecipe>,
             recipes: List<Recipe>,
-            lines: List<RecipeIngredient>,
+            lines: List<RecipeLine>,
             ingredients: Map<Long, Ingredient>,
         ): List<PlannedItem> {
             val recipesById = recipes.associateBy { it.id }

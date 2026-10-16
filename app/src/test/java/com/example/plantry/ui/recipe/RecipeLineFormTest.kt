@@ -1,7 +1,8 @@
 package com.example.plantry.ui.recipe
 
+import com.example.plantry.data.IngredientUnit
+import com.example.plantry.data.LineUnit
 import com.example.plantry.data.PieceUnit
-import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.RecipeIngredientDraft
 import com.example.plantry.data.ingredient
 import org.junit.Assert.assertEquals
@@ -13,10 +14,13 @@ import org.junit.Test
 class RecipeLineFormTest {
 
     private val sweetPotato = ingredient(id = 3, name = "Süßkartoffel")
+    private val toast = ingredient(id = 5, name = "Vollkorntoast")
+    private val slice = IngredientUnit(5, PieceUnit.SLICE, 37.5, packageGrams = 750.0, packageCount = 20)
+    private val sliceUnit = LineUnit.Of(PieceUnit.SLICE)
 
     @Test
     fun pickingASuggestion_setsIngredientAndName() {
-        val form = RecipeLineForm().withIngredientQuery("süß").withIngredient(sweetPotato)
+        val form = RecipeLineForm().withIngredientQuery("süß").withIngredient(sweetPotato, emptyList())
 
         assertEquals(3L, form.ingredientId)
         assertEquals("Süßkartoffel", form.ingredientQuery)
@@ -24,169 +28,112 @@ class RecipeLineFormTest {
 
     @Test
     fun applyingAScannedLine_confirmsClaudesNameForThePickedIngredient() {
-        val line = RecipeFormLine("1 Dose Kichererbsen", 240.0, ingredientId = null, ingredientName = "Kichererbsen, abgetropft")
+        val line = RecipeFormLine(240.0, LineUnit.Grams, ingredientId = null, wording = "1 Dose Kichererbsen", ingredientName = "Kichererbsen, abgetropft")
 
         val form = RecipeLineForm.from(line, null).withIngredientQuery("kicher").withIngredient(7, "Kichererbsen (Dose)")
 
         assertEquals(
-            RecipeFormLine("1 Dose Kichererbsen", 240.0, 7, ingredientName = "Kichererbsen, abgetropft", confirmed = true),
+            RecipeFormLine(240.0, LineUnit.Grams, 7, "1 Dose Kichererbsen", ingredientName = "Kichererbsen, abgetropft", confirmed = true),
             form.toFormLine(),
         )
     }
 
     @Test
     fun applyingAHandEnteredLine_hasNoWordingToLearn() {
-        val form = RecipeLineForm(grams = "240").withIngredientQuery("süßkart").withIngredient(sweetPotato)
+        val form = RecipeLineForm(amount = "240").withIngredientQuery("süßkart").withIngredient(sweetPotato, emptyList())
 
         assertEquals("", form.toFormLine()!!.ingredientName)
     }
 
     @Test
-    fun withAlias_selectsTheAliasedIngredientOnlyWhenNoneIsSelected() {
-        val aliases = mapOf("süßkartoffeln geschält" to 3L)
-        val names = mapOf(3L to "Süßkartoffel", 4L to "Kürbis")
+    fun withAlias_selectsTheAliasedIngredientWithItsUnits_onlyWhenNoneIsSelected() {
+        val aliases = mapOf("toastbrot" to 5L)
+        val names = mapOf(5L to "Vollkorntoast", 4L to "Kürbis")
+        val units = mapOf(5L to listOf(slice))
 
-        val typed = RecipeLineForm().withIngredientQuery("Süßkartoffeln, geschält").withAlias(aliases, names)
-        assertEquals(3L, typed.ingredientId)
-        assertEquals("Süßkartoffel", typed.ingredientQuery)
+        val typed = RecipeLineForm().withIngredientQuery("Toastbrot").withAlias(aliases, names, units)
+        assertEquals(5L, typed.ingredientId)
+        assertEquals("Vollkorntoast", typed.ingredientQuery)
+        assertEquals(listOf(slice), typed.units)
 
-        val picked = RecipeLineForm().withIngredientQuery("Süßkartoffeln, geschält").withIngredient(4, "Kürbis")
-        assertEquals(4L, picked.withAlias(aliases, names).ingredientId)
+        val picked = RecipeLineForm().withIngredientQuery("Toastbrot").withIngredient(4, "Kürbis")
+        assertEquals(4L, picked.withAlias(aliases, names, units).ingredientId)
 
-        assertNull(RecipeLineForm().withIngredientQuery("Kürbis").withAlias(aliases, names).ingredientId)
+        assertNull(RecipeLineForm().withIngredientQuery("Kürbis").withAlias(aliases, names, units).ingredientId)
     }
 
     @Test
     fun typingAfterPicking_clearsTheIngredient() {
-        val form = RecipeLineForm().withIngredient(sweetPotato).withIngredientQuery("Süßkartoffe")
+        val form = RecipeLineForm().withIngredient(sweetPotato, emptyList()).withIngredientQuery("Süßkartoffe")
 
         assertNull(form.ingredientId)
         assertTrue(form.errors().ingredient)
     }
 
     @Test
-    fun toDraft_parsesDecimalCommaAndTrimsText() {
-        val form = RecipeLineForm(originalText = " 1 große Süßkartoffel ", grams = "312,5").withIngredient(sweetPotato)
-
-        assertEquals(RecipeIngredientDraft("1 große Süßkartoffel", 312.5, 3), form.toDraft())
+    fun unitOptions_gAndMlThenTheIngredientsUnits() {
+        assertEquals(listOf(LineUnit.Grams, LineUnit.Milliliters), RecipeLineForm().unitOptions())
+        assertEquals(
+            listOf(LineUnit.Grams, LineUnit.Milliliters, sliceUnit),
+            RecipeLineForm().withIngredient(toast, listOf(slice)).unitOptions(),
+        )
     }
 
     @Test
-    fun toDraft_withBlankText_describesAmountAndIngredient() {
-        val form = RecipeLineForm(grams = "300").withIngredient(sweetPotato)
+    fun aUnitTheNewIngredientLacks_fallsBackToGrams_gAndMlStay() {
+        val slices = RecipeLineForm(amount = "2").withIngredient(toast, listOf(slice)).withUnit(sliceUnit)
 
-        assertEquals("300 g Süßkartoffel", form.toDraft()!!.originalText)
+        assertEquals(sliceUnit, slices.unit)
+        assertEquals(LineUnit.Grams, slices.withIngredientQuery("Brot").unit)
+        assertEquals(LineUnit.Grams, slices.withIngredient(sweetPotato, emptyList()).unit)
+        assertEquals(LineUnit.Milliliters, slices.withUnit(LineUnit.Milliliters).withIngredient(sweetPotato, emptyList()).unit)
     }
 
     @Test
-    fun toDraft_rejectsMissingGramsOrIngredient() {
-        val valid = RecipeLineForm(grams = "300").withIngredient(sweetPotato)
+    fun resolved_showsTheCalculationOnceAmountAndIngredientAreValid() {
+        val form = RecipeLineForm(amount = "2").withIngredient(toast, listOf(slice)).withUnit(sliceUnit)
 
-        assertNull(valid.copy(grams = "0").toDraft())
-        assertNull(valid.copy(grams = "viel").toDraft())
+        assertEquals("2 × 37,5 g = 75 g", form.resolved()!!.calculation)
+        assertEquals("2 Scheiben Vollkorntoast", form.resolved()!!.text)
+        assertEquals("2 Toasts", form.withWording("2 Toasts").resolved()!!.text)
+        assertNull(form.withAmount("").resolved())
+        assertNull(form.withIngredientQuery("Vollkorn").resolved())
+    }
+
+    @Test
+    fun toDraft_parsesDecimalCommaAndTrimsTheWording() {
+        val form = RecipeLineForm(amount = "312,5", wording = " 1 große Süßkartoffel ").withIngredient(sweetPotato, emptyList())
+
+        assertEquals(RecipeIngredientDraft(312.5, LineUnit.Grams, 3, "1 große Süßkartoffel"), form.toDraft())
+    }
+
+    @Test
+    fun toDraft_keepsTheUnit_blankWordingIsNone() {
+        val form = RecipeLineForm(amount = "1,5", wording = "  ").withIngredient(toast, listOf(slice)).withUnit(sliceUnit)
+
+        assertEquals(RecipeIngredientDraft(1.5, sliceUnit, 5, wording = null), form.toDraft())
+    }
+
+    @Test
+    fun toDraft_rejectsMissingAmountOrIngredient() {
+        val valid = RecipeLineForm(amount = "300").withIngredient(sweetPotato, emptyList())
+
+        assertNull(valid.copy(amount = "0").toDraft())
+        assertNull(valid.copy(amount = "viel").toDraft())
+        assertTrue(valid.copy(amount = "").errors().amount)
         assertNull(valid.withIngredientQuery("Süß").toDraft())
         assertFalse(valid.errors().hasAny)
     }
 
     @Test
     fun from_roundTripsAnExistingLine() {
-        val line = RecipeIngredientDraft("1 große Süßkartoffel", 312.5, 3)
+        val line = RecipeIngredientDraft(1.5, sliceUnit, 5, "1 ½ Scheiben Toast")
 
-        val form = RecipeLineForm.from(line, "Süßkartoffel")
+        val form = RecipeLineForm.from(line, "Vollkorntoast", listOf(slice))
 
-        assertEquals("312,5", form.grams)
+        assertEquals("1,5", form.amount)
+        assertEquals(sliceUnit, form.unit)
+        assertEquals("1 ½ Scheiben Toast", form.wording)
         assertEquals(line, form.toDraft())
-    }
-
-    private val toast = ingredient(id = 5, name = "Toast").copy(pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 20))
-
-    @Test
-    fun autoGrams_textThenIngredient() {
-        val form = RecipeLineForm().withText("4 Scheiben Toast").withIngredientQuery("Toa").withIngredient(toast)
-
-        assertEquals("150", form.grams)
-        assertEquals("4 × 37,5 g", form.autoAmount()!!.calculation())
-        assertEquals("225", form.withText("6 Scheiben Toast").grams)
-    }
-
-    @Test
-    fun autoGrams_ingredientThenText() {
-        val form = RecipeLineForm().withIngredient(toast).withText("4").withText("4 Scheiben")
-
-        assertEquals("150", form.grams)
-    }
-
-    @Test
-    fun autoGrams_gramsWorkWithoutAPieceWeight() {
-        val form = RecipeLineForm().withText("150 g Toast")
-
-        assertEquals("150", form.grams)
-        assertEquals("150 g", form.autoAmount()!!.calculation())
-        assertEquals("150", form.withIngredient(sweetPotato).grams)
-        assertEquals("150", form.withIngredient(toast).grams)
-    }
-
-    @Test
-    fun autoGrams_clearedWhenNothingParses() {
-        val form = RecipeLineForm().withIngredient(toast).withText("4 Scheiben")
-
-        assertEquals("", form.withText("etwas Toast").grams)
-        assertNull(form.withText("etwas Toast").autoAmount())
-        // Another ingredient has no slices.
-        assertEquals("", form.withIngredientQuery("Süß").grams)
-        assertEquals("", form.withIngredient(sweetPotato).grams)
-    }
-
-    @Test
-    fun autoGrams_typedGramsAreLeftAlone() {
-        val form = RecipeLineForm().withIngredient(toast).withText("4 Scheiben").withGrams("160")
-
-        assertFalse(form.gramsAuto)
-        assertNull(form.autoAmount())
-        assertEquals("160", form.withText("6 Scheiben").grams)
-        assertEquals("160", form.withIngredient(sweetPotato).withIngredient(toast).grams)
-        assertEquals("", form.withGrams("").withText("2 Scheiben").grams)
-    }
-
-    @Test
-    fun autoGrams_anExistingLineKeepsItsGrams() {
-        val line = RecipeIngredientDraft("4 Scheiben Toast", 160.0, 5)
-
-        val form = RecipeLineForm.from(line, "Toast", toast.pieceWeight)
-
-        assertFalse(form.gramsAuto)
-        assertEquals("160", form.grams)
-        assertEquals("160", form.withText("6 Scheiben Toast").grams)
-    }
-
-    @Test
-    fun autoGrams_aLineWithoutGramsIsFilledIn() {
-        val line = RecipeFormLine("4 Scheiben Toast", 0.0, ingredientId = 5)
-
-        val form = RecipeLineForm.from(line, "Toast", toast.pieceWeight)
-
-        assertTrue(form.gramsAuto)
-        assertEquals("150", form.grams)
-    }
-
-    @Test
-    fun autoGrams_aliasPicksThePieceWeight() {
-        val form = RecipeLineForm().withText("2 Scheiben").withIngredientQuery("Toastbrot")
-            .withAlias(mapOf("toastbrot" to 5L), mapOf(5L to "Toast"), mapOf(5L to toast.pieceWeight!!))
-
-        assertEquals("75", form.grams)
-    }
-
-    @Test
-    fun autoGrams_aScannedLineWithParsedGramsKeepsFollowingTheText() {
-        val line = RecipeFormLine("4 Scheiben Toast", 150.0, ingredientId = 5, gramsParsed = true)
-
-        val form = RecipeLineForm.from(line, "Toast", toast.pieceWeight)
-
-        assertTrue(form.gramsAuto)
-        assertEquals("4 × 37,5 g", form.autoAmount()!!.calculation())
-        assertEquals("225", form.withText("6 Scheiben Toast").grams)
-        assertTrue(form.toFormLine()!!.gramsParsed)
-        assertFalse(form.withGrams("160").toFormLine()!!.gramsParsed)
     }
 }

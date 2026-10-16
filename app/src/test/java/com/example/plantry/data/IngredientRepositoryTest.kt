@@ -201,35 +201,71 @@ class IngredientRepositoryTest {
     }
 
     @Test
-    fun update_changedPieceWeight_offersTheLinesItChanges() = runTest {
-        val id = repository.createFromLabel("Toast", Nutrition())
-        val toast = repository.getIngredient(id)!!
-        repository.update(id, draft(toast).copy(pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 20)))
-        dao.lines += listOf(
-            RecipeIngredient(id = 1, recipeId = 10, position = 0, originalText = "4 Scheiben Toast", grams = 150.0, ingredientId = id),
-            RecipeIngredient(id = 2, recipeId = 11, position = 0, originalText = "4 Scheiben Toast", grams = 150.0, ingredientId = id),
-            RecipeIngredient(id = 3, recipeId = 12, position = 3, originalText = "4 Scheiben Toast", grams = 150.0, ingredientId = id),
-            RecipeIngredient(id = 4, recipeId = 12, position = 4, originalText = "50 g Toast", grams = 50.0, ingredientId = id),
+    fun create_storesThePieceWeightAsAUnitAsEntered() = runTest {
+        val id = repository.create(
+            NewIngredientSeed("Toast", Nutrition()),
+            decided.copy(name = "Toast", pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 20)),
         )
 
-        val update = repository.update(id, draft(toast).copy(pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 22)))!!
-        assertEquals(3, update.recipeCount)
-        repository.applyLineGrams(update)
-
-        assertEquals(listOf(136.4, 136.4, 136.4, 50.0), dao.lines.map { it.grams })
+        assertEquals(listOf(IngredientUnit(id, PieceUnit.SLICE, 37.5, 750.0, 20)), repository.getUnits(id))
     }
 
     @Test
-    fun update_noPromptWhenRemovedUnchangedOrNothingChanges() = runTest {
+    fun createProposed_storesTheProposedPieceWeightAsAUnit() = runTest {
+        val egg = proposal(riceDry, "Ei").copy(pieceWeight = PieceWeight(PieceUnit.PIECE, 55.0, 1))
+
+        val id = repository.createProposed(mapOf(-1L to egg)).getValue(-1)
+
+        assertEquals(listOf(IngredientUnit(id, PieceUnit.PIECE, 55.0)), repository.getUnits(id))
+    }
+
+    @Test
+    fun update_changedUnitWeight_isSavedWithoutAsking() = runTest {
         val id = repository.createFromLabel("Toast", Nutrition())
         val toast = repository.getIngredient(id)!!
-        val weight = PieceWeight(PieceUnit.SLICE, 750.0, 20)
-        dao.lines += RecipeIngredient(id = 1, recipeId = 10, position = 0, originalText = "4 Scheiben Toast", grams = 150.0, ingredientId = id)
+        repository.update(id, draft(toast).copy(pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 20)))
+        dao.unitTitles[id to PieceUnit.SLICE] = listOf("Croque")
 
-        assertNull(repository.update(id, draft(toast).copy(pieceWeight = weight)))
-        assertNull(repository.update(id, draft(toast).copy(pieceWeight = weight)))
-        assertNull(repository.update(id, draft(toast)))
-        assertNull(repository.getIngredient(id)!!.pieceWeight)
+        val usedIn = repository.update(id, draft(toast).copy(pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 22)))
+
+        assertEquals(emptyList<String>(), usedIn)
+        assertEquals(750.0 / 22, repository.getUnits(id).single().gramsPerUnit, 1e-9)
+    }
+
+    @Test
+    fun update_removingOrReplacingAUnitInUse_isRefusedWithTheRecipes_nothingSaved() = runTest {
+        val id = repository.createFromLabel("Toast", Nutrition())
+        val toast = repository.getIngredient(id)!!
+        val slice = PieceWeight(PieceUnit.SLICE, 750.0, 20)
+        repository.update(id, draft(toast).copy(pieceWeight = slice))
+        dao.unitTitles[id to PieceUnit.SLICE] = listOf("Croque", "Toast Hawaii")
+
+        assertEquals(listOf("Croque", "Toast Hawaii"), repository.update(id, draft(toast).copy(name = "Brot")))
+        assertEquals(listOf("Croque", "Toast Hawaii"), repository.update(id, draft(toast).copy(pieceWeight = PieceWeight(PieceUnit.PACKET, 750.0, 1))))
+
+        assertEquals("Toast", repository.getIngredient(id)!!.name)
+        assertEquals(listOf(slice.toUnit(id)), repository.getUnits(id))
+    }
+
+    @Test
+    fun update_removingAnUnusedUnit_isSaved() = runTest {
+        val id = repository.createFromLabel("Toast", Nutrition())
+        val toast = repository.getIngredient(id)!!
+        repository.update(id, draft(toast).copy(pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 20)))
+
+        assertEquals(emptyList<String>(), repository.update(id, draft(toast)))
+        assertEquals(emptyList<IngredientUnit>(), repository.getUnits(id))
+    }
+
+    @Test
+    fun update_keepsTheUnitsTheFormDoesNotEdit() = runTest {
+        val id = repository.createFromLabel("Kichererbsen", Nutrition())
+        val chickpeas = repository.getIngredient(id)!!
+        val can = IngredientUnit(id, PieceUnit.CAN, 240.0)
+
+        repository.update(id, draft(chickpeas).copy(pieceWeight = PieceWeight(PieceUnit.PIECE, 0.5, 1), otherUnits = listOf(can)))
+
+        assertEquals(setOf(IngredientUnit(id, PieceUnit.PIECE, 0.5), can), repository.getUnits(id).toSet())
     }
 
     @Test
@@ -374,13 +410,23 @@ private class FakeIngredientDao : IngredientDao {
 
     override suspend fun getRecipeTitlesUsing(id: Long): List<String> = recipeTitles[id].orEmpty()
 
-    /** Recipe lines of every ingredient. */
-    val lines = mutableListOf<RecipeIngredient>()
+    /** Recipe titles by ingredient id and unit. */
+    val unitTitles = mutableMapOf<Pair<Long, PieceUnit>, List<String>>()
 
-    override suspend fun getLinesUsing(id: Long): List<RecipeIngredient> = lines.filter { it.ingredientId == id }
+    override suspend fun getRecipeTitlesUsingUnit(id: Long, unit: PieceUnit): List<String> = unitTitles[id to unit].orEmpty()
 
-    override suspend fun setLineGrams(lineId: Long, grams: Double) {
-        lines.replaceAll { if (it.id == lineId) it.copy(grams = grams) else it }
+    private val units = MutableStateFlow<List<IngredientUnit>>(emptyList())
+
+    override fun observeUnits(): Flow<List<IngredientUnit>> = units
+
+    override suspend fun getUnits(id: Long): List<IngredientUnit> = units.value.filter { it.ingredientId == id }
+
+    override suspend fun insertUnits(units: List<IngredientUnit>) {
+        this.units.value += units
+    }
+
+    override suspend fun deleteUnits(id: Long) {
+        units.value = units.value.filter { it.ingredientId != id }
     }
 
     override suspend fun deleteById(id: Long) {

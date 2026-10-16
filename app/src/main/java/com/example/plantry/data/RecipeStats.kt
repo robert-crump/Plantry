@@ -23,10 +23,10 @@ data class RecipeStats(
 
     companion object {
         /** Lines whose ingredient is missing from [ingredients] are skipped. */
-        fun of(recipe: Recipe, lines: List<RecipeIngredient>, ingredients: Map<Long, Ingredient>): RecipeStats {
+        fun of(recipe: Recipe, lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>): RecipeStats {
             val used = lines.mapNotNullTo(mutableSetOf()) { ingredients[it.ingredientId] }
             val nutrition = RecipeNutrition.calculate(
-                nutritionLines(lines.sortedBy { it.position }.map { it.toDraft() }, ingredients),
+                nutritionLines(lines.sortedBy { it.position }, ingredients),
                 recipe.ourServings,
             ).perPortion
             return RecipeStats(
@@ -44,7 +44,7 @@ data class RecipeStats(
 data class RecipeSnapshot(val title: String, val stats: RecipeStats) {
     companion object {
         /** Lines are matched to [recipe] by id. */
-        fun of(recipe: Recipe, lines: List<RecipeIngredient>, ingredients: Map<Long, Ingredient>) =
+        fun of(recipe: Recipe, lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>) =
             RecipeSnapshot(recipe.title, RecipeStats.of(recipe, lines.filter { it.recipeId == recipe.id }, ingredients))
 
         /** The current snapshot of a stored recipe; null if it doesn't exist. */

@@ -2,7 +2,7 @@ package com.example.plantry.ui.cooklog
 
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
-import com.example.plantry.data.RecipeIngredient
+import com.example.plantry.data.RecipeLine
 import java.time.LocalDate
 import kotlin.math.roundToInt
 
@@ -15,7 +15,7 @@ const val WeeklyPlantPointsGoal = 30
  */
 internal fun weeklyPlantPoints(
     entries: List<CookLog>,
-    lines: List<RecipeIngredient>,
+    lines: List<RecipeLine>,
     ingredients: Map<Long, Ingredient>,
 ): Map<LocalDate, Double> {
     val ingredientIds = lines.groupBy({ it.recipeId }, { it.ingredientId })

@@ -6,6 +6,7 @@ import com.example.plantry.data.IngredientDraft
 import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.PlantPoints
@@ -219,11 +220,14 @@ class IngredientFormTest {
     }
 
     @Test
-    fun pieceWeight_goesFromIngredientThroughTheFormIntoTheDraft() {
-        val weight = PieceWeight(PieceUnit.CLOVE, 5.0, 1)
-        val form = IngredientForm.from(ingredient.copy(pieceWeight = weight))
+    fun pieceWeight_goesFromTheUnitsThroughTheFormIntoTheDraft_otherUnitsKept() {
+        val slice = IngredientUnit(1, PieceUnit.SLICE, 37.5, packageGrams = 750.0, packageCount = 20)
+        val can = IngredientUnit(1, PieceUnit.CAN, 240.0)
+        val form = IngredientForm.from(ingredient, listOf(slice, can))
 
-        assertEquals(weight, form.pieceWeight)
-        assertEquals(weight, form.toDraft()!!.pieceWeight)
+        assertEquals(PieceWeight(PieceUnit.SLICE, 750.0, 20), form.pieceWeight)
+        assertEquals(listOf(slice.copy(ingredientId = 0), can), form.toDraft()!!.units())
+        assertEquals(listOf(can), form.copy(pieceWeight = null).toDraft()!!.units())
+        assertEquals(listOf(IngredientUnit(0, PieceUnit.CAN, 400.0)), form.copy(pieceWeight = PieceWeight(PieceUnit.CAN, 400.0, 1)).toDraft()!!.units())
     }
 }

@@ -9,7 +9,8 @@ import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
-import com.example.plantry.data.PieceWeight
+import com.example.plantry.data.IngredientUnit
+import com.example.plantry.data.LineUnit
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.Recipe
@@ -23,7 +24,6 @@ import com.example.plantry.data.settings.SettingsStorage
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
@@ -75,7 +75,7 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 15"))
+        assertTrue(json.contains("\"formatVersion\": 1"))
         assertTrue(json.contains("\"dish\": \"MAIN\""))
         assertTrue(json.contains("\"origin\": \"SEED\""))
         assertFalse(json.contains("\"staple\""))
@@ -113,7 +113,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 15", "\"formatVersion\": 16")
+        val newer = source.export().replace("\"formatVersion\": 1,", "\"formatVersion\": 2,")
 
         val error = readError(newer)
 
@@ -121,100 +121,25 @@ class BackupRepositoryTest {
     }
 
     @Test
-    fun version1File_importsWithoutAliases() = runTest {
-        val v2 = Json.parseToJsonElement(source.export()).jsonObject
-        val v1 = JsonObject(v2 - "aliases" + ("formatVersion" to JsonPrimitive(1))).toString()
-        val target = Device()
+    fun read_rejectsTheFormatBeforeTheRestart() = runTest {
+        val file = Json.parseToJsonElement(source.export()).jsonObject
+        val oldIngredients = JsonArray(file.getValue("ingredients").jsonArray.map { JsonObject(it.jsonObject - "units") })
+        val old = JsonObject(file + ("formatVersion" to JsonPrimitive(15)) + ("ingredients" to oldIngredients)).toString()
 
-        target.repository.import(target.repository.read(v1))
-
-        assertEquals(source.store.data.copy(aliases = emptyList()), target.store.data)
+        assertEquals(InvalidBackupException.Reason.OLD_FORMAT, readError(old).reason)
     }
 
     @Test
-    fun version7File_importsAndSkipsTheDroppedIngredientAttributes() = runTest {
-        val v8 = Json.parseToJsonElement(source.export()).jsonObject
-        val v7Ingredients = JsonArray(
-            v8.getValue("ingredients").jsonArray.map { ingredient ->
-                JsonObject(
-                    ingredient.jsonObject + mapOf(
-                        "unitWeights" to JsonArray(listOf(JsonObject(mapOf("label" to JsonPrimitive("mittel"), "grams" to JsonPrimitive(130.0))))),
-                        "buyUnit" to JsonPrimitive("PACK"),
-                        "packSizeGrams" to JsonPrimitive(500.0),
-                        "staple" to JsonPrimitive(true),
-                        "buyAsIngredientId" to JsonPrimitive(5),
-                        "buyAsYieldFactor" to JsonPrimitive(0.4),
-                    ),
-                )
-            },
-        )
-        val v7 = JsonObject(v8 + ("formatVersion" to JsonPrimitive(7)) + ("ingredients" to v7Ingredients)).toString()
-        val target = Device()
-
-        target.repository.import(target.repository.read(v7))
-
-        assertEquals(source.store.data, target.store.data)
-    }
-
-    @Test
-    fun version10File_importsIngredientsAsSeed() = runTest {
-        val v11 = Json.parseToJsonElement(source.export()).jsonObject
-        val v10Ingredients = JsonArray(v11.getValue("ingredients").jsonArray.map { JsonObject(it.jsonObject - "origin") })
-        val v10 = JsonObject(v11 + ("formatVersion" to JsonPrimitive(10)) + ("ingredients" to v10Ingredients)).toString()
-        val target = Device()
-
-        target.repository.import(target.repository.read(v10))
-
-        assertTrue(target.store.data.ingredients.all { it.origin == IngredientOrigin.SEED })
-    }
-
-    @Test
-    fun version12File_importsRecipesAsMainDishes() = runTest {
-        val v13 = Json.parseToJsonElement(source.export()).jsonObject
-        val v12Recipes = JsonArray(v13.getValue("recipes").jsonArray.map { JsonObject(it.jsonObject - "dish") })
-        val v12 = JsonObject(v13 + ("formatVersion" to JsonPrimitive(12)) + ("recipes" to v12Recipes)).toString()
-        val target = Device()
-
-        target.repository.import(target.repository.read(v12))
-
-        assertTrue(target.store.data.recipes.all { it.dish == Dish.MAIN })
-    }
-
-    @Test
-    fun version13File_importsIngredientsWithoutPieceWeight() = runTest {
-        val v14 = Json.parseToJsonElement(source.export()).jsonObject
-        val v13Ingredients = JsonArray(
-            v14.getValue("ingredients").jsonArray.map { JsonObject(it.jsonObject - "pieceUnit" - "pieceGroupGrams" - "pieceGroupCount") },
-        )
-        val v13 = JsonObject(v14 + ("formatVersion" to JsonPrimitive(13)) + ("ingredients" to v13Ingredients)).toString()
-        val target = Device()
-
-        target.repository.import(target.repository.read(v13))
-
-        val expected = source.store.data.ingredients.map { it.copy(pieceWeight = null) }
-        assertEquals(expected, target.store.data.ingredients)
-    }
-
-    @Test
-    fun version14File_importsRecipesWithoutArbeitszeit() = runTest {
-        val v15 = Json.parseToJsonElement(source.export()).jsonObject
-        val v14Recipes = JsonArray(v15.getValue("recipes").jsonArray.map { JsonObject(it.jsonObject - "activeTimeMinutes") })
-        val v14 = JsonObject(v15 + ("formatVersion" to JsonPrimitive(14)) + ("recipes" to v14Recipes)).toString()
-        val target = Device()
-
-        target.repository.import(target.repository.read(v14))
-
-        val expected = source.store.data.recipes.map { it.copy(activeTimeMinutes = null) }
-        assertEquals(expected, target.store.data.recipes)
-    }
-
-    @Test
-    fun pieceWeight_isWrittenAsEntered() = runTest {
+    fun units_areWrittenAsEntered_linesWithoutGrams() = runTest {
         val json = source.export()
 
-        assertTrue(json.contains("\"pieceUnit\": \"PACKET\""))
-        assertTrue(json.contains("\"pieceGroupGrams\": 500.0"))
-        assertTrue(json.contains("\"pieceGroupCount\": 4"))
+        assertTrue(json.contains("\"unit\": \"PACKET\""))
+        assertTrue(json.contains("\"gramsPerUnit\": 125.0"))
+        assertTrue(json.contains("\"packageGrams\": 500.0"))
+        assertTrue(json.contains("\"packageCount\": 4"))
+        assertTrue(json.contains("\"unit\": \"ML\""))
+        assertTrue(json.contains("\"wording\": \"1 Tasse Reis\""))
+        assertFalse(json.contains("\"grams\""))
     }
 
     @Test
@@ -229,111 +154,30 @@ class BackupRepositoryTest {
     }
 
     @Test
-    fun version9File_importsIngredientsWithoutLabelSource() = runTest {
-        val v10 = Json.parseToJsonElement(source.export()).jsonObject
-        val v9Ingredients = JsonArray(
-            v10.getValue("ingredients").jsonArray.map { JsonObject(it.jsonObject - "labelProduct" - "labelBarcode") },
+    fun brokenReferences_areRejectedWithoutChanges() = runTest {
+        val target = Device().apply { store.data = sampleData().copy(recipes = emptyList(), lines = emptyList()) }
+        val before = target.store.data
+        val json = source.export()
+        val broken = listOf(
+            // A line of an ingredient the file doesn't have.
+            json.replace("\"ingredientId\": 3,", "\"ingredientId\": 42,"),
+            // A line in a unit its ingredient lacks: Süßkartoffel has no package.
+            json.replace("\"unit\": \"PIECE\",\n                    \"ingredientId\": 3", "\"unit\": \"PACKET\",\n                    \"ingredientId\": 3"),
         )
-        val v9 = JsonObject(v10 + ("formatVersion" to JsonPrimitive(9)) + ("ingredients" to v9Ingredients)).toString()
-        val target = Device()
 
-        target.repository.import(target.repository.read(v9))
-
-        val expected = source.store.data.ingredients.map { it.copy(labelSource = null) }
-        assertEquals(expected, target.store.data.ingredients)
+        broken.forEach { text ->
+            assertTrue(text != json)
+            val error = runCatching { target.repository.import(target.repository.read(text)) }.exceptionOrNull()
+            assertEquals(InvalidBackupException.Reason.BROKEN_REFERENCE, (error as InvalidBackupException).reason)
+        }
+        assertEquals(before, target.store.data)
     }
 
     @Test
-    fun version8File_importsIngredientsAsNotDrained() = runTest {
-        val v9 = Json.parseToJsonElement(source.export()).jsonObject
-        val v8Ingredients = JsonArray(
-            v9.getValue("ingredients").jsonArray.map { JsonObject(it.jsonObject - "netWeightGrams" - "drainedWeightGrams") },
-        )
-        val v8 = JsonObject(v9 + ("formatVersion" to JsonPrimitive(8)) + ("ingredients" to v8Ingredients)).toString()
-        val target = Device()
+    fun read_rejectsAnUnknownUnit() = runTest {
+        val unknown = source.export().replace("\"unit\": \"ML\"", "\"unit\": \"PINCH\"")
 
-        target.repository.import(target.repository.read(v8))
-
-        val expected = source.store.data.ingredients.map { it.copy(drainedWeight = null) }
-        assertEquals(expected, target.store.data.ingredients)
-    }
-
-    @Test
-    fun version6File_importsCookLogWithoutKcalAndFibre() = runTest {
-        val v7 = Json.parseToJsonElement(source.export()).jsonObject
-        val v6CookLog = JsonArray(
-            v7.getValue("cookLog").jsonArray.map { JsonObject(it.jsonObject - listOf("kcalPerPortion", "fibrePerPortion")) },
-        )
-        val v6 = JsonObject(v7 + ("formatVersion" to JsonPrimitive(6)) + ("cookLog" to v6CookLog)).toString()
-        val target = Device()
-
-        target.repository.import(target.repository.read(v6))
-
-        val expected = source.store.data.cookLog.map { it.copy(stats = it.stats.copy(kcalPerPortion = null, fibrePerPortion = null)) }
-        assertEquals(expected, target.store.data.cookLog)
-    }
-
-    @Test
-    fun version5File_importsWithoutPlanned() = runTest {
-        val v6 = Json.parseToJsonElement(source.export()).jsonObject
-        val v5 = JsonObject(v6 - "planned" + ("formatVersion" to JsonPrimitive(5))).toString()
-        val target = Device()
-
-        target.repository.import(target.repository.read(v5))
-
-        assertEquals(source.store.data.copy(planned = emptyList()), target.store.data)
-    }
-
-    @Test
-    fun version3File_importsAndSkipsWeekPlanAndShoppingTicks() = runTest {
-        val v4 = Json.parseToJsonElement(source.export()).jsonObject
-        val weekPlan = Json.parseToJsonElement("""[{"weekStart": "2026-09-26", "position": 0, "recipeId": 2, "done": true}]""")
-        val ticks = Json.parseToJsonElement("""[{"weekStart": "2026-09-26", "ingredientId": 5}]""")
-        val v3 = JsonObject(
-            v4 + ("formatVersion" to JsonPrimitive(3)) + ("weekPlan" to weekPlan) + ("shoppingTicks" to ticks),
-        ).toString()
-        val target = Device()
-
-        target.repository.import(target.repository.read(v3))
-
-        assertEquals(source.store.data, target.store.data)
-    }
-
-    @Test
-    fun version4File_computesSnapshotsFromTheRecipes() = runTest {
-        val v5 = Json.parseToJsonElement(source.export()).jsonObject
-        val v4CookLog = JsonArray(
-            v5.getValue("cookLog").jsonArray
-                .map { it.jsonObject }
-                .filter { it["recipeId"] != JsonNull }
-                .map { JsonObject(it - listOf("title", "plantPoints", "proteinPerPortion", "carbsPerPortion")) },
-        )
-        val v4 = JsonObject(v5 + ("formatVersion" to JsonPrimitive(4)) + ("cookLog" to v4CookLog)).toString()
-        val target = Device()
-
-        target.repository.import(target.repository.read(v4))
-
-        val cookLog = target.store.data.cookLog
-        assertEquals(listOf("Curry", "Chili"), cookLog.map { it.title })
-        // Curry for 2: 480.5 g at 2.7 g protein and 28.2 g carbs per 100 g; Süßkartoffel 1 point,
-        // Reis, gekocht is bought as Reis, trocken with 0.
-        assertStats(RecipeStats(1.0, 480.5 * 0.027 / 2, 480.5 * 0.282 / 2), cookLog[0].stats)
-        assertStats(RecipeStats(0.0, 75 * 0.027 / 2, 75 * 0.282 / 2), cookLog[1].stats)
-    }
-
-    private fun assertStats(expected: RecipeStats, actual: RecipeStats) {
-        assertEquals(expected.plantPoints, actual.plantPoints, 1e-9)
-        assertEquals(expected.proteinPerPortion, actual.proteinPerPortion, 1e-9)
-        assertEquals(expected.carbsPerPortion, actual.carbsPerPortion, 1e-9)
-    }
-
-    @Test
-    fun read_rejectsVersion4EntryWithoutRecipe() = runTest {
-        val v5 = Json.parseToJsonElement(source.export()).jsonObject
-        val orphan = Json.parseToJsonElement("""[{"id": 1, "recipeId": 99, "cookedOn": "2026-09-30"}]""")
-        val v4 = JsonObject(v5 + ("formatVersion" to JsonPrimitive(4)) + ("cookLog" to orphan)).toString()
-
-        assertEquals(InvalidBackupException.Reason.NOT_A_BACKUP, readError(v4).reason)
+        assertEquals(InvalidBackupException.Reason.NOT_A_BACKUP, readError(unknown).reason)
     }
 
     @Test
@@ -421,12 +265,10 @@ class BackupRepositoryTest {
                     fdcId = 168482,
                     usdaDescription = "Sweet potato, raw",
                     plantPoints = PlantPoints.ONE,
-                    pieceWeight = PieceWeight(PieceUnit.PIECE, 250.0, 1),
                 ),
                 ingredient(id = 5, name = "Reis, trocken").copy(
                     storeSection = StoreSection.DRY_GOODS,
                     reviewed = false,
-                    pieceWeight = PieceWeight(PieceUnit.PACKET, 500.0, 4),
                 ),
                 ingredient(id = 6, name = "Kichererbsen (Dose)").copy(
                     drainedWeight = DrainedWeight(400.0, 240.0),
@@ -439,9 +281,10 @@ class BackupRepositoryTest {
                 Recipe(8, "Skyr mit Banane", "", null, 1, 1, totalTimeMinutes = 2, dish = Dish.SNACK),
             ),
             lines = listOf(
-                RecipeIngredient(10, 2, 0, "300 g Süßkartoffel", 300.0, 3),
-                RecipeIngredient(11, 2, 1, "1 Tasse Reis", 180.5, 1),
-                RecipeIngredient(4, 7, 0, "Reis", 75.0, 5),
+                RecipeIngredient(10, 2, 0, 1.5, LineUnit.Of(PieceUnit.PIECE), 3),
+                RecipeIngredient(11, 2, 1, 180.5, LineUnit.Grams, 1, wording = "1 Tasse Reis"),
+                RecipeIngredient(12, 2, 2, 100.0, LineUnit.Milliliters, 6),
+                RecipeIngredient(4, 7, 0, 0.5, LineUnit.Of(PieceUnit.PACKET), 5),
             ),
             // Older entries have no kcal and fibre. Snapshots differ from the recipes' current values, as after an edit; they must survive as they are.
             cookLog = listOf(
@@ -451,6 +294,11 @@ class BackupRepositoryTest {
             ),
             aliases = listOf(IngredientAlias("reis basmati", 5), IngredientAlias("süßkartoffeln geschält", 3)),
             planned = listOf(PlannedRecipe(2, LocalDate.of(2026, 9, 29)), PlannedRecipe(7, LocalDate.of(2026, 10, 2))),
+            units = listOf(
+                IngredientUnit(3, PieceUnit.PIECE, 250.0),
+                IngredientUnit(5, PieceUnit.PACKET, 125.0, packageGrams = 500.0, packageCount = 4),
+                IngredientUnit(6, PieceUnit.CAN, 240.0),
+            ),
         )
     }
 

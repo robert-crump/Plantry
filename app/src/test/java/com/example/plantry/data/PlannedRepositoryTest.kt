@@ -198,7 +198,7 @@ class PlannedRepositoryTest {
             storeSection = StoreSection.OTHER, plantPoints = PlantPoints.ONE,
             reviewed = true,
         )
-        val lines = listOf(RecipeIngredient(1, 1, 0, "200 g Linsen", 200.0, 5))
+        val lines = listOf(RecipeLine(1, 1, 0, 200.0, LineUnit.Grams, 5))
         val planned = listOf(PlannedRecipe(2, today.minusDays(1)), PlannedRecipe(9, today), PlannedRecipe(1, today))
 
         val items = PlannedItem.of(planned, recipes, lines, mapOf(5L to lentils))

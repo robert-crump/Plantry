@@ -28,6 +28,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -72,7 +73,9 @@ import com.example.plantry.R
 import com.example.plantry.data.BookPage
 import com.example.plantry.data.BookSession
 import com.example.plantry.data.Ingredient
-import com.example.plantry.data.PieceWeight
+import com.example.plantry.data.IngredientUnit
+import com.example.plantry.data.LineAmount
+import com.example.plantry.data.LineUnit
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientAliases
 import com.example.plantry.data.IngredientSuggestions
@@ -105,8 +108,6 @@ import com.example.plantry.ui.settings.ApiKeyEntry
 import com.example.plantry.data.claude.ConnectionTester
 import com.example.plantry.ui.ingredient.LabelNutritionDialog
 import com.example.plantry.ui.ingredient.LabelNutritionForm
-import com.example.plantry.ui.ingredient.formatDecimal
-import com.example.plantry.ui.currentLocale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -230,6 +231,9 @@ class RecipeEditViewModel(
     private val ingredients: StateFlow<List<Ingredient>> = ingredientRepository.observeIngredients()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    private val storedUnits: StateFlow<Map<Long, List<IngredientUnit>>> = ingredientRepository.observeUnits()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
     /** Learned aliases, ingredient id by normalized wording. */
     private val aliases: StateFlow<Map<String, Long>> = ingredientRepository.observeAliases()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
@@ -254,6 +258,12 @@ class RecipeEditViewModel(
     val ingredientNames: StateFlow<Map<Long, String>> =
         combine(ingredients, _state.map { it.form.newIngredients }.distinctUntilChanged()) { all, new ->
             all.associate { it.id to it.name } + new.mapValues { it.value.proposal.name }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /** Units by ingredient id, including those of new ingredients by their temporary id. */
+    val ingredientUnits: StateFlow<Map<Long, List<IngredientUnit>>> =
+        combine(storedUnits, _state.map { it.form.newIngredients }.distinctUntilChanged()) { stored, new ->
+            stored + new.mapValues { (id, ingredient) -> ingredient.proposal.units(id) }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     /** Sources of other recipes matching what is typed into the source field. */
@@ -347,13 +357,13 @@ class RecipeEditViewModel(
         }
         _state.update { it.copy(scan = ScanState.Reading) }
         reading = viewModelScope.launch {
-            val result = scanner.scan(apiKey, settings.settings.value.scanModel, photo, ingredients.value)
+            val result = scanner.scan(apiKey, settings.settings.value.scanModel, photo, ingredients.value, storedUnits.value)
             _state.update { state ->
                 when (result) {
                     is ScanResult.Success -> {
                         // Claude never reads the book, so the source always comes from the session.
                         val book = bookSession.defaults(BookPage(source = "", page = result.recipe.page))
-                        state.copy(form = RecipeForm().withScan(result.recipe, book, aliases.value, pieceWeights()), scan = ScanState.Done)
+                        state.copy(form = RecipeForm().withScan(result.recipe, book, aliases.value), scan = ScanState.Done)
                     }
                     is ScanResult.Failure -> state.copy(scan = ScanState.Failed(result.reason))
                 }
@@ -401,7 +411,7 @@ class RecipeEditViewModel(
             _state.update { it.copy(lineEditor = editor.copy(proposalFailure = ClaudeFailure.NO_API_KEY)) }
             return
         }
-        val food = NewFood(newTempId(), name, editor.form.originalText.trim(), searchTerms = emptyList())
+        val food = NewFood(newTempId(), name, editor.form.wording.trim(), searchTerms = emptyList())
         _state.update { it.copy(lineEditor = editor.copy(proposing = true, proposalFailure = null)) }
         viewModelScope.launch {
             val result = newIngredientFinder.propose(apiKey, settings.settings.value.scanModel, listOf(food))
@@ -413,7 +423,10 @@ class RecipeEditViewModel(
                         val proposal = result.value.getValue(food.id)
                         state.copy(
                             form = state.form.withNewIngredient(food.id, proposal),
-                            lineEditor = current?.copy(form = current.form.withIngredient(food.id, proposal.name), proposing = false),
+                            lineEditor = current?.copy(
+                                form = current.form.withIngredient(food.id, proposal.name, proposal.units(food.id)),
+                                proposing = false,
+                            ),
                         )
                     }
                     is ClaudeResult.Failure ->
@@ -427,8 +440,9 @@ class RecipeEditViewModel(
     fun useCreatedIngredient(id: Long) {
         viewModelScope.launch {
             val ingredient = ingredientRepository.getIngredient(id) ?: return@launch
+            val units = ingredientRepository.getUnits(id)
             _state.update { state ->
-                state.copy(lineEditor = state.lineEditor?.let { it.copy(form = it.form.withIngredient(ingredient)) })
+                state.copy(lineEditor = state.lineEditor?.let { it.copy(form = it.form.withIngredient(ingredient, units)) })
             }
         }
     }
@@ -530,12 +544,12 @@ class RecipeEditViewModel(
     private fun lineEditor(form: RecipeForm, index: Int): LineEditorState {
         val line = form.lines[index]
         val name = line.ingredientId?.let { ingredientNames.value[it] }
-        val pieceWeight = line.ingredientId?.let { pieceWeights()[it] }
-        return LineEditorState(index, RecipeLineForm.from(line, name, pieceWeight), toNextProblem = form.problem(line) != null)
+        val units = line.ingredientId?.let { unitsOf(form)[it] }.orEmpty()
+        return LineEditorState(index, RecipeLineForm.from(line, name, units), toNextProblem = form.problem(line) != null)
     }
 
-    private fun pieceWeights(): Map<Long, PieceWeight> =
-        ingredients.value.mapNotNull { ingredient -> ingredient.pieceWeight?.let { ingredient.id to it } }.toMap()
+    /** Units by ingredient id, those of the new ingredients in [form] by their temporary id. */
+    private fun unitsOf(form: RecipeForm): Map<Long, List<IngredientUnit>> = storedUnits.value + form.newIngredientUnits()
 
     fun onLineFormChange(transform: RecipeLineForm.() -> RecipeLineForm) {
         _state.update { state ->
@@ -547,7 +561,7 @@ class RecipeEditViewModel(
         _state.update { state ->
             val editor = state.lineEditor ?: return@update state
             // A typed wording the user confirmed before needs no picking.
-            val line = editor.form.withAlias(aliases.value, ingredientNames.value, pieceWeights()).toFormLine()
+            val line = editor.form.withAlias(aliases.value, ingredientNames.value, unitsOf(state.form)).toFormLine()
             if (line == null || !state.form.isReady(line.ingredientId)) {
                 state.copy(lineEditor = editor.copy(showErrors = true))
             } else {
@@ -612,6 +626,7 @@ fun RecipeEditScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     val ingredientNames by viewModel.ingredientNames.collectAsStateWithLifecycle()
+    val ingredientUnits by viewModel.ingredientUnits.collectAsStateWithLifecycle()
     val sourceSuggestions by viewModel.sourceSuggestions.collectAsStateWithLifecycle()
     val photoSource = rememberPhotoSource(viewModel::onPhoto)
     var showingScanInfo by rememberSaveable { mutableStateOf(false) }
@@ -748,6 +763,7 @@ fun RecipeEditScreen(
                             LineItem(
                                 line = line,
                                 ingredientName = line.ingredientId?.let { ingredientNames[it] },
+                                units = line.ingredientId?.let { ingredientUnits[it] }.orEmpty(),
                                 problem = form.problem(line),
                                 onClick = { viewModel.editLine(index) },
                                 onRemove = { viewModel.removeLine(index) },
@@ -824,6 +840,7 @@ fun RecipeEditScreen(
                 newIngredient = editor.form.ingredientId?.let { form.newIngredients[it] },
                 hasNextProblem = editor.toNextProblem && editor.index?.let(form::nextProblem) != null,
                 suggestions = suggestions,
+                ingredientUnits = ingredientUnits,
                 onChange = viewModel::onLineFormChange,
                 onApply = viewModel::applyLine,
                 onDismiss = viewModel::dismissLineEditor,
@@ -1131,13 +1148,14 @@ private fun SourceField(
 }
 
 /**
- * One checklist row: original text, grams and the matched ingredient. A [problem] line stands out
+ * One checklist row: the line's text, how its grams come about and the matched ingredient. A [problem] line stands out
  * and says what is missing; a resolved one shows a ✓.
  */
 @Composable
 private fun LineItem(
     line: RecipeFormLine,
     ingredientName: String?,
+    units: List<IngredientUnit>,
     problem: LineProblem?,
     onClick: () -> Unit,
     onRemove: () -> Unit,
@@ -1167,11 +1185,12 @@ private fun LineItem(
             label?.let {
                 Text(stringResource(it), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
             }
-            Text(line.originalText, style = MaterialTheme.typography.bodyLarge)
+            val resolved = LineAmount.resolve(line.amount, line.unit, units, ingredientName ?: line.ingredientName, line.wording)
+            Text(resolved.text, style = MaterialTheme.typography.bodyLarge)
             Text(
                 stringResource(
                     R.string.recipe_line_amount,
-                    if (line.grams > 0.0) formatDecimal(line.grams, currentLocale()) else "?",
+                    resolved.calculation?.takeIf { line.amount > 0.0 } ?: "?",
                     ingredientName ?: stringResource(R.string.recipe_line_no_ingredient),
                 ),
                 style = MaterialTheme.typography.bodyMedium,
@@ -1191,6 +1210,7 @@ private fun LineEditorDialog(
     /** Applying moves on to another problem line, so the confirm button reads "Weiter". */
     hasNextProblem: Boolean,
     suggestions: List<Ingredient>,
+    ingredientUnits: Map<Long, List<IngredientUnit>>,
     onChange: (RecipeLineForm.() -> RecipeLineForm) -> Unit,
     onApply: () -> Unit,
     onDismiss: () -> Unit,
@@ -1212,40 +1232,39 @@ private fun LineEditorDialog(
                 Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FormField(
-                    value = form.originalText,
-                    onValueChange = { onChange { withText(it) } },
-                    label = R.string.recipe_line_text,
-                    hint = R.string.recipe_line_text_hint,
-                    capitalize = true,
-                    imeAction = ImeAction.Next,
-                )
-                // With an ingredient already chosen, the keyboard's action on the grams applies the line.
-                val gramsLast = form.ingredientId != null
-                FormField(
-                    value = form.grams,
-                    onValueChange = { onChange { withGrams(it) } },
-                    label = R.string.recipe_line_grams,
-                    error = if (errors?.grams == true) R.string.error_positive_decimal else null,
-                    supportingText = form.autoAmount()?.calculation(),
-                    keyboardType = KeyboardType.Decimal,
-                    imeAction = if (!gramsLast) ImeAction.Next else if (hasNextProblem) ImeAction.Go else ImeAction.Done,
-                    onImeAction = if (gramsLast) onApply else null,
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FormField(
+                        value = form.amount,
+                        onValueChange = { onChange { withAmount(it) } },
+                        label = R.string.recipe_line_amount_field,
+                        error = if (errors?.amount == true) R.string.error_positive_decimal else null,
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Next,
+                        modifier = Modifier.weight(1f),
+                    )
+                    UnitField(
+                        unit = form.unit,
+                        options = form.unitOptions(),
+                        onSelect = { onChange { withUnit(it) } },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                form.resolved()?.calculation?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 FormField(
                     value = form.ingredientQuery,
                     onValueChange = { onChange { withIngredientQuery(it) } },
                     label = R.string.recipe_line_ingredient,
                     error = if (errors?.ingredient == true) R.string.error_ingredient_required else null,
                     capitalize = true,
-                    imeAction = if (hasNextProblem) ImeAction.Go else ImeAction.Done,
-                    onImeAction = onApply,
+                    imeAction = ImeAction.Next,
                 )
                 suggestions.forEach { ingredient ->
                     ListItem(
                         headlineContent = { Text(ingredient.name) },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable { onChange { withIngredient(ingredient) } },
+                        modifier = Modifier.clickable { onChange { withIngredient(ingredient, ingredientUnits[ingredient.id].orEmpty()) } },
                     )
                 }
                 if (form.ingredientId == null && form.ingredientQuery.isNotBlank() && suggestions.isEmpty()) {
@@ -1290,6 +1309,15 @@ private fun LineEditorDialog(
                         )
                     }
                 }
+                FormField(
+                    value = form.wording,
+                    onValueChange = { onChange { withWording(it) } },
+                    label = R.string.recipe_line_text,
+                    hint = R.string.recipe_line_text_hint,
+                    capitalize = true,
+                    imeAction = if (hasNextProblem) ImeAction.Go else ImeAction.Done,
+                    onImeAction = onApply,
+                )
             }
         },
         confirmButton = {
@@ -1299,6 +1327,37 @@ private fun LineEditorDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
+}
+
+/** The line's unit, picked from g, ml and the ingredient's units. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun UnitField(unit: LineUnit, options: List<LineUnit>, onSelect: (LineUnit) -> Unit, modifier: Modifier = Modifier) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
+        OutlinedTextField(
+            value = LineAmount.word(unit),
+            onValueChange = {},
+            readOnly = true,
+            singleLine = true,
+            label = { Text(stringResource(R.string.recipe_line_unit)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(LineAmount.word(option)) },
+                    onClick = {
+                        onSelect(option)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
 }
 
 @Composable

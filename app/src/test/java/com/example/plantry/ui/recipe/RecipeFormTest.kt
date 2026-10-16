@@ -2,6 +2,8 @@ package com.example.plantry.ui.recipe
 
 import com.example.plantry.data.BookPage
 import com.example.plantry.data.Dish
+import com.example.plantry.data.IngredientUnit
+import com.example.plantry.data.LineUnit
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PieceWeight
@@ -13,7 +15,7 @@ import com.example.plantry.data.claude.NewFood
 import com.example.plantry.data.claude.NutritionSource
 import com.example.plantry.data.usda.UsdaFood
 import com.example.plantry.data.RecipeDraft
-import com.example.plantry.data.RecipeIngredient
+import com.example.plantry.data.RecipeLine
 import com.example.plantry.data.RecipeIngredientDraft
 import com.example.plantry.data.claude.ScannedLine
 import com.example.plantry.data.claude.ScannedRecipe
@@ -132,16 +134,16 @@ class RecipeFormTest {
         assertFalse(errors.ourServings)
     }
 
-    private val tofu = RecipeIngredientDraft("200 g Tofu", 200.0, ingredientId = 7)
-    private val rice = RecipeIngredientDraft("1 Tasse Reis", 185.0, ingredientId = 8)
+    private val tofu = RecipeIngredientDraft(200.0, LineUnit.Grams, 7, "200 g Tofu")
+    private val rice = RecipeIngredientDraft(185.0, LineUnit.Grams, 8, "1 Tasse Reis")
 
     @Test
     fun withLine_appendsOrReplacesAndRemoveLineDeletes() {
-        val form = valid.withLine(null, tofu).withLine(null, rice).withLine(0, tofu.copy(grams = 300.0))
+        val form = valid.withLine(null, tofu).withLine(null, rice).withLine(0, tofu.copy(amount = 300.0))
 
-        assertEquals(listOf(tofu.copy(grams = 300.0), rice), form.completeLines())
+        assertEquals(listOf(tofu.copy(amount = 300.0), rice), form.completeLines())
         assertEquals(listOf(rice), form.removeLine(0).completeLines())
-        assertEquals(listOf(tofu.copy(grams = 300.0), rice), form.toDraft()!!.lines)
+        assertEquals(listOf(tofu.copy(amount = 300.0), rice), form.toDraft()!!.lines)
     }
 
     @Test
@@ -167,7 +169,7 @@ class RecipeFormTest {
         assertEquals("4", form.ourServings)
         assertEquals("40", form.totalTime)
         assertEquals("15", form.activeTime)
-        assertEquals(RecipeFormLine("1 Bund Koriander", 30.0, null, "Koriander", uncertain = true), form.lines[1])
+        assertEquals(RecipeFormLine(30.0, LineUnit.Grams, null, wording = "1 Bund Koriander", ingredientName = "Koriander", uncertain = true), form.lines[1])
     }
 
     @Test
@@ -200,12 +202,12 @@ class RecipeFormTest {
         val form = valid.copy(
             lines = listOf(
                 // Claude's match, not confirmed by the user.
-                RecipeFormLine("200 g Tofu", 200.0, ingredientId = 7, ingredientName = "Tofu"),
-                RecipeFormLine("1 Dose Kichererbsen", 240.0, ingredientId = 3, ingredientName = "Kichererbsen, abgetropft", confirmed = true),
+                RecipeFormLine(200.0, LineUnit.Grams, ingredientId = 7, wording = "200 g Tofu", ingredientName = "Tofu"),
+                RecipeFormLine(240.0, LineUnit.Grams, ingredientId = 3, wording = "1 Dose Kichererbsen", ingredientName = "Kichererbsen, abgetropft", confirmed = true),
                 // Confirmed, but typed nothing: an existing line whose grams were changed.
-                RecipeFormLine("1 Tasse Reis", 185.0, ingredientId = 8, confirmed = true),
-                RecipeFormLine("200 g Räuchertofu", 200.0, ingredientId = -1, ingredientName = "Räuchertofu"),
-                RecipeFormLine("1 Zwiebel", 110.0, ingredientId = -2, ingredientName = "Zwiebel"),
+                RecipeFormLine(185.0, LineUnit.Grams, ingredientId = 8, wording = "1 Tasse Reis", confirmed = true),
+                RecipeFormLine(200.0, LineUnit.Grams, ingredientId = -1, wording = "200 g Räuchertofu", ingredientName = "Räuchertofu"),
+                RecipeFormLine(110.0, LineUnit.Grams, ingredientId = -2, wording = "1 Zwiebel", ingredientName = "Zwiebel"),
             ),
         )
 
@@ -227,7 +229,7 @@ class RecipeFormTest {
 
     @Test
     fun fieldErrors_ignoreTheLines() {
-        val incompleteLine = RecipeFormLine("1 Bund Koriander", 30.0, ingredientId = null)
+        val incompleteLine = RecipeFormLine(30.0, LineUnit.Grams, ingredientId = null, wording = "1 Bund Koriander")
 
         assertFalse(valid.withLine(null, incompleteLine).errors().fields)
         assertTrue(valid.copy(totalTime = "abc").errors().fields)
@@ -235,7 +237,7 @@ class RecipeFormTest {
 
     @Test
     fun unmatchedLine_blocksSaveAndIsLeftOutOfNutrition() {
-        val form = valid.withLine(null, tofu).withLine(null, RecipeFormLine("1 Bund Koriander", 30.0, ingredientId = null))
+        val form = valid.withLine(null, tofu).withLine(null, RecipeFormLine(30.0, LineUnit.Grams, ingredientId = null, wording = "1 Bund Koriander"))
 
         assertTrue(form.errors().lines)
         assertNull(form.toDraft())
@@ -244,7 +246,7 @@ class RecipeFormTest {
 
     @Test
     fun lineWithoutWeight_blocksSave() {
-        val form = valid.withLine(null, RecipeFormLine("Salz", 0.0, ingredientId = 7))
+        val form = valid.withLine(null, RecipeFormLine(0.0, LineUnit.Grams, ingredientId = 7, wording = "Salz"))
 
         assertTrue(form.errors().lines)
         assertNull(form.toDraft())
@@ -252,19 +254,19 @@ class RecipeFormTest {
 
     @Test
     fun resolvedLines_allowSave() {
-        val form = valid.withLine(null, RecipeFormLine("1 Bund Koriander", 30.0, ingredientId = null, uncertain = true))
-            .withLine(0, RecipeIngredientDraft("1 Bund Koriander", 25.0, ingredientId = 9))
+        val form = valid.withLine(null, RecipeFormLine(30.0, LineUnit.Grams, ingredientId = null, wording = "1 Bund Koriander", uncertain = true))
+            .withLine(0, RecipeIngredientDraft(25.0, LineUnit.Grams, 9, "1 Bund Koriander"))
 
         assertFalse(form.lines[0].uncertain)
-        assertEquals(listOf(RecipeIngredientDraft("1 Bund Koriander", 25.0, 9)), form.toDraft()!!.lines)
+        assertEquals(listOf(RecipeIngredientDraft(25.0, LineUnit.Grams, 9, "1 Bund Koriander")), form.toDraft()!!.lines)
     }
 
     @Test
     fun from_keepsLinesInStoredOrder() {
         val recipe = Recipe(1, "Bowl", "Buch", null, bookServings = 2, ourServings = 2, totalTimeMinutes = 20)
         val stored = listOf(
-            RecipeIngredient(10, recipeId = 1, position = 0, originalText = "200 g Tofu", grams = 200.0, ingredientId = 7),
-            RecipeIngredient(11, recipeId = 1, position = 1, originalText = "1 Tasse Reis", grams = 185.0, ingredientId = 8),
+            RecipeLine(10, recipeId = 1, position = 0, amount = 200.0, unit = LineUnit.Grams, ingredientId = 7, wording = "200 g Tofu"),
+            RecipeLine(11, recipeId = 1, position = 1, amount = 185.0, unit = LineUnit.Grams, ingredientId = 8, wording = "1 Tasse Reis"),
         )
 
         assertEquals(listOf(tofu, rice), RecipeForm.from(recipe, stored).completeLines())
@@ -278,10 +280,10 @@ class RecipeFormTest {
 
     private val scanned = valid.copy(
         lines = listOf(
-            RecipeFormLine("200 g Räuchertofu", 200.0, null, "Räuchertofu", searchTerms = listOf("tofu smoked")),
-            RecipeFormLine("200 g Tofu", 200.0, ingredientId = 7, ingredientName = "Tofu"),
-            RecipeFormLine("100 g räuchertofu", 100.0, null, " räuchertofu ", searchTerms = listOf("tofu")),
-            RecipeFormLine("1 Zwiebel", 110.0, null, "Zwiebel"),
+            RecipeFormLine(200.0, LineUnit.Grams, null, wording = "200 g Räuchertofu", ingredientName = "Räuchertofu", searchTerms = listOf("tofu smoked")),
+            RecipeFormLine(200.0, LineUnit.Grams, ingredientId = 7, wording = "200 g Tofu", ingredientName = "Tofu"),
+            RecipeFormLine(100.0, LineUnit.Grams, null, wording = "100 g räuchertofu", ingredientName = " räuchertofu ", searchTerms = listOf("tofu")),
+            RecipeFormLine(110.0, LineUnit.Grams, null, wording = "1 Zwiebel", ingredientName = "Zwiebel"),
         ),
     )
 
@@ -307,7 +309,7 @@ class RecipeFormTest {
     fun withProposals_assignsUnmatchedLinesAndKeepsResolvedOnes() {
         val foods = scanned.unmatchedFoods(ids())
         // Meanwhile the user picked an existing ingredient for the onion.
-        val edited = scanned.withLine(3, RecipeIngredientDraft("1 Zwiebel", 110.0, ingredientId = 9))
+        val edited = scanned.withLine(3, RecipeIngredientDraft(110.0, LineUnit.Grams, 9, "1 Zwiebel"))
 
         val form = edited.withProposals(foods, mapOf(-1L to proposal("Räuchertofu"), -2L to proposal("Zwiebel")))
 
@@ -334,7 +336,7 @@ class RecipeFormTest {
     @Test
     fun proposalWithoutUsdaEntry_cannotBeConfirmed_butPickingOneConfirmsIt() {
         val form = valid.withNewIngredient(-1, proposal("Räuchertofu", food = null))
-            .withLine(null, RecipeFormLine("200 g Räuchertofu", 200.0, ingredientId = -1))
+            .withLine(null, RecipeFormLine(200.0, LineUnit.Grams, ingredientId = -1, wording = "200 g Räuchertofu"))
 
         assertFalse(form.confirmNewIngredient(-1).isReady(-1))
         assertTrue(form.previewIngredients().isEmpty())
@@ -350,7 +352,7 @@ class RecipeFormTest {
     fun proposalWithoutUsdaEntry_labelValuesConfirmIt() {
         val label = Nutrition(180.0, 18.0, 2.0, 1.0, 11.0, 0.0)
         val form = valid.withNewIngredient(-1, proposal("Räuchertofu", food = null))
-            .withLine(null, RecipeFormLine("200 g Räuchertofu", 200.0, ingredientId = -1))
+            .withLine(null, RecipeFormLine(200.0, LineUnit.Grams, ingredientId = -1, wording = "200 g Räuchertofu"))
 
         val labelled = form.withNewIngredientLabel(-1, label)
 
@@ -374,12 +376,12 @@ class RecipeFormTest {
 
     private val checklist = valid.withNewIngredient(-1, proposal("Räuchertofu")).copy(
         lines = listOf(
-            RecipeFormLine("200 g Tofu", 200.0, ingredientId = 7),
-            RecipeFormLine("1 Bund Koriander", 30.0, ingredientId = null, ingredientName = "Koriander"),
-            RecipeFormLine("1 Tasse Reis", 185.0, ingredientId = 8),
-            RecipeFormLine("200 g Räuchertofu", 200.0, ingredientId = -1),
-            RecipeFormLine("Salz", 0.0, ingredientId = 9),
-            RecipeFormLine("1 Zwiebel", 110.0, ingredientId = 10, uncertain = true),
+            RecipeFormLine(200.0, LineUnit.Grams, ingredientId = 7, wording = "200 g Tofu"),
+            RecipeFormLine(30.0, LineUnit.Grams, ingredientId = null, wording = "1 Bund Koriander", ingredientName = "Koriander"),
+            RecipeFormLine(185.0, LineUnit.Grams, ingredientId = 8, wording = "1 Tasse Reis"),
+            RecipeFormLine(200.0, LineUnit.Grams, ingredientId = -1, wording = "200 g Räuchertofu"),
+            RecipeFormLine(0.0, LineUnit.Grams, ingredientId = 9, wording = "Salz"),
+            RecipeFormLine(110.0, LineUnit.Grams, ingredientId = 10, wording = "1 Zwiebel", uncertain = true),
         ),
     )
 
@@ -400,11 +402,11 @@ class RecipeFormTest {
 
     @Test
     fun uncertainLine_blocksSaveUntilApplied() {
-        val form = valid.withLine(null, RecipeFormLine("1 Zwiebel", 110.0, ingredientId = 10, uncertain = true))
+        val form = valid.withLine(null, RecipeFormLine(110.0, LineUnit.Grams, ingredientId = 10, wording = "1 Zwiebel", uncertain = true))
 
         assertTrue(form.errors().lines)
         assertNull(form.toDraft())
-        assertFalse(form.withLine(0, RecipeIngredientDraft("1 Zwiebel", 110.0, 10)).errors().lines)
+        assertFalse(form.withLine(0, RecipeIngredientDraft(110.0, LineUnit.Grams, 10, "1 Zwiebel")).errors().lines)
     }
 
     @Test
@@ -423,8 +425,8 @@ class RecipeFormTest {
     fun nextProblem_isNullWhenNoOtherProblemIsLeft() {
         val form = valid.copy(
             lines = listOf(
-                RecipeFormLine("200 g Tofu", 200.0, ingredientId = 7),
-                RecipeFormLine("Salz", 0.0, ingredientId = 9),
+                RecipeFormLine(200.0, LineUnit.Grams, ingredientId = 7, wording = "200 g Tofu"),
+                RecipeFormLine(0.0, LineUnit.Grams, ingredientId = 9, wording = "Salz"),
             ),
         )
 
@@ -452,51 +454,39 @@ class RecipeFormTest {
         assertTrue(RecipeForm().isEmpty)
         assertFalse(RecipeForm().copy(title = "C").isEmpty)
         assertFalse(RecipeForm().withBookServings("4").isEmpty)
-        assertFalse(RecipeForm().withLine(null, RecipeIngredientDraft("Salz", 1.0, 1)).isEmpty)
+        assertFalse(RecipeForm().withLine(null, RecipeIngredientDraft(1.0, LineUnit.Grams, 1, "Salz")).isEmpty)
     }
 
     @Test
-    fun withScan_parsedAmountsReplaceClaudesGrams() {
-        val toast = PieceWeight(PieceUnit.SLICE, 750.0, 20)
+    fun withScan_deliversEachLineAsGramsWithTheBookTextAsWording() {
         val scan = ScannedRecipe(
             title = "Snack",
             servings = 1,
             totalTimeMinutes = 5,
             page = null,
             lines = listOf(
-                ScannedLine("4 Scheiben Toast", 120.0, ingredientId = 5, ingredientName = "Toast", uncertain = true),
-                ScannedLine("150 g Mehl", 140.0, ingredientId = 6, ingredientName = "Mehl", uncertain = false),
-                ScannedLine("1 Bund Petersilie", 30.0, ingredientId = 7, ingredientName = "Petersilie", uncertain = true),
-                ScannedLine("2 Scheiben Käse", 40.0, ingredientId = 8, ingredientName = "Käse", uncertain = false),
-                // No ingredient matched: nothing to parse for.
-                ScannedLine("100 g Tahin", 90.0, ingredientId = null, ingredientName = "Tahin", uncertain = false),
+                ScannedLine("4 Scheiben Toast", 120.0, ingredientId = 5, ingredientName = "Toast", uncertain = false),
+                ScannedLine("1 Handvoll Rucola", 20.0, ingredientId = null, ingredientName = "Rucola", uncertain = true),
             ),
         )
 
-        val lines = RecipeForm().withScan(scan, pieceWeights = mapOf(5L to toast)).lines
+        val lines = RecipeForm().withScan(scan).lines
 
-        assertEquals(listOf(150.0, 150.0, 30.0, 40.0, 90.0), lines.map { it.grams })
-        assertEquals(listOf(false, false, true, false, false), lines.map { it.uncertain })
-        assertEquals(listOf(true, true, false, false, false), lines.map { it.gramsParsed })
+        assertEquals(listOf(120.0, 20.0), lines.map { it.amount })
+        assertEquals(listOf(LineUnit.Grams, LineUnit.Grams), lines.map { it.unit })
+        assertEquals(listOf("4 Scheiben Toast", "1 Handvoll Rucola"), lines.map { it.wording })
+        assertEquals(RecipeIngredientDraft(120.0, LineUnit.Grams, 5, "4 Scheiben Toast"), lines.first().toDraft())
     }
 
     @Test
-    fun withScan_parsesWithThePieceWeightOfTheAliasedIngredient() {
-        val scan = ScannedRecipe(
-            title = "Snack",
-            servings = 1,
-            totalTimeMinutes = 5,
-            page = null,
-            lines = listOf(ScannedLine("2 Scheiben Toastbrot", 60.0, ingredientId = 9, ingredientName = "Toastbrot", uncertain = false)),
+    fun newIngredientUnits_theProposedPieceWeightByTemporaryId() {
+        val egg = IngredientProposal(
+            name = "Ei", source = null, searchTerms = emptyList(), storeSection = StoreSection.DAIRY_CHILLED,
+            plantPoints = PlantPoints.ZERO, pieceWeight = PieceWeight(PieceUnit.PIECE, 55.0, 1),
         )
 
-        val line = RecipeForm().withScan(
-            scan,
-            aliases = mapOf("toastbrot" to 5L),
-            pieceWeights = mapOf(5L to PieceWeight(PieceUnit.SLICE, 750.0, 20)),
-        ).lines.single()
+        val form = RecipeForm().withNewIngredient(-3, egg)
 
-        assertEquals(5L, line.ingredientId)
-        assertEquals(75.0, line.grams, 0.0)
+        assertEquals(mapOf(-3L to listOf(IngredientUnit(-3, PieceUnit.PIECE, 55.0))), form.newIngredientUnits())
     }
 }

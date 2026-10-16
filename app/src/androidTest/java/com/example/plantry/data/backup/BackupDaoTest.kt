@@ -6,6 +6,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.PieceUnit
+import com.example.plantry.data.LineUnit
+import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlannedRecipe
@@ -57,7 +60,10 @@ class BackupDaoTest {
     private val snapshot = BackupSnapshot(
         ingredients = listOf(ingredient(1, "Reis, gekocht"), ingredient(5, "Reis, trocken")),
         recipes = listOf(Recipe(3, "Curry", "Buch", 12, 4, 2, 30, modified = true)),
-        lines = listOf(RecipeIngredient(8, 3, 0, "1 Tasse Reis", 180.0, 1), RecipeIngredient(9, 3, 1, "Reis", 50.0, 5)),
+        lines = listOf(
+            RecipeIngredient(8, 3, 0, 180.0, LineUnit.Grams, 1, wording = "1 Tasse Reis"),
+            RecipeIngredient(9, 3, 1, 0.5, LineUnit.Of(PieceUnit.PACKET), 5),
+        ),
         cookLog = listOf(
             CookLog(4, 3, LocalDate.of(2026, 9, 30), "Curry", RecipeStats(1.0, 20.0, 40.0)),
             // Its recipe was deleted.
@@ -65,6 +71,7 @@ class BackupDaoTest {
         ),
         aliases = listOf(IngredientAlias("basmati", 5), IngredientAlias("reis gegart", 1)),
         planned = listOf(PlannedRecipe(3, LocalDate.of(2026, 10, 1))),
+        units = listOf(IngredientUnit(5, PieceUnit.PACKET, 500.0), IngredientUnit(5, PieceUnit.TUB, 250.0, 1000.0, 4)),
     )
 
     @Test
@@ -80,7 +87,7 @@ class BackupDaoTest {
     @Test
     fun replaceAll_withBrokenReference_changesNothing() = runTest {
         dao.replaceAll(snapshot)
-        val broken = snapshot.copy(lines = listOf(RecipeIngredient(8, 3, 0, "?", 1.0, ingredientId = 404)))
+        val broken = snapshot.copy(lines = listOf(RecipeIngredient(8, 3, 0, 1.0, LineUnit.Grams, ingredientId = 404)))
 
         try {
             dao.replaceAll(broken)

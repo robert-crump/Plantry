@@ -120,7 +120,7 @@ object RecipeQuery {
      */
     fun run(
         recipes: List<Recipe>,
-        lines: List<RecipeIngredient>,
+        lines: List<RecipeLine>,
         ingredients: Map<Long, Ingredient>,
         lastCooked: Map<Long, LocalDate>,
         filter: RecipeFilter,
@@ -152,14 +152,14 @@ object RecipeQuery {
     }
 
     /** How many recipes use each ingredient, keyed by id; ingredients no recipe uses are left out. */
-    fun recipeCounts(lines: List<RecipeIngredient>, ingredients: Map<Long, Ingredient>): Map<Long, Int> =
+    fun recipeCounts(lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>): Map<Long, Int> =
         lines.filter { it.ingredientId in ingredients }
             .groupBy { it.ingredientId }
             .mapValues { (_, used) -> used.distinctBy { it.recipeId }.size }
 
     private fun item(
         recipe: Recipe,
-        recipeLines: List<RecipeIngredient>,
+        recipeLines: List<RecipeLine>,
         ingredients: Map<Long, Ingredient>,
         lastCooked: Map<Long, LocalDate>,
         wanted: List<Long>,

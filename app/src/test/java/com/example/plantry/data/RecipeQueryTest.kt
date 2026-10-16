@@ -24,11 +24,11 @@ class RecipeQueryTest {
     )
 
     private fun line(recipeId: Long, ingredient: Ingredient, grams: Double = 100.0) =
-        RecipeIngredient(recipeId = recipeId, position = 0, originalText = "", grams = grams, ingredientId = ingredient.id)
+        RecipeLine(recipeId = recipeId, position = 0, amount = grams, unit = LineUnit.Grams, ingredientId = ingredient.id)
 
     private fun run(
         recipes: List<Recipe>,
-        lines: List<RecipeIngredient> = emptyList(),
+        lines: List<RecipeLine> = emptyList(),
         filter: RecipeFilter = RecipeFilter(),
         sort: RecipeSort = RecipeSort.TITLE,
         lastCooked: Map<Long, LocalDate> = emptyMap(),
@@ -72,7 +72,7 @@ class RecipeQueryTest {
 
     @Test
     fun recipeCounts_skipLinesWithMissingIngredient() {
-        val missing = RecipeIngredient(recipeId = 1, position = 0, originalText = "", grams = 1.0, ingredientId = 99)
+        val missing = RecipeLine(recipeId = 1, position = 0, amount = 1.0, unit = LineUnit.Grams, ingredientId = 99)
 
         assertEquals(emptyMap<Long, Int>(), RecipeQuery.recipeCounts(listOf(missing), ingredients))
     }

@@ -41,7 +41,8 @@ import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
-import com.example.plantry.data.RecipeIngredient
+import com.example.plantry.data.RecipeLine
+import com.example.plantry.data.resolve
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeSnapshot
 import com.example.plantry.data.planner.RecipeSuggester
@@ -62,18 +63,19 @@ data class SuggestionCard(
     val recipeId: Long,
     val snapshot: RecipeSnapshot,
     val totalTimeMinutes: Int?,
-    /** The lines' original wording in recipe order, e.g. "1 Dose Kichererbsen, 2 TL Zucker". */
+    /** The lines as shown in recipe order, e.g. "1 Dose Kichererbsen, 200 g Reis". */
     val ingredients: String,
 ) {
     companion object {
         /** Lines are matched to [recipe] by id. */
-        fun of(recipe: Recipe, lines: List<RecipeIngredient>, ingredients: Map<Long, Ingredient>): SuggestionCard {
+        fun of(recipe: Recipe, lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>): SuggestionCard {
             val recipeLines = lines.filter { it.recipeId == recipe.id }
             return SuggestionCard(
                 recipeId = recipe.id,
                 snapshot = RecipeSnapshot.of(recipe, recipeLines, ingredients),
                 totalTimeMinutes = recipe.totalTimeMinutes,
-                ingredients = recipeLines.sortedBy { it.position }.joinToString(", ") { it.originalText },
+                ingredients = recipeLines.sortedBy { it.position }
+                    .joinToString(", ") { it.resolve(ingredients[it.ingredientId]?.name.orEmpty()).text },
             )
         }
     }

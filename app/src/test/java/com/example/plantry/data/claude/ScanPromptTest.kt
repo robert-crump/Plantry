@@ -3,6 +3,7 @@ package com.example.plantry.data.claude
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PieceWeight
+import com.example.plantry.data.toUnit
 import com.example.plantry.data.ingredient
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -36,13 +37,18 @@ class ScanPromptTest {
     fun `ingredient table lists the weight of one piece`() {
         val system = ScanPrompt.system(
             listOf(
-                ingredient(3, "Toast").copy(pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 20)),
-                ingredient(4, "Knoblauch").copy(pieceWeight = PieceWeight(PieceUnit.CLOVE, 4.0, 1)),
+                ingredient(3, "Toast"),
+                ingredient(4, "Knoblauch"),
                 ingredient(5, "Mehl"),
-                ingredient(6, "Brötchen").copy(pieceWeight = PieceWeight(PieceUnit.PIECE, 500.0, 6)),
-                ingredient(7, "Kidneybohnen (Dose)")
-                    .copy(drainedWeight = DrainedWeight(400.0, 240.0), pieceWeight = PieceWeight(PieceUnit.CAN, 400.0, 1)),
+                ingredient(6, "Brötchen"),
+                ingredient(7, "Kidneybohnen (Dose)").copy(drainedWeight = DrainedWeight(400.0, 240.0)),
             ),
+            units = listOf(
+                PieceWeight(PieceUnit.SLICE, 750.0, 20).toUnit(3),
+                PieceWeight(PieceUnit.CLOVE, 4.0, 1).toUnit(4),
+                PieceWeight(PieceUnit.PIECE, 500.0, 6).toUnit(6),
+                PieceWeight(PieceUnit.CAN, 400.0, 1).toUnit(7),
+            ).groupBy { it.ingredientId },
         )
 
         assertTrue(system.contains("3\tToast\t1 Scheibe = 37.5 g\n"))

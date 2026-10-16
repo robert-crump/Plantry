@@ -13,6 +13,11 @@ class IngredientRepository(private val dao: IngredientDao) {
 
     suspend fun getIngredient(id: Long): Ingredient? = dao.getById(id)
 
+    /** The units of every ingredient, by ingredient id; ingredients without units are left out. */
+    fun observeUnits(): Flow<Map<Long, List<IngredientUnit>>> = dao.observeUnits().map { units -> units.groupBy { it.ingredientId } }
+
+    suspend fun getUnits(id: Long): List<IngredientUnit> = dao.getUnits(id)
+
     /** Learned aliases: ingredient id by normalized wording, see [IngredientAliases]. */
     fun observeAliases(): Flow<Map<String, Long>> =
         dao.observeAliases().map { aliases -> aliases.associate { it.wording to it.ingredientId } }
@@ -31,7 +36,7 @@ class IngredientRepository(private val dao: IngredientDao) {
     suspend fun create(seed: NewIngredientSeed, draft: IngredientDraft): Long {
         val label = draft.scannedLabel ?: seed.labelSource
         val scanned = draft.scannedLabel != null
-        return dao.insert(
+        return dao.insertWithUnits(
             Ingredient(
                 name = draft.name.trim(),
                 fdcId = if (scanned) null else seed.fdcId,
@@ -41,10 +46,10 @@ class IngredientRepository(private val dao: IngredientDao) {
                 plantPoints = draft.plantPoints,
                 reviewed = false,
                 drainedWeight = draft.drainedWeight,
-                pieceWeight = draft.pieceWeight,
                 labelSource = label,
                 origin = if (label != null) IngredientOrigin.BARCODE else IngredientOrigin.MANUAL,
             ),
+            draft.units(),
         )
     }
 
@@ -53,7 +58,7 @@ class IngredientRepository(private val dao: IngredientDao) {
      * and returns the new id for each. Every proposal needs a nutrition source.
      */
     suspend fun createProposed(proposals: Map<Long, IngredientProposal>): Map<Long, Long> =
-        proposals.mapValues { (_, proposal) -> dao.insert(proposal.toIngredient()) }
+        proposals.mapValues { (_, proposal) -> dao.insertWithUnits(proposal.toIngredient(), proposal.units()) }
 
     /** Sets the plant points or store section of [group] on each of [ids]; reviewed stays as it is. */
     suspend fun moveTo(ids: Set<Long>, group: SortGroup) {
@@ -82,35 +87,34 @@ class IngredientRepository(private val dao: IngredientDao) {
 
     /**
      * Saves the user's edits; reviewed stays as it is, see [setReviewed]. A
-     * [IngredientDraft.scannedLabel] becomes the source and clears the USDA reference.
+     * [IngredientDraft.scannedLabel] becomes the source and clears the USDA reference. Recipes
+     * using one of the ingredient's units follow a changed weight right away.
      *
-     * When the edit changes the piece weight, returns the recipe lines that would get other grams
-     * from it, for the user to confirm with [applyLineGrams]; null when there are none.
+     * Nothing is saved when the edit would remove a unit a recipe line still uses; returns the
+     * titles of those recipes then, empty once saved.
      */
-    suspend fun update(id: Long, draft: IngredientDraft): LineGramsUpdate? {
-        val existing = dao.getById(id) ?: return null
+    suspend fun update(id: Long, draft: IngredientDraft): List<String> {
+        val existing = dao.getById(id) ?: return emptyList()
+        val units = draft.units()
+        val kept = units.mapTo(mutableSetOf()) { it.unit }
+        val usedIn = dao.getUnits(id).map { it.unit }.filter { it !in kept }
+            .flatMap { dao.getRecipeTitlesUsingUnit(id, it) }
+            .distinct()
+        if (usedIn.isNotEmpty()) return usedIn
         val sourced = draft.scannedLabel?.let { existing.copy(fdcId = null, usdaDescription = null, labelSource = it) } ?: existing
-        dao.update(
+        dao.updateWithUnits(
             sourced.copy(
                 name = draft.name.trim(),
                 nutrition = draft.nutrition,
                 storeSection = draft.storeSection,
                 plantPoints = draft.plantPoints,
                 drainedWeight = draft.drainedWeight,
-                pieceWeight = draft.pieceWeight,
                 storeSectionUndecided = false,
                 plantPointsUndecided = false,
             ),
+            units,
         )
-        val pieceWeight = draft.pieceWeight
-        if (pieceWeight == null || !PieceWeightUpdate.changed(existing.pieceWeight, pieceWeight)) return null
-        val lines = PieceWeightUpdate.affectedLines(dao.getLinesUsing(id), pieceWeight)
-        return if (lines.isEmpty()) null else LineGramsUpdate(lines)
-    }
-
-    /** Gives the recipe lines their new grams in one transaction, see [update]. */
-    suspend fun applyLineGrams(update: LineGramsUpdate) {
-        dao.setLinesGrams(update.lines)
+        return emptyList()
     }
 
     suspend fun setReviewed(id: Long, reviewed: Boolean) {

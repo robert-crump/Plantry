@@ -1,16 +1,16 @@
 package com.example.plantry.ui.recipe
 
-import com.example.plantry.data.AmountParser
 import com.example.plantry.data.BookPage
 import com.example.plantry.data.BookSession
 import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAliases
 import com.example.plantry.data.Nutrition
-import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeDraft
-import com.example.plantry.data.RecipeIngredient
+import com.example.plantry.data.IngredientUnit
+import com.example.plantry.data.LineUnit
+import com.example.plantry.data.RecipeLine
 import com.example.plantry.data.RecipeIngredientDraft
 import com.example.plantry.data.claude.IngredientProposal
 import com.example.plantry.data.claude.NewFood
@@ -62,14 +62,12 @@ data class RecipeForm(
      * Takes what Claude read, with source and page from [book] (see [BookSession.defaults]); by
      * default the source is kept, since a page photo rarely shows the book. A line whose food name
      * is a learned alias (see [IngredientAliases]) gets that ingredient, whatever Claude matched.
-     * Where the amount of a line with an ingredient can be read ([AmountParser], with the piece
-     * weight from [pieceWeights] by ingredient id), its grams replace Claude's estimate.
+     * Each line comes in as Claude's grams, worded as printed.
      */
     fun withScan(
         scan: ScannedRecipe,
         book: BookPage = BookPage(source, scan.page),
         aliases: Map<String, Long> = emptyMap(),
-        pieceWeights: Map<Long, PieceWeight> = emptyMap(),
     ) = RecipeForm(
         title = scan.title,
         source = book.source,
@@ -80,16 +78,14 @@ data class RecipeForm(
         totalTime = scan.totalTimeMinutes?.toString().orEmpty(),
         lines = scan.lines.map {
             val aliased = IngredientAliases.match(it.ingredientName, aliases)
-            val ingredientId = aliased ?: it.ingredientId
-            val parsed = ingredientId?.let { id -> AmountParser.parse(it.originalText, pieceWeights[id]) }
             RecipeFormLine(
-                originalText = it.originalText,
-                grams = parsed?.grams ?: it.grams,
-                ingredientId = ingredientId,
+                amount = it.grams,
+                unit = LineUnit.Grams,
+                ingredientId = aliased ?: it.ingredientId,
+                wording = it.originalText,
                 ingredientName = it.ingredientName,
-                uncertain = it.uncertain && parsed == null,
+                uncertain = it.uncertain,
                 searchTerms = if (aliased != null) emptyList() else it.searchTerms,
-                gramsParsed = parsed != null,
             )
         },
     )
@@ -106,7 +102,7 @@ data class RecipeForm(
             NewFood(
                 id = newId(),
                 name = group.first().ingredientName.trim(),
-                originalText = group.first().originalText,
+                originalText = group.first().wording.orEmpty(),
                 searchTerms = ProposalParser.cleanTerms(group.flatMap { it.searchTerms }),
             )
         }
@@ -154,7 +150,7 @@ data class RecipeForm(
     fun problem(line: RecipeFormLine): LineProblem? = when {
         line.ingredientId == null -> LineProblem.NO_INGREDIENT
         !isReady(line.ingredientId) -> LineProblem.NEW_INGREDIENT
-        line.grams <= 0.0 -> LineProblem.NO_GRAMS
+        line.amount <= 0.0 -> LineProblem.NO_GRAMS
         line.uncertain -> LineProblem.UNCERTAIN
         else -> null
     }
@@ -175,6 +171,9 @@ data class RecipeForm(
     fun previewIngredients(): List<Ingredient> = newIngredients
         .filterValues { it.proposal.source != null }
         .map { (id, new) -> new.proposal.toIngredient(id) }
+
+    /** The units of the new ingredients, by temporary id. */
+    fun newIngredientUnits(): Map<Long, List<IngredientUnit>> = newIngredients.mapValues { (id, new) -> new.proposal.units(id) }
 
     /** The proposals to create on save: those a line uses. */
     fun newIngredientsToCreate(): Map<Long, IngredientProposal> {
@@ -237,7 +236,7 @@ data class RecipeForm(
     }
 
     companion object {
-        fun from(recipe: Recipe, lines: List<RecipeIngredient>) = RecipeForm(
+        fun from(recipe: Recipe, lines: List<RecipeLine>) = RecipeForm(
             title = recipe.title,
             source = recipe.source,
             page = recipe.page?.toString().orEmpty(),
@@ -271,11 +270,13 @@ data class RecipeFormErrors(
     val hasAny: Boolean get() = fields || lines || noLines
 }
 
-/** An ingredient line as edited; a scanned line may still lack an ingredient or a weight. */
+/** An ingredient line as edited; a scanned line may still lack an ingredient or an amount. */
 data class RecipeFormLine(
-    val originalText: String,
-    val grams: Double,
+    val amount: Double,
+    val unit: LineUnit,
     val ingredientId: Long?,
+    /** The line as the book words it; null shows the generated text. */
+    val wording: String? = null,
     /** Claude's German name for the food, the search term while [ingredientId] is null. */
     val ingredientName: String = "",
     /** Claude was unsure about this line; cleared once the user edits it. */
@@ -284,16 +285,14 @@ data class RecipeFormLine(
     val searchTerms: List<String> = emptyList(),
     /** The user applied the line in the editor, confirming [ingredientName] means [ingredientId]. */
     val confirmed: Boolean = false,
-    /** [grams] were read from the amount ([AmountParser]), so the line editor keeps them following it. */
-    val gramsParsed: Boolean = false,
 ) {
-    val complete: Boolean get() = ingredientId != null && grams > 0.0
+    val complete: Boolean get() = ingredientId != null && amount > 0.0
 
     fun toDraft(): RecipeIngredientDraft? =
-        if (complete) RecipeIngredientDraft(originalText, grams, ingredientId!!) else null
+        if (complete) RecipeIngredientDraft(amount, unit, ingredientId!!, wording) else null
 
     companion object {
-        fun from(line: RecipeIngredientDraft) = RecipeFormLine(line.originalText, line.grams, line.ingredientId)
+        fun from(line: RecipeIngredientDraft) = RecipeFormLine(line.amount, line.unit, line.ingredientId, line.wording)
     }
 }
 

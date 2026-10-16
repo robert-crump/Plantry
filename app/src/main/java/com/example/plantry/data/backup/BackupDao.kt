@@ -7,6 +7,7 @@ import androidx.room.Transaction
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
+import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
@@ -23,6 +24,9 @@ abstract class BackupDao : BackupStore {
 
     @Query("SELECT * FROM ingredients ORDER BY id")
     abstract suspend fun getIngredients(): List<Ingredient>
+
+    @Query("SELECT * FROM ingredient_units ORDER BY ingredientId, unit")
+    abstract suspend fun getUnits(): List<IngredientUnit>
 
     @Query("SELECT * FROM recipes ORDER BY id")
     abstract suspend fun getRecipes(): List<Recipe>
@@ -47,9 +51,10 @@ abstract class BackupDao : BackupStore {
         cookLog = getCookLog(),
         aliases = getAliases(),
         planned = getPlanned(),
+        units = getUnits(),
     )
 
-    /** All or nothing: a file with broken references (e.g. a line pointing nowhere) changes nothing. */
+    /** All or nothing: a file with broken references (e.g. an alias pointing nowhere) changes nothing. */
     @Transaction
     override suspend fun replaceAll(snapshot: BackupSnapshot) {
         deleteAliases()
@@ -57,8 +62,10 @@ abstract class BackupDao : BackupStore {
         deleteCookLog()
         deleteLines()
         deleteRecipes()
+        deleteUnits()
         deleteIngredients()
         insertIngredients(snapshot.ingredients)
+        insertUnits(snapshot.units)
         insertAliases(snapshot.aliases)
         insertRecipes(snapshot.recipes)
         insertLines(snapshot.lines)
@@ -81,11 +88,17 @@ abstract class BackupDao : BackupStore {
     @Query("DELETE FROM recipes")
     protected abstract suspend fun deleteRecipes()
 
+    @Query("DELETE FROM ingredient_units")
+    protected abstract suspend fun deleteUnits()
+
     @Query("DELETE FROM ingredients")
     protected abstract suspend fun deleteIngredients()
 
     @Insert
     protected abstract suspend fun insertIngredients(ingredients: List<Ingredient>)
+
+    @Insert
+    protected abstract suspend fun insertUnits(units: List<IngredientUnit>)
 
     @Insert
     protected abstract suspend fun insertAliases(aliases: List<IngredientAlias>)

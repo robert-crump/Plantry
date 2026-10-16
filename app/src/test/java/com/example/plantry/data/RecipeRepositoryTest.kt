@@ -16,8 +16,8 @@ class RecipeRepositoryTest {
     private val dao = FakeRecipeDao()
     private val repository = RecipeRepository(dao)
 
-    private val sweetPotato = RecipeIngredientDraft("1 große Süßkartoffel", 300.0, ingredientId = 1)
-    private val lentils = RecipeIngredientDraft("200 g rote Linsen", 200.0, ingredientId = 2)
+    private val sweetPotato = RecipeIngredientDraft(300.0, LineUnit.Grams, ingredientId = 1, wording = "1 große Süßkartoffel")
+    private val lentils = RecipeIngredientDraft(200.0, LineUnit.Grams, ingredientId = 2)
 
     private fun draft(
         bookServings: Int = 4,
@@ -89,11 +89,11 @@ class RecipeRepositoryTest {
     }
 
     @Test
-    fun create_storesLinesInOrderAndIsNotModified() = runTest {
-        val id = repository.create(draft(lines = listOf(sweetPotato.copy(originalText = " 1 Süßkartoffel "), lentils)))
+    fun create_storesLinesInOrderWithTrimmedWordingAndIsNotModified() = runTest {
+        val id = repository.create(draft(lines = listOf(sweetPotato.copy(wording = " 1 Süßkartoffel "), lentils.copy(wording = " "))))
 
         assertEquals(
-            listOf(sweetPotato.copy(originalText = "1 Süßkartoffel"), lentils),
+            listOf(sweetPotato.copy(wording = "1 Süßkartoffel"), lentils),
             repository.getLines(id).map { it.toDraft() },
         )
         assertEquals(listOf(0, 1), repository.getLines(id).map { it.position })
@@ -113,9 +113,9 @@ class RecipeRepositoryTest {
     fun update_withEditedLine_replacesLinesAndFlagsModified() = runTest {
         val id = repository.create(draft())
 
-        repository.update(id, draft(lines = listOf(sweetPotato, lentils.copy(grams = 300.0))))
+        repository.update(id, draft(lines = listOf(sweetPotato, lentils.copy(amount = 300.0))))
 
-        assertEquals(listOf(300.0, 300.0), repository.getLines(id).map { it.grams })
+        assertEquals(listOf(300.0, 300.0), repository.getLines(id).map { it.amount })
         assertTrue(repository.getRecipe(id)!!.modified)
     }
 
@@ -192,14 +192,17 @@ private class FakeRecipeDao : RecipeDao {
         deleteLines(id)
     }
 
-    override fun observeLines(recipeId: Long): Flow<List<RecipeIngredient>> =
-        lines.map { all -> all.filter { it.recipeId == recipeId }.sortedBy { it.position } }
+    override fun observeLines(recipeId: Long): Flow<List<RecipeLine>> =
+        observeAllLines().map { all -> all.filter { it.recipeId == recipeId }.sortedBy { it.position } }
 
-    override suspend fun getLines(recipeId: Long): List<RecipeIngredient> = observeLines(recipeId).first()
+    override suspend fun getLines(recipeId: Long): List<RecipeLine> = observeLines(recipeId).first()
 
-    override suspend fun getAllLines(): List<RecipeIngredient> = lines.value
+    override suspend fun getAllLines(): List<RecipeLine> = observeAllLines().first()
 
-    override fun observeAllLines(): Flow<List<RecipeIngredient>> = lines
+    /** Without units, so lines in g and ml only have grams. */
+    override fun observeAllLines(): Flow<List<RecipeLine>> = lines.map { all ->
+        all.map { RecipeLine(it.id, it.recipeId, it.position, it.amount, it.unit, it.ingredientId, it.wording) }
+    }
 
     override suspend fun insertLines(lines: List<RecipeIngredient>) {
         this.lines.value += lines.map { it.copy(id = nextLineId++) }

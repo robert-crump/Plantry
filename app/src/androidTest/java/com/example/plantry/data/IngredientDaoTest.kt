@@ -49,7 +49,7 @@ class IngredientDaoTest {
         totalTimeMinutes = null,
     )
 
-    private fun line(ingredientId: Long) = RecipeIngredientDraft("100 g", 100.0, ingredientId)
+    private fun line(ingredientId: Long) = RecipeIngredientDraft(100.0, LineUnit.Grams, ingredientId)
 
     @Test
     fun insert_thenGetById_roundTripsAllAttributes() = runTest {
@@ -128,17 +128,59 @@ class IngredientDaoTest {
     }
 
     @Test
-    fun setLinesGrams_changesOnlyTheGivenLinesOfTheIngredient() = runTest {
-        val toast = dao.insert(ingredient("Toast"))
-        val rice = dao.insert(ingredient("Reis"))
+    fun insertWithUnits_thenUpdateWithUnits_replacesTheUnits() = runTest {
+        val slice = IngredientUnit(0, PieceUnit.SLICE, 37.5, packageGrams = 750.0, packageCount = 20)
+        val id = dao.insertWithUnits(ingredient("Toast"), listOf(slice))
+
+        assertEquals(listOf(slice.copy(ingredientId = id)), dao.getUnits(id))
+
+        val can = IngredientUnit(0, PieceUnit.PACKET, 750.0)
+        dao.updateWithUnits(dao.getById(id)!!.copy(name = "Vollkorntoast"), listOf(can))
+
+        assertEquals(listOf(can.copy(ingredientId = id)), dao.getUnits(id))
+        assertEquals("Vollkorntoast", dao.getById(id)!!.name)
+    }
+
+    @Test
+    fun linesInAUnit_readTheirGramsFromIt_andFollowAChange() = runTest {
+        val toast = dao.insertWithUnits(ingredient("Toast"), listOf(IngredientUnit(0, PieceUnit.SLICE, 37.5, 750.0, 20)))
         val recipeDao = db.recipeDao()
-        recipeDao.insertWithLines(recipe("Croque"), listOf(RecipeIngredientDraft("4 Scheiben Toast", 150.0, toast), line(rice)))
-        recipeDao.insertWithLines(recipe("Arme Ritter"), listOf(RecipeIngredientDraft("2 Scheiben Toast", 75.0, toast)))
+        val id = recipeDao.insertWithLines(
+            recipe("Croque"),
+            listOf(
+                RecipeIngredientDraft(4.0, LineUnit.Of(PieceUnit.SLICE), toast),
+                RecipeIngredientDraft(200.0, LineUnit.Milliliters, toast),
+                RecipeIngredientDraft(50.0, LineUnit.Grams, toast),
+            ),
+        )
+        assertEquals(listOf(150.0, 200.0, 50.0), recipeDao.getLines(id).map { it.grams })
 
-        val lines = dao.getLinesUsing(toast)
-        dao.setLinesGrams(lines.map { it.copy(grams = it.grams + 1) })
+        dao.updateWithUnits(dao.getById(toast)!!, listOf(IngredientUnit(0, PieceUnit.SLICE, 34.0, 750.0, 22)))
 
-        assertEquals(listOf(151.0, 76.0), dao.getLinesUsing(toast).sortedBy { it.id }.map { it.grams })
-        assertEquals(listOf(100.0), dao.getLinesUsing(rice).map { it.grams })
+        assertEquals(listOf(136.0, 200.0, 50.0), recipeDao.observeLines(id).first().map { it.grams })
+    }
+
+    @Test
+    fun getRecipeTitlesUsingUnit_onlyRecipesWithALineInThatUnit() = runTest {
+        val toast = dao.insertWithUnits(
+            ingredient("Toast"),
+            listOf(IngredientUnit(0, PieceUnit.SLICE, 37.5), IngredientUnit(0, PieceUnit.PACKET, 750.0)),
+        )
+        val recipeDao = db.recipeDao()
+        recipeDao.insertWithLines(recipe("Croque"), listOf(RecipeIngredientDraft(4.0, LineUnit.Of(PieceUnit.SLICE), toast)))
+        recipeDao.insertWithLines(recipe("Arme Ritter"), listOf(RecipeIngredientDraft(2.0, LineUnit.Of(PieceUnit.SLICE), toast)))
+        recipeDao.insertWithLines(recipe("Brotsalat"), listOf(RecipeIngredientDraft(100.0, LineUnit.Grams, toast)))
+
+        assertEquals(listOf("Arme Ritter", "Croque"), dao.getRecipeTitlesUsingUnit(toast, PieceUnit.SLICE))
+        assertEquals(emptyList<String>(), dao.getRecipeTitlesUsingUnit(toast, PieceUnit.PACKET))
+    }
+
+    @Test
+    fun deleteById_takesTheUnitsAlong() = runTest {
+        val id = dao.insertWithUnits(ingredient("Toast"), listOf(IngredientUnit(0, PieceUnit.SLICE, 37.5)))
+
+        dao.deleteById(id)
+
+        assertEquals(emptyList<IngredientUnit>(), dao.getUnits(id))
     }
 }

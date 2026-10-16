@@ -44,20 +44,44 @@ interface IngredientDao {
     )
     suspend fun getRecipeTitlesUsing(id: Long): List<String>
 
-    /** Every recipe line of the ingredient, see [PieceWeightUpdate]. */
-    @Query("SELECT * FROM recipe_ingredients WHERE ingredientId = :id")
-    suspend fun getLinesUsing(id: Long): List<RecipeIngredient>
+    /** Titles of the recipes with a line in [unit] of ingredient [id]; while there are any, the unit can't be removed. */
+    @Query(
+        """
+        SELECT DISTINCT r.title FROM recipes r JOIN recipe_ingredients ri ON ri.recipeId = r.id
+        WHERE ri.ingredientId = :id AND ri.unit = :unit ORDER BY r.title COLLATE NOCASE
+        """,
+    )
+    suspend fun getRecipeTitlesUsingUnit(id: Long, unit: PieceUnit): List<String>
 
-    @Query("UPDATE recipe_ingredients SET grams = :grams WHERE id = :lineId")
-    suspend fun setLineGrams(lineId: Long, grams: Double)
+    @Query("SELECT * FROM ingredient_units ORDER BY ingredientId, unit")
+    fun observeUnits(): Flow<List<IngredientUnit>>
 
-    /** Gives each of [lines] its grams, all or none. */
+    @Query("SELECT * FROM ingredient_units WHERE ingredientId = :id ORDER BY unit")
+    suspend fun getUnits(id: Long): List<IngredientUnit>
+
+    @Insert
+    suspend fun insertUnits(units: List<IngredientUnit>)
+
+    @Query("DELETE FROM ingredient_units WHERE ingredientId = :id")
+    suspend fun deleteUnits(id: Long)
+
+    /** Inserts [ingredient] with [units] (whose ingredient id is ignored) and returns the new id. */
     @Transaction
-    suspend fun setLinesGrams(lines: List<RecipeIngredient>) {
-        lines.forEach { setLineGrams(it.id, it.grams) }
+    suspend fun insertWithUnits(ingredient: Ingredient, units: List<IngredientUnit>): Long {
+        val id = insert(ingredient)
+        insertUnits(units.map { it.copy(ingredientId = id) })
+        return id
     }
 
-    /** Aliases go with the ingredient. */
+    /** Updates [ingredient] and replaces all of its units with [units]. */
+    @Transaction
+    suspend fun updateWithUnits(ingredient: Ingredient, units: List<IngredientUnit>) {
+        update(ingredient)
+        deleteUnits(ingredient.id)
+        insertUnits(units.map { it.copy(ingredientId = ingredient.id) })
+    }
+
+    /** Aliases and units go with the ingredient. */
     @Query("DELETE FROM ingredients WHERE id = :id")
     suspend fun deleteById(id: Long)
 

@@ -82,7 +82,7 @@ class RecipeStatsTest {
     }
 
     private fun line(position: Int, grams: Double, ingredientId: Long) =
-        RecipeIngredient(id = position + 1L, recipeId = 1, position = position, originalText = "", grams = grams, ingredientId = ingredientId)
+        RecipeLine(id = position + 1L, recipeId = 1, position = position, amount = grams, unit = LineUnit.Grams, ingredientId = ingredientId)
 
     private fun ingredient(id: Long, name: String, points: PlantPoints, nutrition: Nutrition) =
         Ingredient(

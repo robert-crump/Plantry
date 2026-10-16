@@ -13,6 +13,8 @@ import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientOrigin
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceWeight
+import com.example.plantry.data.IngredientUnit
+import com.example.plantry.data.toUnit
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.settings.ScanModel
@@ -85,12 +87,14 @@ data class IngredientProposal(
             plantPoints = plantPoints,
             reviewed = false,
             drainedWeight = drainedWeight,
-            pieceWeight = pieceWeight,
             origin = IngredientOrigin.CLAUDE,
             storeSectionUndecided = storeSectionUndecided,
             plantPointsUndecided = plantPointsUndecided,
         )
     }
+
+    /** The unit rows to create with the ingredient, with [ingredientId] (its temporary id before that). */
+    fun units(ingredientId: Long = 0): List<IngredientUnit> = listOfNotNull(pieceWeight?.toUnit(ingredientId))
 }
 
 sealed interface ClaudeResult<out T> {

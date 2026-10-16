@@ -4,7 +4,8 @@ import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
-import com.example.plantry.data.RecipeIngredient
+import com.example.plantry.data.LineUnit
+import com.example.plantry.data.RecipeLine
 import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.StoreSection
 import org.junit.Assert.assertEquals
@@ -55,7 +56,7 @@ class WeeklyPlantPointsTest {
     }
 
     private fun lines(recipeId: Long, vararg ingredientIds: Long) = ingredientIds.mapIndexed { position, id ->
-        RecipeIngredient(recipeId = recipeId, position = position, originalText = "", grams = 100.0, ingredientId = id)
+        RecipeLine(recipeId = recipeId, position = position, amount = 100.0, unit = LineUnit.Grams, ingredientId = id)
     }
 
     private fun entry(recipeId: Long?, cookedOn: LocalDate) =

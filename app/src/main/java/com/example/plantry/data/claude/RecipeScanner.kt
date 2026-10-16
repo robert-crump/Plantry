@@ -11,8 +11,8 @@ import com.anthropic.models.messages.JsonOutputFormat
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.anthropic.models.messages.StopReason
-import com.example.plantry.data.AmountParser
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.settings.ScanModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -55,8 +55,14 @@ sealed interface ScanResult {
 }
 
 fun interface RecipeScanner {
-    /** Reads [photo] (JPEG) in one call, matching lines against [ingredients]. */
-    suspend fun scan(apiKey: String, model: ScanModel, photo: ByteArray, ingredients: List<Ingredient>): ScanResult
+    /** Reads [photo] (JPEG) in one call, matching lines against [ingredients], whose [units] are by ingredient id. */
+    suspend fun scan(
+        apiKey: String,
+        model: ScanModel,
+        photo: ByteArray,
+        ingredients: List<Ingredient>,
+        units: Map<Long, List<IngredientUnit>>,
+    ): ScanResult
 }
 
 class AnthropicRecipeScanner(private val models: ModelCatalog = ModelCatalog.shared) : RecipeScanner {
@@ -66,10 +72,11 @@ class AnthropicRecipeScanner(private val models: ModelCatalog = ModelCatalog.sha
         model: ScanModel,
         photo: ByteArray,
         ingredients: List<Ingredient>,
+        units: Map<Long, List<IngredientUnit>>,
     ): ScanResult = withContext(Dispatchers.IO) {
         val client = AnthropicOkHttpClient.builder().apiKey(apiKey).build()
         try {
-            val response = client.messages().create(request(models.resolve(apiKey, model).id, photo, ingredients))
+            val response = client.messages().create(request(models.resolve(apiKey, model).id, photo, ingredients, units))
             when (response.stopReason().orElse(null)) {
                 StopReason.REFUSAL -> return@withContext ScanResult.Failure(ClaudeFailure.REFUSED)
                 StopReason.MAX_TOKENS -> return@withContext ScanResult.Failure(ClaudeFailure.TRUNCATED)
@@ -87,11 +94,11 @@ class AnthropicRecipeScanner(private val models: ModelCatalog = ModelCatalog.sha
         }
     }
 
-    private fun request(modelId: String, photo: ByteArray, ingredients: List<Ingredient>) =
+    private fun request(modelId: String, photo: ByteArray, ingredients: List<Ingredient>, units: Map<Long, List<IngredientUnit>>) =
         MessageCreateParams.builder()
             .model(modelId)
             .maxTokens(16_000L)
-            .system(ScanPrompt.system(ingredients))
+            .system(ScanPrompt.system(ingredients, units))
             .outputConfig(
                 OutputConfig.builder()
                     .effort(OutputConfig.Effort.MEDIUM)
@@ -121,7 +128,7 @@ class AnthropicRecipeScanner(private val models: ModelCatalog = ModelCatalog.sha
 
 object ScanPrompt {
 
-    fun system(ingredients: List<Ingredient>): String = buildString {
+    fun system(ingredients: List<Ingredient>, units: Map<Long, List<IngredientUnit>> = emptyMap()): String = buildString {
         appendLine(
             """
             You read a photo of a cookbook page (usually German) for a meal-planning app and extract
@@ -169,10 +176,10 @@ object ScanPrompt {
         )
         ingredients.sortedBy { it.name.lowercase() }.forEach { ingredient ->
             val net = ingredient.drainedWeight?.let { "\t${containerWord(ingredient.name)} ${formatGrams(it.netWeightGrams)} g" }
-            val piece = ingredient.pieceWeight?.let {
-                "\t1 ${AmountParser.word(it.pieceUnit)} = ${formatGrams((it.gramsPerPiece * 10).roundToLong() / 10.0)} g"
+            val piece = units[ingredient.id].orEmpty().joinToString("") {
+                "\t1 ${it.unit.singular} = ${formatGrams((it.gramsPerUnit * 10).roundToLong() / 10.0)} g"
             }
-            appendLine("${ingredient.id}\t${ingredient.name}${net.orEmpty()}${piece.orEmpty()}")
+            appendLine("${ingredient.id}\t${ingredient.name}${net.orEmpty()}$piece")
         }
     }
 

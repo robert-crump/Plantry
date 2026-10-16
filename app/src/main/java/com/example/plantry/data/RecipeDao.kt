@@ -28,17 +28,17 @@ interface RecipeDao {
     @Query("DELETE FROM recipes WHERE id = :id")
     suspend fun deleteById(id: Long)
 
-    @Query("SELECT * FROM recipe_ingredients WHERE recipeId = :recipeId ORDER BY position")
-    fun observeLines(recipeId: Long): Flow<List<RecipeIngredient>>
+    @Query("$LINES WHERE ri.recipeId = :recipeId ORDER BY ri.position")
+    fun observeLines(recipeId: Long): Flow<List<RecipeLine>>
 
-    @Query("SELECT * FROM recipe_ingredients WHERE recipeId = :recipeId ORDER BY position")
-    suspend fun getLines(recipeId: Long): List<RecipeIngredient>
+    @Query("$LINES WHERE ri.recipeId = :recipeId ORDER BY ri.position")
+    suspend fun getLines(recipeId: Long): List<RecipeLine>
 
-    @Query("SELECT * FROM recipe_ingredients")
-    suspend fun getAllLines(): List<RecipeIngredient>
+    @Query(LINES)
+    suspend fun getAllLines(): List<RecipeLine>
 
-    @Query("SELECT * FROM recipe_ingredients")
-    fun observeAllLines(): Flow<List<RecipeIngredient>>
+    @Query(LINES)
+    fun observeAllLines(): Flow<List<RecipeLine>>
 
     @Insert
     suspend fun insertLines(lines: List<RecipeIngredient>)
@@ -60,5 +60,11 @@ interface RecipeDao {
         update(recipe)
         deleteLines(recipe.id)
         insertLines(lines.toEntities(recipe.id))
+    }
+
+    companion object {
+        /** The lines with the grams per unit of their ingredient, see [RecipeLine]; g and ml match no unit row. */
+        const val LINES = "SELECT ri.*, u.gramsPerUnit AS unitGrams FROM recipe_ingredients ri " +
+            "LEFT JOIN ingredient_units u ON u.ingredientId = ri.ingredientId AND u.unit = ri.unit"
     }
 }

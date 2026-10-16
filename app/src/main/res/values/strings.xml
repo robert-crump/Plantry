@@ -89,14 +89,15 @@
     </plurals>
     <string name="recipe_lines_less">Weniger anzeigen</string>
     <string name="recipe_line_open">Zutat öffnen</string>
-    <string name="recipe_line_amount">%1$s g · %2$s</string>
+    <string name="recipe_line_amount">%1$s · %2$s</string>
     <string name="recipe_line_add">Zutat hinzufügen</string>
     <string name="recipe_line_new">Neue Zeile</string>
     <string name="recipe_line_edit">Zeile bearbeiten</string>
     <string name="recipe_line_remove">Zeile entfernen</string>
-    <string name="recipe_line_text">Text laut Rezept</string>
+    <string name="recipe_line_text">Text laut Rezept (optional)</string>
     <string name="recipe_line_text_hint">z. B. „1 große Süßkartoffel“</string>
-    <string name="recipe_line_grams">Menge (g)</string>
+    <string name="recipe_line_amount_field">Menge</string>
+    <string name="recipe_line_unit">Einheit</string>
     <string name="recipe_line_ingredient">Zutat aus deiner Tabelle</string>
     <string name="recipe_line_no_match">Keine passende Zutat in deiner Tabelle.</string>
     <string name="recipe_line_uncertain">Unsicher – bitte prüfen</string>
@@ -303,12 +304,8 @@
     <string name="ingredient_piece_weight_summary_single">%1$s · %2$s g</string>
     <string name="ingredient_piece_weight_hint">Damit Rezepte die Menge in Stück angeben können, z. B. „4 Scheiben“.</string>
     <string name="ingredient_piece_unit">Einheit</string>
-    <plurals name="ingredient_piece_weight_recipes_title">
-        <item quantity="one">Stückgewicht in %d Rezept übernehmen?</item>
-        <item quantity="other">Stückgewicht in %d Rezepten übernehmen?</item>
-    </plurals>
-    <string name="ingredient_piece_weight_recipes_message">Die Mengen in Stück werden mit dem neuen Stückgewicht neu berechnet.</string>
-    <string name="ingredient_piece_weight_recipes_keep">Beibehalten</string>
+    <string name="ingredient_unit_in_use_title">Einheit wird noch verwendet</string>
+    <string name="ingredient_unit_in_use_message">Diese Rezepte geben „%1$s“ in dieser Einheit an. Sie kann erst entfernt oder geändert werden, wenn die Zeilen dort eine andere Einheit haben:\n\n%2$s</string>
     <string name="ingredient_piece_weight_package_question">Kommt in einer Packung mit Einzelteilen?</string>
     <string name="ingredient_piece_package_grams_field">Packungsgewicht (g)</string>
     <string name="ingredient_piece_grams_field">Gewicht pro Stück (g)</string>
@@ -435,6 +432,7 @@
     <string name="backup_error_io">Die Datei konnte nicht gelesen oder geschrieben werden.</string>
     <string name="backup_error_invalid">Das ist keine gültige Plantry-Sicherung.</string>
     <string name="backup_error_newer">Diese Sicherung stammt aus einer neueren App-Version. Bitte die App aktualisieren.</string>
+    <string name="backup_error_old">Diese Sicherung stammt aus einer älteren App-Version und kann nicht mehr importiert werden.</string>
     <string name="backup_error_import">Die Sicherung ist fehlerhaft. Es wurde nichts verändert.</string>
     <string name="backup_reminder">Deine letzte Sicherung ist über 30 Tage alt und seitdem hat sich etwas geändert.</string>
     <string name="backup_reminder_later">Später</string>

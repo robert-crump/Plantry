@@ -11,4 +11,11 @@ class Converters {
 
     @TypeConverter
     fun localDateFromEpochDay(epochDay: Long): LocalDate = LocalDate.ofEpochDay(epochDay)
+
+    /** A counted unit is stored by the same name as in [IngredientUnit.unit], so lines join their unit row. */
+    @TypeConverter
+    fun lineUnitToCode(unit: LineUnit): String = unit.code
+
+    @TypeConverter
+    fun lineUnitFromCode(code: String): LineUnit = checkNotNull(LineUnit.fromCode(code)) { "unknown unit $code" }
 }

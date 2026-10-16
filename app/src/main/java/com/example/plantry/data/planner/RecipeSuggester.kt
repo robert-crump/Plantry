@@ -7,10 +7,9 @@ import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientDao
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeDao
-import com.example.plantry.data.RecipeIngredient
+import com.example.plantry.data.RecipeLine
 import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.nutritionLines
-import com.example.plantry.data.toDraft
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import kotlin.random.Random
@@ -39,7 +38,7 @@ class RecipeSuggester(
     companion object {
         fun candidates(
             recipes: List<Recipe>,
-            lines: List<RecipeIngredient>,
+            lines: List<RecipeLine>,
             ingredients: List<Ingredient>,
             lastCooked: Map<Long, LocalDate>,
             today: LocalDate,
@@ -47,7 +46,7 @@ class RecipeSuggester(
             val ingredientsById = ingredients.associateBy { it.id }
             val linesByRecipe = lines.groupBy { it.recipeId }
             return recipes.filter { it.dish == Dish.MAIN }.map { recipe ->
-                val recipeLines = linesByRecipe[recipe.id].orEmpty().sortedBy { it.position }.map { it.toDraft() }
+                val recipeLines = linesByRecipe[recipe.id].orEmpty().sortedBy { it.position }
                 val nutrition = RecipeNutrition.calculate(nutritionLines(recipeLines, ingredientsById), recipe.ourServings)
                 Candidate(
                     recipeId = recipe.id,

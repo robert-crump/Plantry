@@ -8,14 +8,14 @@ class RecipeRepository(private val dao: RecipeDao) {
 
     fun observeRecipe(id: Long): Flow<Recipe?> = dao.observeById(id)
 
-    fun observeLines(recipeId: Long): Flow<List<RecipeIngredient>> = dao.observeLines(recipeId)
+    fun observeLines(recipeId: Long): Flow<List<RecipeLine>> = dao.observeLines(recipeId)
 
     /** The lines of all recipes. */
-    fun observeAllLines(): Flow<List<RecipeIngredient>> = dao.observeAllLines()
+    fun observeAllLines(): Flow<List<RecipeLine>> = dao.observeAllLines()
 
     suspend fun getRecipe(id: Long): Recipe? = dao.getById(id)
 
-    suspend fun getLines(recipeId: Long): List<RecipeIngredient> = dao.getLines(recipeId)
+    suspend fun getLines(recipeId: Long): List<RecipeLine> = dao.getLines(recipeId)
 
     /** Inserts a new recipe with its lines and returns its id. */
     suspend fun create(draft: RecipeDraft): Long =
@@ -33,7 +33,7 @@ class RecipeRepository(private val dao: RecipeDao) {
 
     suspend fun delete(id: Long) = dao.deleteById(id)
 
-    private fun RecipeDraft.normalizedLines() = lines.map { it.copy(originalText = it.originalText.trim()) }
+    private fun RecipeDraft.normalizedLines() = lines.map { it.normalized() }
 
     private fun RecipeDraft.toRecipe(id: Long, modified: Boolean) = Recipe(
         id = id,

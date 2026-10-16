@@ -88,6 +88,8 @@ class BackupViewModel(
                 when (e.reason) {
                     InvalidBackupException.Reason.NOT_A_BACKUP -> R.string.backup_error_invalid
                     InvalidBackupException.Reason.NEWER_VERSION -> R.string.backup_error_newer
+                    InvalidBackupException.Reason.OLD_FORMAT -> R.string.backup_error_old
+                    InvalidBackupException.Reason.BROKEN_REFERENCE -> R.string.backup_error_import
                 }
             } catch (_: IOException) {
                 R.string.backup_error_io

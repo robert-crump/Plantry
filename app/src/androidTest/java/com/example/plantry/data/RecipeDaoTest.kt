@@ -93,7 +93,7 @@ class RecipeDaoTest {
     fun insertWithLines_storesLinesInOrder() = runTest {
         val tofu = insertIngredient("Tofu")
         val rice = insertIngredient("Reis")
-        val lines = listOf(RecipeIngredientDraft("1 Tasse Reis", 185.0, rice), RecipeIngredientDraft("Tofu", 200.0, tofu))
+        val lines = listOf(RecipeIngredientDraft(185.0, LineUnit.Grams, rice, "1 Tasse Reis"), RecipeIngredientDraft(200.0, LineUnit.Milliliters, tofu))
 
         val id = dao.insertWithLines(recipe("Bowl"), lines)
 
@@ -104,24 +104,25 @@ class RecipeDaoTest {
     @Test
     fun updateWithLines_replacesAllLines() = runTest {
         val tofu = insertIngredient("Tofu")
-        val id = dao.insertWithLines(recipe("Bowl"), listOf(RecipeIngredientDraft("Tofu", 200.0, tofu)))
+        val id = dao.insertWithLines(recipe("Bowl"), listOf(RecipeIngredientDraft(200.0, LineUnit.Grams, tofu)))
 
         dao.updateWithLines(
             recipe("Bowl").copy(id = id, modified = true),
-            listOf(RecipeIngredientDraft("Tofu", 300.0, tofu), RecipeIngredientDraft("mehr Tofu", 50.0, tofu)),
+            listOf(RecipeIngredientDraft(300.0, LineUnit.Grams, tofu), RecipeIngredientDraft(50.0, LineUnit.Grams, tofu, "mehr Tofu")),
         )
 
         assertEquals(listOf(300.0, 50.0), dao.getLines(id).map { it.grams })
+        assertEquals(listOf(null, "mehr Tofu"), dao.getLines(id).map { it.wording })
         assertEquals(true, dao.getById(id)!!.modified)
     }
 
     @Test
     fun deleteById_cascadesToLines() = runTest {
         val tofu = insertIngredient("Tofu")
-        val id = dao.insertWithLines(recipe("Bowl"), listOf(RecipeIngredientDraft("Tofu", 200.0, tofu)))
+        val id = dao.insertWithLines(recipe("Bowl"), listOf(RecipeIngredientDraft(200.0, LineUnit.Grams, tofu)))
 
         dao.deleteById(id)
 
-        assertEquals(emptyList<RecipeIngredient>(), dao.getLines(id))
+        assertEquals(emptyList<RecipeLine>(), dao.getLines(id))
     }
 }

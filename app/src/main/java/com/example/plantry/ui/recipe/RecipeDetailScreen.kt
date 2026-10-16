@@ -69,13 +69,14 @@ import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeHighlight
-import com.example.plantry.data.RecipeIngredient
+import com.example.plantry.data.LineUnit
+import com.example.plantry.data.ResolvedAmount
+import com.example.plantry.data.resolve
 import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.nutritionLines
-import com.example.plantry.data.toDraft
 import com.example.plantry.ui.cooklog.PlanDatePickerDialog
 import com.example.plantry.ui.cooklog.formatPlannedDate
 import com.example.plantry.ui.cooklog.RecipeStatsRow
@@ -89,13 +90,16 @@ import java.time.LocalDate
 
 data class RecipeDetailUiState(
     val recipe: Recipe,
-    val lines: List<RecipeIngredient>,
+    val lines: List<ShownLine>,
     val nutrition: RecipeNutrition,
     val stats: RecipeStats,
     val highlights: Set<RecipeHighlight>,
     /** The day it is planned for; null while it isn't on Geplant. */
     val plannedOn: LocalDate?,
 )
+
+/** A line as the recipe shows it; [calculation] only where the text doesn't already say the grams. */
+data class ShownLine(val ingredientId: Long, val text: String, val calculation: String?)
 
 class RecipeDetailViewModel(
     private val recipeId: Long,
@@ -121,9 +125,13 @@ class RecipeDetailViewModel(
         val stats = RecipeStats.of(recipe, lines, byId)
         RecipeDetailUiState(
             recipe = recipe,
-            lines = lines,
+            lines = lines.map { line ->
+                val resolved: ResolvedAmount = line.resolve(byId[line.ingredientId]?.name.orEmpty())
+                val saysGrams = line.unit == LineUnit.Grams && line.wording == null
+                ShownLine(line.ingredientId, resolved.text, resolved.calculation.takeUnless { saysGrams })
+            },
             nutrition = RecipeNutrition.calculate(
-                nutritionLines(lines.map { it.toDraft() }, byId),
+                nutritionLines(lines, byId),
                 recipe.ourServings,
             ),
             stats = stats,
@@ -413,12 +421,12 @@ private fun TimerChip(text: String, modifier: Modifier) {
 }
 
 /**
- * The lines' original wording in recipe order, one per line. A long list shows only its first
+ * The lines in recipe order, one per line, each with its calculation where the text doesn't say the grams. A long list shows only its first
  * lines, see [collapsedLineCount], and a toggle below them for the rest; it starts collapsed
  * whenever the screen opens. Each line is tappable.
  */
 @Composable
-private fun IngredientList(lines: List<RecipeIngredient>, onLineClick: (RecipeIngredient) -> Unit) {
+private fun IngredientList(lines: List<ShownLine>, onLineClick: (ShownLine) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val collapsedCount = collapsedLineCount(lines.size)
     val hidden = lines.size - collapsedCount
@@ -437,7 +445,12 @@ private fun IngredientList(lines: List<RecipeIngredient>, onLineClick: (RecipeIn
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                Text(line.originalText, style = MaterialTheme.typography.bodyLarge)
+                Column {
+                    Text(line.text, style = MaterialTheme.typography.bodyLarge)
+                    line.calculation?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
         }
         if (hidden > 0) {

@@ -70,7 +70,7 @@ import com.example.plantry.R
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
-import com.example.plantry.data.LineGramsUpdate
+import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PieceWeight
@@ -111,8 +111,10 @@ data class IngredientDetailUiState(
     val createdId: Long? = null,
     /** The scanned barcode's lookup; null when there is none to show. */
     val barcode: BarcodeLookup? = null,
-    /** Set after a save changed the piece weight, while the user is asked whether recipes take it over. */
-    val lineGramsUpdate: LineGramsUpdate? = null,
+    /** The stored units of [ingredient]. */
+    val units: List<IngredientUnit> = emptyList(),
+    /** Set after a save was refused: the recipes still using a unit the edit removed. */
+    val unitInUse: List<String>? = null,
 )
 
 data class DeleteCheck(val usedIn: List<String>)
@@ -143,7 +145,8 @@ class IngredientDetailViewModel(
             }
         } else viewModelScope.launch {
             val ingredient = repository.getIngredient(ingredientId) ?: return@launch
-            _state.update { it.copy(ingredient = ingredient, form = IngredientForm.from(ingredient)) }
+            val units = repository.getUnits(ingredientId)
+            _state.update { it.copy(ingredient = ingredient, units = units, form = IngredientForm.from(ingredient, units)) }
         }
     }
 
@@ -158,7 +161,7 @@ class IngredientDetailViewModel(
     /** Leaves edit mode; with unsaved edits it asks first, see [discard]. */
     fun cancelEdit() {
         val current = _state.value
-        val unchanged = current.ingredient?.let { IngredientForm.from(it, drainedAnswered = !current.isNew) == current.form } ?: true
+        val unchanged = current.ingredient?.let { IngredientForm.from(it, current.units, drainedAnswered = !current.isNew) == current.form } ?: true
         if (unchanged) discard() else _state.update { it.copy(confirmDiscard = true) }
     }
 
@@ -174,7 +177,7 @@ class IngredientDetailViewModel(
         }
         _state.update {
             it.copy(
-                form = it.ingredient?.let { ingredient -> IngredientForm.from(ingredient) } ?: it.form,
+                form = it.ingredient?.let { ingredient -> IngredientForm.from(ingredient, it.units) } ?: it.form,
                 editing = false,
                 showErrors = false,
                 confirmDiscard = false,
@@ -198,30 +201,28 @@ class IngredientDetailViewModel(
             return
         }
         viewModelScope.launch {
-            val lineGrams = repository.update(ingredientId, draft)
+            val usedIn = repository.update(ingredientId, draft)
+            if (usedIn.isNotEmpty()) {
+                _state.update { it.copy(unitInUse = usedIn) }
+                return@launch
+            }
             val saved = repository.getIngredient(ingredientId) ?: return@launch
+            val units = repository.getUnits(ingredientId)
             _state.update {
                 it.copy(
                     ingredient = saved,
-                    form = IngredientForm.from(saved),
+                    units = units,
+                    form = IngredientForm.from(saved, units),
                     editing = false,
                     showErrors = false,
-                    lineGramsUpdate = lineGrams,
                 )
             }
         }
     }
 
-    /** Gives the recipes the grams from the new piece weight. */
-    fun applyLineGrams() {
-        val update = _state.value.lineGramsUpdate ?: return
-        _state.update { it.copy(lineGramsUpdate = null) }
-        viewModelScope.launch { repository.applyLineGrams(update) }
-    }
-
-    /** Leaves the recipes as they are. */
-    fun dismissLineGrams() {
-        _state.update { it.copy(lineGramsUpdate = null) }
+    /** Closes the message about a unit still in use; the edit stays open. */
+    fun dismissUnitInUse() {
+        _state.update { it.copy(unitInUse = null) }
     }
 
     fun setReviewed(reviewed: Boolean) {
@@ -389,19 +390,14 @@ fun IngredientDetailScreen(
                 dismissButton = { TextButton(onClick = viewModel::dismissDiscard) { Text(stringResource(R.string.action_cancel)) } },
             )
         }
-        state.lineGramsUpdate?.let { update ->
+        state.unitInUse?.let { usedIn ->
             AlertDialog(
-                onDismissRequest = viewModel::dismissLineGrams,
-                title = {
-                    Text(pluralStringResource(R.plurals.ingredient_piece_weight_recipes_title, update.recipeCount, update.recipeCount))
+                onDismissRequest = viewModel::dismissUnitInUse,
+                title = { Text(stringResource(R.string.ingredient_unit_in_use_title)) },
+                text = {
+                    Text(stringResource(R.string.ingredient_unit_in_use_message, ingredient.name, usedIn.joinToString("\n") { "• $it" }))
                 },
-                text = { Text(stringResource(R.string.ingredient_piece_weight_recipes_message)) },
-                confirmButton = {
-                    TextButton(onClick = viewModel::applyLineGrams) { Text(stringResource(R.string.action_apply)) }
-                },
-                dismissButton = {
-                    TextButton(onClick = viewModel::dismissLineGrams) { Text(stringResource(R.string.ingredient_piece_weight_recipes_keep)) }
-                },
+                confirmButton = { TextButton(onClick = viewModel::dismissUnitInUse) { Text(stringResource(R.string.action_ok)) } },
             )
         }
         state.deleteCheck?.let { check ->

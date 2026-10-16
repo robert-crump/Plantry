@@ -3,7 +3,8 @@ package com.example.plantry.data.planner
 import com.example.plantry.data.Dish
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.Recipe
-import com.example.plantry.data.RecipeIngredient
+import com.example.plantry.data.LineUnit
+import com.example.plantry.data.RecipeLine
 import com.example.plantry.data.ingredient
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -20,7 +21,7 @@ class RecipeSuggesterTest {
     )
 
     private fun line(recipeId: Long, grams: Double) =
-        RecipeIngredient(recipeId = recipeId, position = 0, originalText = "", grams = grams, ingredientId = tofu.id)
+        RecipeLine(recipeId = recipeId, position = 0, amount = grams, unit = LineUnit.Grams, ingredientId = tofu.id)
 
     @Test
     fun candidates_proteinPerPortionAndDaysSinceCooked() {

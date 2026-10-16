@@ -3,6 +3,7 @@ package com.example.plantry.ui.ingredient
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientDraft
+import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
@@ -31,6 +32,8 @@ data class IngredientForm(
     val pieceWeight: PieceWeight? = null,
     /** The package applied from a barcode scan; replaces the USDA reference on save. */
     val scannedLabel: LabelSource? = null,
+    /** Units besides [pieceWeight], which this form doesn't edit; kept on save. */
+    val otherUnits: List<IngredientUnit> = emptyList(),
 ) {
     fun withNutrient(nutrient: Nutrient, value: String) = copy(nutrition = nutrition + (nutrient to value))
 
@@ -64,19 +67,21 @@ data class IngredientForm(
             drainedWeight = drainedWeight,
             pieceWeight = pieceWeight,
             scannedLabel = scannedLabel,
+            otherUnits = otherUnits,
         )
     }
 
     companion object {
-        /** [drainedAnswered] is false for an ingredient that doesn't exist yet. */
-        fun from(ingredient: Ingredient, drainedAnswered: Boolean = true) = IngredientForm(
+        /** [drainedAnswered] is false for an ingredient that doesn't exist yet; the first of [units] is the piece weight. */
+        fun from(ingredient: Ingredient, units: List<IngredientUnit> = emptyList(), drainedAnswered: Boolean = true) = IngredientForm(
             name = ingredient.name,
             nutrition = Nutrient.entries.associateWith { formatDecimal(ingredient.nutrition[it]) },
             storeSection = ingredient.storeSection.takeUnless { ingredient.storeSectionUndecided },
             plantPoints = ingredient.plantPoints.takeUnless { ingredient.plantPointsUndecided },
             drainedWeight = ingredient.drainedWeight,
             drainedAnswered = drainedAnswered,
-            pieceWeight = ingredient.pieceWeight,
+            pieceWeight = units.firstOrNull()?.toPieceWeight(),
+            otherUnits = units.drop(1),
         )
     }
 }

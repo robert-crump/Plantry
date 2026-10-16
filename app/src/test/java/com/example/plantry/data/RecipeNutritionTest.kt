@@ -133,13 +133,29 @@ class RecipeNutritionTest {
     fun nutritionLines_lookUpIngredientsAndSkipMissingOnes() {
         val ingredient = ingredient(id = 1, name = "Tofu", nutrition = tofu)
 
-        val lines = nutritionLines(
-            listOf(RecipeIngredientDraft("200 g Tofu", 200.0, 1), RecipeIngredientDraft("x", 50.0, 99)),
-            mapOf(1L to ingredient),
-        )
+        val lines = nutritionLines(listOf(line(200.0, LineUnit.Grams, 1), line(50.0, LineUnit.Grams, 99)), mapOf(1L to ingredient))
 
         assertEquals(listOf(NutritionLine(1, "Tofu", 200.0, tofu)), lines)
     }
+
+    @Test
+    fun nutritionLines_gramsFromTheIngredientsUnits_mlAsGrams_lineInAMissingUnitSkipped() {
+        val toast = ingredient(id = 1, name = "Toast", nutrition = tofu)
+
+        val lines = nutritionLines(
+            listOf(
+                line(2.0, LineUnit.Of(PieceUnit.SLICE), 1, unitGrams = 37.5),
+                line(200.0, LineUnit.Milliliters, 1),
+                line(1.0, LineUnit.Of(PieceUnit.CAN), 1, unitGrams = null),
+            ),
+            mapOf(1L to toast),
+        )
+
+        assertEquals(listOf(75.0, 200.0), lines.map { it.grams })
+    }
+
+    private fun line(amount: Double, unit: LineUnit, ingredientId: Long, unitGrams: Double? = null) =
+        RecipeLine(recipeId = 1, position = 0, amount = amount, unit = unit, ingredientId = ingredientId, unitGrams = unitGrams)
 
     @Test
     fun drainedIngredient_countsOnlyTheDrainedShareOfTheContainerWeight() {
@@ -147,7 +163,7 @@ class RecipeNutritionTest {
         val can = ingredient(id = 1, name = "Kichererbsen (Dose)", nutrition = chickpeas)
             .copy(drainedWeight = DrainedWeight(netWeightGrams = 400.0, drainedWeightGrams = 240.0))
 
-        val lines = nutritionLines(listOf(RecipeIngredientDraft("1 Dose Kichererbsen", 400.0, 1)), mapOf(1L to can))
+        val lines = nutritionLines(listOf(line(400.0, LineUnit.Grams, 1)), mapOf(1L to can))
 
         assertEquals(240.0, lines.single().grams, 1e-9)
         assertNutrition(chickpeas.scaled(2.4), RecipeNutrition.calculate(lines, servings = 1).perPortion)

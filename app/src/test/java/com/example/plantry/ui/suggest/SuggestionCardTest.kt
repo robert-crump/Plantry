@@ -1,8 +1,10 @@
 package com.example.plantry.ui.suggest
 
+import com.example.plantry.data.LineUnit
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.Recipe
-import com.example.plantry.data.RecipeIngredient
+import com.example.plantry.data.RecipeLine
 import com.example.plantry.data.ingredient
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -17,15 +19,25 @@ class SuggestionCardTest {
         bookServings = 2, ourServings = 2, totalTimeMinutes = minutes,
     )
 
-    private fun line(recipeId: Long, position: Int, text: String, ingredientId: Long, grams: Double = 100.0) =
-        RecipeIngredient(recipeId = recipeId, position = position, originalText = text, grams = grams, ingredientId = ingredientId)
+    private fun line(
+        recipeId: Long,
+        position: Int,
+        ingredientId: Long,
+        amount: Double = 100.0,
+        unit: LineUnit = LineUnit.Grams,
+        wording: String? = null,
+        unitGrams: Double? = null,
+    ) = RecipeLine(
+        recipeId = recipeId, position = position, amount = amount, unit = unit, ingredientId = ingredientId,
+        wording = wording, unitGrams = unitGrams,
+    )
 
     @Test
-    fun of_ingredientWordingInRecipeOrder_onlyThisRecipesLines() {
+    fun of_linesAsShownInRecipeOrder_onlyThisRecipesLines() {
         val lines = listOf(
-            line(1, 1, "2 TL Zucker", sugar.id, grams = 8.0),
-            line(2, 0, "1 Prise Salz", sugar.id),
-            line(1, 0, "1 Dose Kichererbsen", chickpeas.id, grams = 250.0),
+            line(1, 1, sugar.id, amount = 8.0, wording = "2 TL Zucker"),
+            line(2, 0, sugar.id, wording = "1 Prise Salz"),
+            line(1, 0, chickpeas.id, amount = 1.0, unit = LineUnit.Of(PieceUnit.CAN), unitGrams = 250.0),
         )
 
         val card = SuggestionCard.of(recipe(1), lines, listOf(chickpeas, sugar).associateBy { it.id })
