@@ -33,6 +33,8 @@ class IngredientRepositoryTest {
         plantPoints = PlantPoints.QUARTER,
     )
 
+    private fun slice(count: Int) = IngredientUnit.ofPackage(PieceUnit.SLICE, 750.0, count)!!
+
     private val decided = IngredientDraft(
         name = "",
         nutrition = Nutrition(),
@@ -201,10 +203,10 @@ class IngredientRepositoryTest {
     }
 
     @Test
-    fun create_storesThePieceWeightAsAUnitAsEntered() = runTest {
+    fun create_storesTheUnitsAsEntered() = runTest {
         val id = repository.create(
             NewIngredientSeed("Toast", Nutrition()),
-            decided.copy(name = "Toast", pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 20)),
+            decided.copy(name = "Toast", units = listOfNotNull(IngredientUnit.ofPackage(PieceUnit.SLICE, 750.0, 20))),
         )
 
         assertEquals(listOf(IngredientUnit(id, PieceUnit.SLICE, 37.5, 750.0, 20)), repository.getUnits(id))
@@ -212,7 +214,7 @@ class IngredientRepositoryTest {
 
     @Test
     fun createProposed_storesTheProposedPieceWeightAsAUnit() = runTest {
-        val egg = proposal(riceDry, "Ei").copy(pieceWeight = PieceWeight(PieceUnit.PIECE, 55.0, 1))
+        val egg = proposal(riceDry, "Ei").copy(pieceWeight = IngredientUnit(0, PieceUnit.PIECE, 55.0))
 
         val id = repository.createProposed(mapOf(-1L to egg)).getValue(-1)
 
@@ -223,10 +225,10 @@ class IngredientRepositoryTest {
     fun update_changedUnitWeight_isSavedWithoutAsking() = runTest {
         val id = repository.createFromLabel("Toast", Nutrition())
         val toast = repository.getIngredient(id)!!
-        repository.update(id, draft(toast).copy(pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 20)))
+        repository.update(id, draft(toast).copy(units = listOf(slice(20))))
         dao.unitTitles[id to PieceUnit.SLICE] = listOf("Croque")
 
-        val usedIn = repository.update(id, draft(toast).copy(pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 22)))
+        val usedIn = repository.update(id, draft(toast).copy(units = listOf(slice(22))))
 
         assertEquals(emptyList<String>(), usedIn)
         assertEquals(750.0 / 22, repository.getUnits(id).single().gramsPerUnit, 1e-9)
@@ -236,36 +238,40 @@ class IngredientRepositoryTest {
     fun update_removingOrReplacingAUnitInUse_isRefusedWithTheRecipes_nothingSaved() = runTest {
         val id = repository.createFromLabel("Toast", Nutrition())
         val toast = repository.getIngredient(id)!!
-        val slice = PieceWeight(PieceUnit.SLICE, 750.0, 20)
-        repository.update(id, draft(toast).copy(pieceWeight = slice))
+        val slice = slice(20)
+        repository.update(id, draft(toast).copy(units = listOf(slice)))
         dao.unitTitles[id to PieceUnit.SLICE] = listOf("Croque", "Toast Hawaii")
 
         assertEquals(listOf("Croque", "Toast Hawaii"), repository.update(id, draft(toast).copy(name = "Brot")))
-        assertEquals(listOf("Croque", "Toast Hawaii"), repository.update(id, draft(toast).copy(pieceWeight = PieceWeight(PieceUnit.PACKET, 750.0, 1))))
+        assertEquals(listOf("Croque", "Toast Hawaii"), repository.update(id, draft(toast).copy(units = listOf(IngredientUnit(0, PieceUnit.PACKET, 750.0)))))
 
         assertEquals("Toast", repository.getIngredient(id)!!.name)
-        assertEquals(listOf(slice.toUnit(id)), repository.getUnits(id))
+        assertEquals(listOf(slice.copy(ingredientId = id)), repository.getUnits(id))
     }
 
     @Test
     fun update_removingAnUnusedUnit_isSaved() = runTest {
         val id = repository.createFromLabel("Toast", Nutrition())
         val toast = repository.getIngredient(id)!!
-        repository.update(id, draft(toast).copy(pieceWeight = PieceWeight(PieceUnit.SLICE, 750.0, 20)))
+        repository.update(id, draft(toast).copy(units = listOf(slice(20))))
 
         assertEquals(emptyList<String>(), repository.update(id, draft(toast)))
         assertEquals(emptyList<IngredientUnit>(), repository.getUnits(id))
     }
 
     @Test
-    fun update_keepsTheUnitsTheFormDoesNotEdit() = runTest {
+    fun update_savesSeveralUnits_andRemovesAnUnusedOneWhileAnotherIsInUse() = runTest {
         val id = repository.createFromLabel("Kichererbsen", Nutrition())
         val chickpeas = repository.getIngredient(id)!!
         val can = IngredientUnit(id, PieceUnit.CAN, 240.0)
+        val tbsp = IngredientUnit(id, PieceUnit.TBSP, 15.0)
 
-        repository.update(id, draft(chickpeas).copy(pieceWeight = PieceWeight(PieceUnit.PIECE, 0.5, 1), otherUnits = listOf(can)))
+        repository.update(id, draft(chickpeas).copy(units = listOf(can, tbsp)))
+        assertEquals(setOf(can, tbsp), repository.getUnits(id).toSet())
 
-        assertEquals(setOf(IngredientUnit(id, PieceUnit.PIECE, 0.5), can), repository.getUnits(id).toSet())
+        dao.unitTitles[id to PieceUnit.CAN] = listOf("Curry")
+        assertEquals(emptyList<String>(), repository.update(id, draft(chickpeas).copy(units = listOf(can))))
+        assertEquals(listOf(can), repository.getUnits(id))
     }
 
     @Test

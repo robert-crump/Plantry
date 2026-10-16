@@ -81,6 +81,21 @@ interface IngredientDao {
         insertUnits(units.map { it.copy(ingredientId = ingredient.id) })
     }
 
+    /**
+     * Like [updateWithUnits], unless that would remove a unit a recipe line still uses: then nothing
+     * is saved and the titles of those recipes are returned. Empty once saved.
+     */
+    @Transaction
+    suspend fun updateUnlessUnitInUse(ingredient: Ingredient, units: List<IngredientUnit>): List<String> {
+        val kept = units.mapTo(mutableSetOf()) { it.unit }
+        val usedIn = getUnits(ingredient.id).map { it.unit }.filter { it !in kept }
+            .flatMap { getRecipeTitlesUsingUnit(ingredient.id, it) }
+            .distinct()
+            .sortedWith(String.CASE_INSENSITIVE_ORDER)
+        if (usedIn.isEmpty()) updateWithUnits(ingredient, units)
+        return usedIn
+    }
+
     /** Aliases and units go with the ingredient. */
     @Query("DELETE FROM ingredients WHERE id = :id")
     suspend fun deleteById(id: Long)

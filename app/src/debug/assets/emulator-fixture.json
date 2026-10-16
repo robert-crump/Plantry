@@ -188,7 +188,7 @@
             "origin": "SEED",
             "units": [
                 {
-                    "unit": "HEAD",
+                    "unit": "PIECE",
                     "gramsPerUnit": 500.0,
                     "packageGrams": null,
                     "packageCount": null
@@ -1434,7 +1434,7 @@
                 {
                     "id": 38,
                     "amount": 1.0,
-                    "unit": "HEAD",
+                    "unit": "PIECE",
                     "ingredientId": 7,
                     "wording": null
                 },

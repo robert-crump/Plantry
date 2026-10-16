@@ -2,8 +2,7 @@ package com.example.plantry.data.claude
 
 import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.PieceUnit
-import com.example.plantry.data.PieceWeight
-import com.example.plantry.data.toUnit
+import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.ingredient
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -44,10 +43,10 @@ class ScanPromptTest {
                 ingredient(7, "Kidneybohnen (Dose)").copy(drainedWeight = DrainedWeight(400.0, 240.0)),
             ),
             units = listOf(
-                PieceWeight(PieceUnit.SLICE, 750.0, 20).toUnit(3),
-                PieceWeight(PieceUnit.CLOVE, 4.0, 1).toUnit(4),
-                PieceWeight(PieceUnit.PIECE, 500.0, 6).toUnit(6),
-                PieceWeight(PieceUnit.CAN, 400.0, 1).toUnit(7),
+                IngredientUnit.ofPackage(PieceUnit.SLICE, 750.0, 20, ingredientId = 3)!!,
+                IngredientUnit.perUnit(PieceUnit.CLOVE, 4.0, ingredientId = 4)!!,
+                IngredientUnit.ofPackage(PieceUnit.PIECE, 500.0, 6, ingredientId = 6)!!,
+                IngredientUnit.perUnit(PieceUnit.CAN, 400.0, ingredientId = 7)!!,
             ).groupBy { it.ingredientId },
         )
 

@@ -71,7 +71,7 @@ class BackupDaoTest {
         ),
         aliases = listOf(IngredientAlias("basmati", 5), IngredientAlias("reis gegart", 1)),
         planned = listOf(PlannedRecipe(3, LocalDate.of(2026, 10, 1))),
-        units = listOf(IngredientUnit(5, PieceUnit.PACKET, 500.0), IngredientUnit(5, PieceUnit.TUB, 250.0, 1000.0, 4)),
+        units = listOf(IngredientUnit(5, PieceUnit.CUP, 250.0, 1000.0, 4), IngredientUnit(5, PieceUnit.PACKET, 500.0)),
     )
 
     @Test

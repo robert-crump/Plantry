@@ -73,7 +73,7 @@ class ProposalPromptTest {
         val schema = ProposalPrompt.proposeSchema().toString()
         assertTrue(schema.contains("pieceUnit"))
         assertTrue(schema.contains("pieceGrams"))
-        listOf("SLICE", "CAN", "JAR", "TUB", "PACKET").forEach { assertFalse(it, schema.contains(it)) }
+        listOf("SLICE", "CAN", "PACKET", "TSP", "TBSP", "CUP").forEach { assertFalse(it, schema.contains(it)) }
     }
 
     @Test

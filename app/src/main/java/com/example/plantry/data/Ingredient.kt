@@ -63,36 +63,17 @@ data class DrainedWeight(val netWeightGrams: Double, val drainedWeightGrams: Dou
 /** The share of a recipe line's grams that counts for nutrition: 1 unless the ingredient is drained. */
 val Ingredient.drainedShare: Double get() = drainedWeight?.share ?: 1.0
 
-/**
- * The weight of an ingredient's piece unit as the ingredient form edits it: a package of
- * [pieceGroupCount] pieces weighing [pieceGroupGrams] (750 g, 20 Scheiben), or a single piece with
- * count 1. Stored as an [IngredientUnit].
- */
-data class PieceWeight(val pieceUnit: PieceUnit, val pieceGroupGrams: Double, val pieceGroupCount: Int) {
-    val gramsPerPiece: Double get() = pieceGroupGrams / pieceGroupCount
-
-    companion object {
-        /** Null unless [unit] is set, [grams] > 0 and [count] ≥ 1. */
-        fun of(unit: PieceUnit?, grams: Double?, count: Int?): PieceWeight? =
-            if (unit != null && grams != null && grams > 0 && count != null && count >= 1) PieceWeight(unit, grams, count) else null
-    }
-}
-
 /** The units an ingredient can be counted in, with their German words for one and for several. */
 enum class PieceUnit(val singular: String, val plural: String) {
     PIECE("Stück", "Stück"),
     SLICE("Scheibe", "Scheiben"),
     CLOVE("Zehe", "Zehen"),
-    LEAF("Blatt", "Blätter"),
-    SPRIG("Zweig", "Zweige"),
-    STALK("Stange", "Stangen"),
-    BULB("Knolle", "Knollen"),
-    HEAD("Kopf", "Köpfe"),
     BUNCH("Bund", "Bund"),
     CAN("Dose", "Dosen"),
-    JAR("Glas", "Gläser"),
-    TUB("Becher", "Becher"),
-    PACKET("Päckchen", "Päckchen"),
+    PACKET("Packung", "Packungen"),
+    TSP("TL", "TL"),
+    TBSP("EL", "EL"),
+    CUP("Tasse", "Tassen"),
 }
 
 enum class StoreSection { PRODUCE, DAIRY_CHILLED, DRY_GOODS, FROZEN, OTHER }
@@ -133,13 +114,8 @@ data class IngredientDraft(
     val storeSection: StoreSection,
     val plantPoints: PlantPoints,
     val drainedWeight: DrainedWeight? = null,
-    val pieceWeight: PieceWeight? = null,
+    /** At most one row per unit; their ingredient id is ignored. */
+    val units: List<IngredientUnit> = emptyList(),
     /** Set after nutrition was taken from a scanned package: replaces the USDA reference on save. */
     val scannedLabel: LabelSource? = null,
-    /** Units besides [pieceWeight], which the form doesn't edit; kept as they are. */
-    val otherUnits: List<IngredientUnit> = emptyList(),
-) {
-    /** The unit rows to store, without ingredient id. */
-    fun units(): List<IngredientUnit> =
-        listOfNotNull(pieceWeight?.toUnit()) + otherUnits.filter { it.unit != pieceWeight?.pieceUnit }
-}
+)

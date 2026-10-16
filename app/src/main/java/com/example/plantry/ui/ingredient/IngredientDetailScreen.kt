@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -73,7 +74,6 @@ import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PieceUnit
-import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.NewIngredientSeed
 import com.example.plantry.data.StoreSection
@@ -91,6 +91,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 data class IngredientDetailUiState(
     /** Null until the ingredient is loaded. */
@@ -113,7 +115,7 @@ data class IngredientDetailUiState(
     val barcode: BarcodeLookup? = null,
     /** The stored units of [ingredient]. */
     val units: List<IngredientUnit> = emptyList(),
-    /** Set after a save was refused: the recipes still using a unit the edit removed. */
+    /** Set after removing or saving was refused: the recipes still using a unit the edit removed. */
     val unitInUse: List<String>? = null,
 )
 
@@ -217,6 +219,33 @@ class IngredientDetailViewModel(
                     showErrors = false,
                 )
             }
+        }
+    }
+
+    /**
+     * Puts [unit] into the form in place of [replacing] (null when adding). Changing a stored row
+     * to another unit removes the old one, which is refused while a recipe line uses it.
+     */
+    fun saveUnit(unit: IngredientUnit, replacing: PieceUnit?) {
+        if (replacing == null || replacing == unit.unit) {
+            onFormChange { withUnit(unit, replacing) }
+            return
+        }
+        unlessInUse(replacing) { withUnit(unit, replacing) }
+    }
+
+    /** Removes the row of [unit] from the form, unless a recipe line uses it. */
+    fun removeUnit(unit: PieceUnit) = unlessInUse(unit) { withoutUnit(unit) }
+
+    private fun unlessInUse(unit: PieceUnit, transform: IngredientForm.() -> IngredientForm) {
+        val current = _state.value
+        if (current.isNew || current.units.none { it.unit == unit }) {
+            onFormChange(transform)
+            return
+        }
+        viewModelScope.launch {
+            val usedIn = repository.recipesUsingUnit(ingredientId, unit)
+            if (usedIn.isEmpty()) onFormChange(transform) else _state.update { it.copy(unitInUse = usedIn) }
         }
     }
 
@@ -454,8 +483,15 @@ fun IngredientDetailScreen(
                 onStoreSection = { onChange { copy(storeSection = it) } },
                 onPlantPoints = { onChange { copy(plantPoints = it) } },
                 onDrainedWeight = { onChange { withDrainedWeight(it) } },
-                onPieceWeight = { onChange { copy(pieceWeight = it) } },
                 editable = editing,
+            )
+
+            SectionTitle(R.string.ingredient_section_units)
+            UnitsGroup(
+                form = form,
+                editable = editing,
+                onSave = viewModel::saveUnit,
+                onRemove = viewModel::removeUnit,
             )
 
             SectionTitle(
@@ -549,7 +585,7 @@ private fun DeleteDialog(name: String, usedIn: List<String>, onConfirm: () -> Un
     }
 }
 
-private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_INFO, DRAINED_WEIGHT, PIECE_WEIGHT }
+private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_INFO, DRAINED_WEIGHT }
 
 /** One line per property with its current value; when [editable], tapping opens a radio dialog that applies on tap. */
 @Composable
@@ -560,7 +596,6 @@ private fun PropertiesGroup(
     onStoreSection: (StoreSection) -> Unit,
     onPlantPoints: (PlantPoints) -> Unit,
     onDrainedWeight: (DrainedWeight?) -> Unit,
-    onPieceWeight: (PieceWeight?) -> Unit,
     editable: Boolean,
 ) {
     var dialog by rememberSaveable { mutableStateOf<PropertyDialog?>(null) }
@@ -604,14 +639,6 @@ private fun PropertiesGroup(
                 onClick = if (editable) ({ dialog = PropertyDialog.DRAINED_WEIGHT }) else null,
             )
         },
-        {
-            SettingsRow(
-                icon = null,
-                title = stringResource(R.string.ingredient_piece_weight),
-                summary = form.pieceWeight?.let { pieceWeightSummary(it) } ?: stringResource(R.string.ingredient_no_piece_weight),
-                onClick = if (editable) ({ dialog = PropertyDialog.PIECE_WEIGHT }) else null,
-            )
-        },
         horizontalPadding = 0.dp,
     )
 
@@ -637,12 +664,6 @@ private fun PropertiesGroup(
         PropertyDialog.DRAINED_WEIGHT -> DrainedWeightDialog(
             initial = form.drainedWeight,
             onConfirm = { onDrainedWeight(it); dismiss() },
-            onDismiss = dismiss,
-        )
-        PropertyDialog.PIECE_WEIGHT -> PieceWeightDialog(
-            initial = form.pieceWeight,
-            netWeightGrams = form.drainedWeight?.netWeightGrams,
-            onConfirm = { onPieceWeight(it); dismiss() },
             onDismiss = dismiss,
         )
         null -> Unit
@@ -700,50 +721,115 @@ private fun DrainedWeightDialog(initial: DrainedWeight?, onConfirm: (DrainedWeig
     )
 }
 
-/** "Scheibe · 750 g / 20" for a package, "Stück · 60 g" for a single piece. */
+/**
+ * One row per unit with its weight; when [editable], tapping a row edits it, its bin removes it,
+ * and a button adds a unit that has no row yet.
+ */
 @Composable
-private fun pieceWeightSummary(weight: PieceWeight): String {
-    val unit = stringResource(weight.pieceUnit.label)
-    val grams = formatDecimal(weight.pieceGroupGrams, currentLocale())
-    return if (weight.pieceGroupCount > 1) {
-        stringResource(R.string.ingredient_piece_weight_summary_package, unit, grams, weight.pieceGroupCount)
+private fun UnitsGroup(
+    form: IngredientForm,
+    editable: Boolean,
+    /** The row, and the unit it replaces (null for a new row). */
+    onSave: (IngredientUnit, PieceUnit?) -> Unit,
+    onRemove: (PieceUnit) -> Unit,
+) {
+    var dialogOpen by rememberSaveable { mutableStateOf(false) }
+    // The unit of the row being edited; null while adding.
+    var editedUnit by rememberSaveable { mutableStateOf<PieceUnit?>(null) }
+    Text(
+        stringResource(R.string.ingredient_units_hint),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    if (form.units.isEmpty()) {
+        Text(stringResource(R.string.ingredient_no_units), style = MaterialTheme.typography.bodyLarge)
     } else {
-        stringResource(R.string.ingredient_piece_weight_summary_single, unit, grams)
+        SettingsGroup(
+            *form.units.map { row ->
+                @Composable {
+                    SettingsRow(
+                        icon = null,
+                        title = stringResource(row.unit.label),
+                        summary = unitSummary(row),
+                        onClick = if (editable) ({ editedUnit = row.unit; dialogOpen = true }) else null,
+                        trailing = if (editable) {
+                            {
+                                IconButton(onClick = { onRemove(row.unit) }) {
+                                    Icon(Icons.Filled.Delete, stringResource(R.string.ingredient_unit_remove, stringResource(row.unit.label)))
+                                }
+                            }
+                        } else {
+                            null
+                        },
+                    )
+                }
+            }.toTypedArray(),
+            horizontalPadding = 0.dp,
+        )
+    }
+    if (editable && form.availableUnits().isNotEmpty()) {
+        TextButton(onClick = { editedUnit = null; dialogOpen = true }) {
+            Icon(Icons.Filled.Add, contentDescription = null)
+            Text(stringResource(R.string.ingredient_unit_add), Modifier.padding(start = 8.dp))
+        }
+    }
+    if (dialogOpen) {
+        val dismiss = { dialogOpen = false }
+        UnitDialog(
+            initial = form.units.find { it.unit == editedUnit },
+            options = form.availableUnits(editedUnit),
+            netWeightGrams = form.drainedWeight?.netWeightGrams,
+            onConfirm = { onSave(it, editedUnit); dismiss() },
+            onDismiss = dismiss,
+        )
     }
 }
 
+/** "1 Zehe = 4 g", or "750 g ÷ 20 = 37,5 g" for a row entered as a package. */
+@Composable
+private fun unitSummary(row: IngredientUnit): String {
+    val locale = currentLocale()
+    val perUnit = formatDecimal(row.gramsPerUnit.roundTo2(), locale)
+    return if (row.isPackage) {
+        stringResource(R.string.ingredient_unit_summary_package, formatDecimal(row.packageGrams!!, locale), row.packageCount!!, perUnit)
+    } else {
+        stringResource(R.string.ingredient_unit_summary_single, stringResource(row.unit.label), perUnit)
+    }
+}
+
+private fun Double.roundTo2(): Double = BigDecimal.valueOf(this).setScale(2, RoundingMode.HALF_UP).toDouble()
+
 /**
- * Unit, then either a package weight with its number of pieces or the weight of one piece. "Keins"
- * clears the piece weight; OK stays disabled while a weight or count is invalid.
+ * Unit (among [options]), then either the weight of one unit or a package weight with how many
+ * units it holds. Reopens in the mode the row was entered in; OK stays disabled while invalid.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PieceWeightDialog(
-    initial: PieceWeight?,
+private fun UnitDialog(
+    /** Null when adding. */
+    initial: IngredientUnit?,
+    options: List<PieceUnit>,
     /** The drained product's net weight, which a can starts from. */
     netWeightGrams: Double?,
-    onConfirm: (PieceWeight?) -> Unit,
+    onConfirm: (IngredientUnit) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var unit by rememberSaveable { mutableStateOf(PieceWeightForm.from(initial).unit) }
-    var inPackage by rememberSaveable { mutableStateOf(PieceWeightForm.from(initial).inPackage) }
-    var grams by rememberSaveable { mutableStateOf(PieceWeightForm.from(initial).grams) }
-    var count by rememberSaveable { mutableStateOf(PieceWeightForm.from(initial).count) }
-    val form = PieceWeightForm(unit, inPackage, grams, count)
+    val start = remember { initial?.let(UnitForm::from) ?: UnitForm().withUnit(options.first(), netWeightGrams) }
+    var unit by rememberSaveable { mutableStateOf(start.unit) }
+    var inPackage by rememberSaveable { mutableStateOf(start.inPackage) }
+    var grams by rememberSaveable { mutableStateOf(start.grams) }
+    var count by rememberSaveable { mutableStateOf(start.count) }
+    val form = UnitForm(unit, inPackage, grams, count)
+    val result = form.toUnit()
     var unitsExpanded by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.ingredient_piece_weight)) },
+        title = { Text(stringResource(if (initial == null) R.string.ingredient_unit_add else R.string.ingredient_unit_edit)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    stringResource(R.string.ingredient_piece_weight_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 ExposedDropdownMenuBox(expanded = unitsExpanded, onExpandedChange = { unitsExpanded = it }) {
                     OutlinedTextField(
-                        value = unit?.let { stringResource(it.label) } ?: stringResource(R.string.ingredient_no_piece_weight),
+                        value = unit?.let { stringResource(it.label) }.orEmpty(),
                         onValueChange = {},
                         readOnly = true,
                         singleLine = true,
@@ -754,9 +840,9 @@ private fun PieceWeightDialog(
                             .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
                     )
                     ExposedDropdownMenu(expanded = unitsExpanded, onDismissRequest = { unitsExpanded = false }) {
-                        (listOf(null) + PieceUnit.entries).forEach { option ->
+                        options.forEach { option ->
                             DropdownMenuItem(
-                                text = { Text(option?.let { stringResource(it.label) } ?: stringResource(R.string.ingredient_no_piece_weight)) },
+                                text = { Text(stringResource(option.label)) },
                                 onClick = {
                                     val picked = form.withUnit(option, netWeightGrams)
                                     unit = picked.unit
@@ -767,36 +853,45 @@ private fun PieceWeightDialog(
                         }
                     }
                 }
-                if (unit != null) {
-                    Text(stringResource(R.string.ingredient_piece_weight_package_question))
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        listOf(true to R.string.action_yes, false to R.string.action_no).forEachIndexed { index, (value, label) ->
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    listOf(false to R.string.ingredient_unit_mode_single, true to R.string.ingredient_unit_mode_package)
+                        .forEachIndexed { index, (value, label) ->
                             SegmentedButton(
                                 selected = inPackage == value,
                                 onClick = { inPackage = value },
                                 shape = SegmentedButtonDefaults.itemShape(index, 2),
                             ) { Text(stringResource(label)) }
                         }
-                    }
+                }
+                FormField(
+                    value = grams,
+                    onValueChange = { grams = it },
+                    label = if (inPackage) R.string.ingredient_piece_package_grams_field else R.string.ingredient_piece_grams_field,
+                    error = if (grams.isNotBlank() && form.gramsInvalid) R.string.error_positive_decimal else null,
+                )
+                if (inPackage) {
                     FormField(
-                        value = grams,
-                        onValueChange = { grams = it },
-                        label = if (inPackage) R.string.ingredient_piece_package_grams_field else R.string.ingredient_piece_grams_field,
-                        error = if (form.gramsInvalid) R.string.error_positive_decimal else null,
+                        value = count,
+                        onValueChange = { count = it },
+                        label = R.string.ingredient_piece_count_field,
+                        error = if (count.isNotBlank() && form.countInvalid) R.string.error_positive_number else null,
                     )
-                    if (inPackage) {
-                        FormField(
-                            value = count,
-                            onValueChange = { count = it },
-                            label = R.string.ingredient_piece_count_field,
-                            error = if (form.countInvalid) R.string.error_positive_number else null,
+                    if (result != null) {
+                        Text(
+                            stringResource(
+                                R.string.ingredient_unit_summary_single,
+                                stringResource(result.unit.label),
+                                formatDecimal(result.gramsPerUnit.roundTo2(), currentLocale()),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(form.toPieceWeight()) }, enabled = form.isValid) {
+            TextButton(onClick = { result?.let(onConfirm) }, enabled = result != null) {
                 Text(stringResource(R.string.action_ok))
             }
         },
@@ -907,16 +1002,12 @@ internal val PieceUnit.label: Int
         PieceUnit.PIECE -> R.string.piece_unit_piece
         PieceUnit.SLICE -> R.string.piece_unit_slice
         PieceUnit.CLOVE -> R.string.piece_unit_clove
-        PieceUnit.LEAF -> R.string.piece_unit_leaf
-        PieceUnit.SPRIG -> R.string.piece_unit_sprig
-        PieceUnit.STALK -> R.string.piece_unit_stalk
-        PieceUnit.BULB -> R.string.piece_unit_bulb
-        PieceUnit.HEAD -> R.string.piece_unit_head
         PieceUnit.BUNCH -> R.string.piece_unit_bunch
         PieceUnit.CAN -> R.string.piece_unit_can
-        PieceUnit.JAR -> R.string.piece_unit_jar
-        PieceUnit.TUB -> R.string.piece_unit_tub
         PieceUnit.PACKET -> R.string.piece_unit_packet
+        PieceUnit.TSP -> R.string.piece_unit_tsp
+        PieceUnit.TBSP -> R.string.piece_unit_tbsp
+        PieceUnit.CUP -> R.string.piece_unit_cup
     }
 
 internal val StoreSection.label: Int

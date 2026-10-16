@@ -4,7 +4,6 @@ import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.IngredientUnit
-import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.usda.UsdaFood
@@ -151,7 +150,7 @@ class ProposalParserTest {
 
         val result = parse(answer(proposal("N1", "pieceUnit" to "\" piece \"", "pieceGrams" to "55")), egg).getValue(-1)
 
-        assertEquals(PieceWeight(PieceUnit.PIECE, 55.0, 1), result.pieceWeight)
+        assertEquals(IngredientUnit(0, PieceUnit.PIECE, 55.0), result.pieceWeight)
         assertEquals(listOf(IngredientUnit(-1, PieceUnit.PIECE, 55.0)), result.units(-1))
     }
 
@@ -159,14 +158,14 @@ class ProposalParserTest {
     fun clove_isKeptWithFractionalGrams() {
         val result = parse(answer(proposal("N1", "pieceUnit" to "\"CLOVE\"", "pieceGrams" to "3.5")), tofu).getValue(-1)
 
-        assertEquals(PieceWeight(PieceUnit.CLOVE, 3.5, 1), result.pieceWeight)
+        assertEquals(IngredientUnit(0, PieceUnit.CLOVE, 3.5), result.pieceWeight)
     }
 
     @Test
     fun noneUnknownOrPackageUnitsAndNonPositiveGrams_meanNoPieceWeight() {
         listOf(
             "NONE" to "60", "PIECE" to "0", "PIECE" to "-5", "EGG" to "60", "SLICE" to "37.5", "CAN" to "400",
-            "PACKET" to "500", "" to "60",
+            "PACKET" to "500", "TBSP" to "15", "HEAD" to "500", "" to "60",
         ).forEach { (unit, grams) ->
             val result = parse(answer(proposal("N1", "pieceUnit" to "\"$unit\"", "pieceGrams" to grams)), tofu)
             assertNull("$unit/$grams", result.getValue(-1).pieceWeight)

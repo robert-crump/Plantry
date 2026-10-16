@@ -8,7 +8,6 @@ import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
-import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.openfoodfacts.OffProduct
@@ -28,13 +27,21 @@ data class IngredientForm(
     val drainedWeight: DrainedWeight? = null,
     /** False until the user said whether the product is drained, as null means "no" as well. */
     val drainedAnswered: Boolean = true,
-    /** Already validated by [PieceWeightForm] in its dialog. */
-    val pieceWeight: PieceWeight? = null,
+    /** One row per unit in [PieceUnit] order, each already validated by [UnitForm] in its dialog. */
+    val units: List<IngredientUnit> = emptyList(),
     /** The package applied from a barcode scan; replaces the USDA reference on save. */
     val scannedLabel: LabelSource? = null,
-    /** Units besides [pieceWeight], which this form doesn't edit; kept on save. */
-    val otherUnits: List<IngredientUnit> = emptyList(),
 ) {
+    /** The units a row can still be given: those without a row, plus [editing]'s own. */
+    fun availableUnits(editing: PieceUnit? = null): List<PieceUnit> =
+        PieceUnit.entries.filter { unit -> unit == editing || units.none { it.unit == unit } }
+
+    /** Puts [unit] in place of the row of [replacing] (null when adding), or of a row with the same unit. */
+    fun withUnit(unit: IngredientUnit, replacing: PieceUnit? = null) =
+        copy(units = (units.filter { it.unit != replacing && it.unit != unit.unit } + unit).sortedBy { it.unit })
+
+    fun withoutUnit(unit: PieceUnit) = copy(units = units.filter { it.unit != unit })
+
     fun withNutrient(nutrient: Nutrient, value: String) = copy(nutrition = nutrition + (nutrient to value))
 
     /** Null for "not drained"; either way the question is answered. */
@@ -65,14 +72,13 @@ data class IngredientForm(
             storeSection = storeSection!!,
             plantPoints = plantPoints!!,
             drainedWeight = drainedWeight,
-            pieceWeight = pieceWeight,
+            units = units,
             scannedLabel = scannedLabel,
-            otherUnits = otherUnits,
         )
     }
 
     companion object {
-        /** [drainedAnswered] is false for an ingredient that doesn't exist yet; the first of [units] is the piece weight. */
+        /** [drainedAnswered] is false for an ingredient that doesn't exist yet. */
         fun from(ingredient: Ingredient, units: List<IngredientUnit> = emptyList(), drainedAnswered: Boolean = true) = IngredientForm(
             name = ingredient.name,
             nutrition = Nutrient.entries.associateWith { formatDecimal(ingredient.nutrition[it]) },
@@ -80,8 +86,7 @@ data class IngredientForm(
             plantPoints = ingredient.plantPoints.takeUnless { ingredient.plantPointsUndecided },
             drainedWeight = ingredient.drainedWeight,
             drainedAnswered = drainedAnswered,
-            pieceWeight = units.firstOrNull()?.toPieceWeight(),
-            otherUnits = units.drop(1),
+            units = units.sortedBy { it.unit },
         )
     }
 }
@@ -117,39 +122,45 @@ data class DrainedWeightForm(val net: String = "", val drained: String = "") {
 enum class DrainedWeightError { INVALID, EXCEEDS_NET }
 
 /**
- * Raw input of the Stückgewicht dialog. No [unit] means no piece weight; otherwise [grams] is the
- * package weight with [count] pieces when [inPackage], else the weight of one piece.
+ * Raw input of the dialog for one unit row: [grams] is the weight of one [unit], or of a package
+ * holding [count] of them when [inPackage] ("750 g ÷ 20").
  */
-data class PieceWeightForm(
+data class UnitForm(
     val unit: PieceUnit? = null,
     val inPackage: Boolean = false,
     val grams: String = "",
     val count: String = "",
 ) {
-    val gramsInvalid: Boolean get() = unit != null && grams.toPositiveDecimalOrNull() == null
+    val gramsInvalid: Boolean get() = grams.toPositiveDecimalOrNull() == null
 
-    val countInvalid: Boolean get() = unit != null && inPackage && count.toPositiveWholeOrNull() == null
+    val countInvalid: Boolean get() = inPackage && count.toPositiveWholeOrNull() == null
 
-    val isValid: Boolean get() = !gramsInvalid && !countInvalid
+    val isValid: Boolean get() = unit != null && !gramsInvalid && !countInvalid
 
     /** Picks [unit]; a can of a drained product starts from its [netWeightGrams] if no weight was typed yet. */
-    fun withUnit(unit: PieceUnit?, netWeightGrams: Double?) = copy(
+    fun withUnit(unit: PieceUnit, netWeightGrams: Double?) = copy(
         unit = unit,
         grams = if (unit == PieceUnit.CAN && grams.isBlank() && netWeightGrams != null) formatDecimal(netWeightGrams) else grams,
     )
 
-    /** The piece weight, or null without a unit or when invalid. */
-    fun toPieceWeight(): PieceWeight? =
-        if (isValid) PieceWeight.of(unit, grams.toPositiveDecimalOrNull(), if (inPackage) count.toPositiveWholeOrNull() else 1) else null
+    /** The row, or null while invalid. */
+    fun toUnit(): IngredientUnit? {
+        val unit = unit ?: return null
+        val grams = grams.toPositiveDecimalOrNull() ?: return null
+        return if (inPackage) {
+            IngredientUnit.ofPackage(unit, grams, count.toPositiveWholeOrNull() ?: return null)
+        } else {
+            IngredientUnit.perUnit(unit, grams)
+        }
+    }
 
     companion object {
-        /** Reopens in the mode it was saved in: more than one piece means a package. */
-        fun from(weight: PieceWeight?) = PieceWeightForm(
-            unit = weight?.pieceUnit,
-            inPackage = weight != null && weight.pieceGroupCount > 1,
-            grams = weight?.let { formatDecimal(it.pieceGroupGrams) }.orEmpty(),
-            count = weight?.takeIf { it.pieceGroupCount > 1 }?.pieceGroupCount?.toString().orEmpty(),
-        )
+        /** Reopens [row] in the mode it was entered in; a new row starts per unit. */
+        fun from(row: IngredientUnit?) = when {
+            row == null -> UnitForm()
+            row.isPackage -> UnitForm(row.unit, inPackage = true, formatDecimal(row.packageGrams!!), row.packageCount.toString())
+            else -> UnitForm(row.unit, inPackage = false, formatDecimal(row.gramsPerUnit))
+        }
     }
 }
 

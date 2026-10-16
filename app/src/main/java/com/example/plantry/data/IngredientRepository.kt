@@ -49,7 +49,7 @@ class IngredientRepository(private val dao: IngredientDao) {
                 labelSource = label,
                 origin = if (label != null) IngredientOrigin.BARCODE else IngredientOrigin.MANUAL,
             ),
-            draft.units(),
+            draft.units,
         )
     }
 
@@ -95,14 +95,8 @@ class IngredientRepository(private val dao: IngredientDao) {
      */
     suspend fun update(id: Long, draft: IngredientDraft): List<String> {
         val existing = dao.getById(id) ?: return emptyList()
-        val units = draft.units()
-        val kept = units.mapTo(mutableSetOf()) { it.unit }
-        val usedIn = dao.getUnits(id).map { it.unit }.filter { it !in kept }
-            .flatMap { dao.getRecipeTitlesUsingUnit(id, it) }
-            .distinct()
-        if (usedIn.isNotEmpty()) return usedIn
         val sourced = draft.scannedLabel?.let { existing.copy(fdcId = null, usdaDescription = null, labelSource = it) } ?: existing
-        dao.updateWithUnits(
+        return dao.updateUnlessUnitInUse(
             sourced.copy(
                 name = draft.name.trim(),
                 nutrition = draft.nutrition,
@@ -112,10 +106,12 @@ class IngredientRepository(private val dao: IngredientDao) {
                 storeSectionUndecided = false,
                 plantPointsUndecided = false,
             ),
-            units,
+            draft.units,
         )
-        return emptyList()
     }
+
+    /** Titles of the recipes with a line in [unit] of ingredient [id]; while there are any, the unit can't be removed. */
+    suspend fun recipesUsingUnit(id: Long, unit: PieceUnit): List<String> = dao.getRecipeTitlesUsingUnit(id, unit)
 
     suspend fun setReviewed(id: Long, reviewed: Boolean) {
         val existing = dao.getById(id) ?: return

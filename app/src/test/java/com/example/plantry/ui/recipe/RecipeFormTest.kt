@@ -6,7 +6,6 @@ import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.LineUnit
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
-import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.StoreSection
@@ -482,7 +481,7 @@ class RecipeFormTest {
     fun newIngredientUnits_theProposedPieceWeightByTemporaryId() {
         val egg = IngredientProposal(
             name = "Ei", source = null, searchTerms = emptyList(), storeSection = StoreSection.DAIRY_CHILLED,
-            plantPoints = PlantPoints.ZERO, pieceWeight = PieceWeight(PieceUnit.PIECE, 55.0, 1),
+            plantPoints = PlantPoints.ZERO, pieceWeight = IngredientUnit(0, PieceUnit.PIECE, 55.0),
         )
 
         val form = RecipeForm().withNewIngredient(-3, egg)

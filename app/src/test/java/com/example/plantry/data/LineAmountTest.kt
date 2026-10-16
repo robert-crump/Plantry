@@ -57,7 +57,7 @@ class LineAmountTest {
 
     @Test
     fun text_countedUnitsWithFractions_gAndMlAsDecimals() {
-        assertEquals("¼ Päckchen Hefe",LineAmount.text(0.25, LineUnit.Of(PieceUnit.PACKET), "Hefe"))
+        assertEquals("¼ Packung Hefe",LineAmount.text(0.25, LineUnit.Of(PieceUnit.PACKET), "Hefe"))
         assertEquals("⅓ Bund Dill", LineAmount.text(1.0 / 3, LineUnit.Of(PieceUnit.BUNCH), "Dill"))
         assertEquals("2⅔ Scheiben Käse", LineAmount.text(2 + 2.0 / 3, LineUnit.Of(PieceUnit.SLICE), "Käse"))
         assertEquals("1¾ Dosen Tomaten", LineAmount.text(1.75, LineUnit.Of(PieceUnit.CAN), "Tomaten"))

@@ -176,6 +176,32 @@ class IngredientDaoTest {
     }
 
     @Test
+    fun updateUnlessUnitInUse_refusesToDropAUsedUnit_savesOtherwise() = runTest {
+        val slice = IngredientUnit(0, PieceUnit.SLICE, 37.5)
+        val packet = IngredientUnit(0, PieceUnit.PACKET, 750.0)
+        val toast = dao.insertWithUnits(ingredient("Toast"), listOf(slice, packet))
+        val recipeDao = db.recipeDao()
+        recipeDao.insertWithLines(recipe("Croque"), listOf(RecipeIngredientDraft(4.0, LineUnit.Of(PieceUnit.SLICE), toast)))
+        recipeDao.insertWithLines(recipe("Arme Ritter"), listOf(RecipeIngredientDraft(2.0, LineUnit.Of(PieceUnit.SLICE), toast)))
+
+        val refused = dao.updateUnlessUnitInUse(dao.getById(toast)!!.copy(name = "Brot"), listOf(packet))
+
+        assertEquals(listOf("Arme Ritter", "Croque"), refused)
+        assertEquals("Toast", dao.getById(toast)!!.name)
+        assertEquals(setOf(PieceUnit.SLICE, PieceUnit.PACKET), dao.getUnits(toast).map { it.unit }.toSet())
+
+        val tbsp = IngredientUnit(0, PieceUnit.TBSP, 10.0)
+        val saved = dao.updateUnlessUnitInUse(dao.getById(toast)!!.copy(name = "Brot"), listOf(slice.copy(gramsPerUnit = 40.0), tbsp))
+
+        assertEquals(emptyList<String>(), saved)
+        assertEquals("Brot", dao.getById(toast)!!.name)
+        assertEquals(
+            setOf(slice.copy(ingredientId = toast, gramsPerUnit = 40.0), tbsp.copy(ingredientId = toast)),
+            dao.getUnits(toast).toSet(),
+        )
+    }
+
+    @Test
     fun deleteById_takesTheUnitsAlong() = runTest {
         val id = dao.insertWithUnits(ingredient("Toast"), listOf(IngredientUnit(0, PieceUnit.SLICE, 37.5)))
 

@@ -12,9 +12,7 @@ import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientOrigin
 import com.example.plantry.data.Nutrition
-import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.IngredientUnit
-import com.example.plantry.data.toUnit
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.settings.ScanModel
@@ -65,8 +63,8 @@ data class IngredientProposal(
     val plantPoints: PlantPoints,
     /** Only for drained canned or jarred goods. */
     val drainedWeight: DrainedWeight? = null,
-    /** Only for naturally counted foods; always for one piece (count 1). */
-    val pieceWeight: PieceWeight? = null,
+    /** Only for naturally counted foods; always the weight of one piece. */
+    val pieceWeight: IngredientUnit? = null,
     /** Claude gave no valid store section / plant points, so the value above is a fallback to replace. */
     val storeSectionUndecided: Boolean = false,
     val plantPointsUndecided: Boolean = false,
@@ -94,7 +92,7 @@ data class IngredientProposal(
     }
 
     /** The unit rows to create with the ingredient, with [ingredientId] (its temporary id before that). */
-    fun units(ingredientId: Long = 0): List<IngredientUnit> = listOfNotNull(pieceWeight?.toUnit(ingredientId))
+    fun units(ingredientId: Long = 0): List<IngredientUnit> = listOfNotNull(pieceWeight?.copy(ingredientId = ingredientId))
 }
 
 sealed interface ClaudeResult<out T> {
@@ -381,11 +379,8 @@ object ProposalParser {
             storeSection = storeSection ?: StoreSection.OTHER,
             plantPoints = plantPoints ?: PlantPoints.ZERO,
             drainedWeight = DrainedWeight.of(answer.netWeightGrams, answer.drainedWeightGrams),
-            pieceWeight = PieceWeight.of(
-                MatchingRules.PIECE_UNITS.firstOrNull { it.name == answer.pieceUnit.trim().uppercase() },
-                answer.pieceGrams,
-                1,
-            ),
+            pieceWeight = MatchingRules.PIECE_UNITS.firstOrNull { it.name == answer.pieceUnit.trim().uppercase() }
+                ?.let { IngredientUnit.perUnit(it, answer.pieceGrams) },
             storeSectionUndecided = storeSection == null,
             plantPointsUndecided = plantPoints == null,
         )

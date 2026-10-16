@@ -28,18 +28,19 @@ data class IngredientUnit(
     val packageGrams: Double? = null,
     val packageCount: Int? = null,
 ) {
-    /** As the ingredient form edits it. */
-    fun toPieceWeight() = PieceWeight(unit, packageGrams ?: gramsPerUnit, packageCount ?: 1)
-}
+    /** Whether it was entered as a package ("750 g ÷ 20") rather than per unit ("1 Zehe = 4 g"). */
+    val isPackage: Boolean get() = packageGrams != null && packageCount != null
 
-/** The unit row of [ingredientId]; a package of several pieces is kept as entered. */
-fun PieceWeight.toUnit(ingredientId: Long = 0) = IngredientUnit(
-    ingredientId = ingredientId,
-    unit = pieceUnit,
-    gramsPerUnit = gramsPerPiece,
-    packageGrams = pieceGroupGrams.takeIf { pieceGroupCount > 1 },
-    packageCount = pieceGroupCount.takeIf { it > 1 },
-)
+    companion object {
+        /** One [unit] weighs [grams]; null unless [grams] > 0. */
+        fun perUnit(unit: PieceUnit, grams: Double, ingredientId: Long = 0): IngredientUnit? =
+            if (grams > 0) IngredientUnit(ingredientId, unit, grams) else null
+
+        /** A package of [grams] holds [count] of [unit], kept as entered; null unless both are positive. */
+        fun ofPackage(unit: PieceUnit, grams: Double, count: Int, ingredientId: Long = 0): IngredientUnit? =
+            if (grams > 0 && count >= 1) IngredientUnit(ingredientId, unit, grams / count, grams, count) else null
+    }
+}
 
 /**
  * The unit of a recipe line: grams, millilitres (which count as grams) or one of the ingredient's

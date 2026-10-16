@@ -8,11 +8,11 @@ import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.PieceUnit
-import com.example.plantry.data.PieceWeight
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.openfoodfacts.OffProduct
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -165,69 +165,105 @@ class IngredientFormTest {
     }
 
     @Test
-    fun pieceWeightForm_withoutUnit_clearsThePieceWeight() {
-        val form = PieceWeightForm(unit = null, grams = "abc")
+    fun unitForm_package_keepsWeightAndCountAsEntered() {
+        val form = UnitForm(PieceUnit.SLICE, inPackage = true, grams = "750", count = "20")
 
-        assertTrue(form.isValid)
-        assertNull(form.toPieceWeight())
+        assertEquals(IngredientUnit(0, PieceUnit.SLICE, 37.5, packageGrams = 750.0, packageCount = 20), form.toUnit())
     }
 
     @Test
-    fun pieceWeightForm_package_keepsWeightAndCountAsEntered() {
-        val form = PieceWeightForm(PieceUnit.SLICE, inPackage = true, grams = "750", count = "20")
+    fun unitForm_perUnit_ignoresTheCountField() {
+        val form = UnitForm(PieceUnit.CLOVE, inPackage = false, grams = "3,5", count = "abc")
 
-        assertEquals(PieceWeight(PieceUnit.SLICE, 750.0, 20), form.toPieceWeight())
-        assertEquals(37.5, form.toPieceWeight()!!.gramsPerPiece, 0.0)
+        assertEquals(IngredientUnit(0, PieceUnit.CLOVE, 3.5), form.toUnit())
     }
 
     @Test
-    fun pieceWeightForm_singlePiece_isCountOne_andIgnoresTheCountField() {
-        val form = PieceWeightForm(PieceUnit.PIECE, inPackage = false, grams = "60,5", count = "abc")
+    fun unitForm_aPackageOfOne_staysAPackage() {
+        val row = UnitForm(PieceUnit.PACKET, inPackage = true, grams = "500", count = "1").toUnit()!!
 
-        assertEquals(PieceWeight(PieceUnit.PIECE, 60.5, 1), form.toPieceWeight())
+        assertTrue(row.isPackage)
+        assertEquals(UnitForm(PieceUnit.PACKET, inPackage = true, grams = "500", count = "1"), UnitForm.from(row))
     }
 
     @Test
-    fun pieceWeightForm_rejectsMissingWeightAndNonWholeCount() {
-        assertTrue(PieceWeightForm(PieceUnit.PIECE, grams = "").let { !it.isValid && it.gramsInvalid })
-        assertTrue(PieceWeightForm(PieceUnit.PIECE, grams = "0").gramsInvalid)
+    fun unitForm_rejectsMissingUnitOrWeightAndNonWholeCount() {
+        assertFalse(UnitForm(unit = null, grams = "60").isValid)
+        assertNull(UnitForm(unit = null, grams = "60").toUnit())
+        listOf("", "0", "-1", "abc").forEach { grams ->
+            val form = UnitForm(PieceUnit.PIECE, grams = grams)
+            assertTrue(grams, !form.isValid && form.gramsInvalid)
+            assertNull(form.toUnit())
+        }
         listOf("", "0", "-2", "2,5", "zwei").forEach { count ->
-            val form = PieceWeightForm(PieceUnit.SLICE, inPackage = true, grams = "750", count = count)
+            val form = UnitForm(PieceUnit.SLICE, inPackage = true, grams = "750", count = count)
             assertTrue(count, !form.isValid && form.countInvalid)
-            assertNull(form.toPieceWeight())
+            assertNull(form.toUnit())
         }
     }
 
     @Test
-    fun pieceWeightForm_reopensInTheSavedMode() {
+    fun unitForm_reopensInTheModeItWasEnteredIn() {
         assertEquals(
-            PieceWeightForm(PieceUnit.SLICE, inPackage = true, grams = "750", count = "20"),
-            PieceWeightForm.from(PieceWeight(PieceUnit.SLICE, 750.0, 20)),
+            UnitForm(PieceUnit.SLICE, inPackage = true, grams = "750", count = "20"),
+            UnitForm.from(IngredientUnit.ofPackage(PieceUnit.SLICE, 750.0, 20)),
         )
         assertEquals(
-            PieceWeightForm(PieceUnit.PIECE, inPackage = false, grams = "60", count = ""),
-            PieceWeightForm.from(PieceWeight(PieceUnit.PIECE, 60.0, 1)),
+            UnitForm(PieceUnit.TBSP, inPackage = false, grams = "12,5", count = ""),
+            UnitForm.from(IngredientUnit.perUnit(PieceUnit.TBSP, 12.5)),
         )
-        assertEquals(PieceWeightForm(), PieceWeightForm.from(null))
+        assertEquals(UnitForm(), UnitForm.from(null))
     }
 
     @Test
-    fun pieceWeightForm_canStartsFromTheNetWeight() {
-        assertEquals("400", PieceWeightForm().withUnit(PieceUnit.CAN, netWeightGrams = 400.0).grams)
-        assertEquals("", PieceWeightForm().withUnit(PieceUnit.JAR, netWeightGrams = 400.0).grams)
-        assertEquals("", PieceWeightForm().withUnit(PieceUnit.CAN, netWeightGrams = null).grams)
-        assertEquals("425", PieceWeightForm(grams = "425").withUnit(PieceUnit.CAN, netWeightGrams = 400.0).grams)
+    fun unitForm_canStartsFromTheNetWeight() {
+        assertEquals("400", UnitForm().withUnit(PieceUnit.CAN, netWeightGrams = 400.0).grams)
+        assertEquals("", UnitForm().withUnit(PieceUnit.PACKET, netWeightGrams = 400.0).grams)
+        assertEquals("", UnitForm().withUnit(PieceUnit.CAN, netWeightGrams = null).grams)
+        assertEquals("425", UnitForm(grams = "425").withUnit(PieceUnit.CAN, netWeightGrams = 400.0).grams)
     }
 
     @Test
-    fun pieceWeight_goesFromTheUnitsThroughTheFormIntoTheDraft_otherUnitsKept() {
+    fun units_goFromTheRowsThroughTheFormIntoTheDraft_inUnitOrder() {
         val slice = IngredientUnit(1, PieceUnit.SLICE, 37.5, packageGrams = 750.0, packageCount = 20)
         val can = IngredientUnit(1, PieceUnit.CAN, 240.0)
-        val form = IngredientForm.from(ingredient, listOf(slice, can))
 
-        assertEquals(PieceWeight(PieceUnit.SLICE, 750.0, 20), form.pieceWeight)
-        assertEquals(listOf(slice.copy(ingredientId = 0), can), form.toDraft()!!.units())
-        assertEquals(listOf(can), form.copy(pieceWeight = null).toDraft()!!.units())
-        assertEquals(listOf(IngredientUnit(0, PieceUnit.CAN, 400.0)), form.copy(pieceWeight = PieceWeight(PieceUnit.CAN, 400.0, 1)).toDraft()!!.units())
+        val form = IngredientForm.from(ingredient, listOf(can, slice))
+
+        assertEquals(listOf(slice, can), form.units)
+        assertEquals(listOf(slice, can), form.toDraft()!!.units)
+    }
+
+    @Test
+    fun units_addEditAndRemoveRows_atMostOnePerUnit() {
+        val slice = IngredientUnit(0, PieceUnit.SLICE, 37.5)
+        val tbsp = IngredientUnit(0, PieceUnit.TBSP, 10.0)
+        val form = IngredientForm.from(ingredient).withUnit(tbsp).withUnit(slice)
+
+        assertEquals(listOf(slice, tbsp), form.units)
+        assertEquals(listOf(slice, tbsp.copy(gramsPerUnit = 12.0)), form.withUnit(tbsp.copy(gramsPerUnit = 12.0)).units)
+        val cup = IngredientUnit(0, PieceUnit.CUP, 150.0)
+        assertEquals(listOf(slice, cup), form.withUnit(cup, replacing = PieceUnit.TBSP).units)
+        assertEquals(listOf(tbsp), form.withoutUnit(PieceUnit.SLICE).units)
+    }
+
+    @Test
+    fun availableUnits_leaveOutUnitsWithARow_exceptTheEditedOne() {
+        val form = IngredientForm.from(ingredient, listOf(IngredientUnit(1, PieceUnit.SLICE, 37.5), IngredientUnit(1, PieceUnit.CAN, 240.0)))
+
+        assertEquals(PieceUnit.entries - PieceUnit.SLICE - PieceUnit.CAN, form.availableUnits())
+        assertEquals(PieceUnit.entries - PieceUnit.CAN, form.availableUnits(editing = PieceUnit.SLICE))
+    }
+
+    @Test
+    fun unitWords_areTheNineUnitsInGerman() {
+        assertEquals(
+            listOf("Stück", "Scheibe", "Zehe", "Bund", "Dose", "Packung", "TL", "EL", "Tasse"),
+            PieceUnit.entries.map { it.singular },
+        )
+        assertEquals(
+            listOf("Stück", "Scheiben", "Zehen", "Bund", "Dosen", "Packungen", "TL", "EL", "Tassen"),
+            PieceUnit.entries.map { it.plural },
+        )
     }
 }
