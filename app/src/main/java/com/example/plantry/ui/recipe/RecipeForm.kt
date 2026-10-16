@@ -121,6 +121,10 @@ data class RecipeForm(
     fun withNewIngredient(id: Long, proposal: IngredientProposal) =
         copy(newIngredients = newIngredients + (id to NewIngredient(proposal)))
 
+    /** Gives new ingredient [unit]'s ingredient id the unit, created with it on save. */
+    fun withNewIngredientUnit(unit: IngredientUnit) =
+        updateNewIngredient(unit.ingredientId) { it.copy(proposal = it.proposal.withUnit(unit)) }
+
     /** Confirms the proposed nutrition source; without one there is nothing to confirm. */
     fun confirmNewIngredient(id: Long) =
         updateNewIngredient(id) { if (it.proposal.source == null) it else it.copy(confirmed = true) }

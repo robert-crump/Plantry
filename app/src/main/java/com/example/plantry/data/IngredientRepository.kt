@@ -110,6 +110,9 @@ class IngredientRepository(private val dao: IngredientDao) {
         )
     }
 
+    /** Adds [unit] to its ingredient, or replaces the row with the same unit; recipes in that unit follow. */
+    suspend fun addUnit(unit: IngredientUnit) = dao.upsertUnit(unit)
+
     /** Titles of the recipes with a line in [unit] of ingredient [id]; while there are any, the unit can't be removed. */
     suspend fun recipesUsingUnit(id: Long, unit: PieceUnit): List<String> = dao.getRecipeTitlesUsingUnit(id, unit)
 

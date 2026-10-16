@@ -488,4 +488,21 @@ class RecipeFormTest {
 
         assertEquals(mapOf(-3L to listOf(IngredientUnit(-3, PieceUnit.PIECE, 55.0))), form.newIngredientUnits())
     }
+
+    @Test
+    fun withNewIngredientUnit_addsTheUnitTheLineEditorDefined_createdWithTheIngredient() {
+        val egg = IngredientProposal(
+            name = "Ei", source = null, searchTerms = emptyList(), storeSection = StoreSection.DAIRY_CHILLED,
+            plantPoints = PlantPoints.ZERO, pieceWeight = IngredientUnit(0, PieceUnit.PIECE, 55.0),
+        )
+        val form = RecipeForm().withNewIngredient(-3, egg)
+            .withNewIngredientUnit(IngredientUnit(-3, PieceUnit.PACKET, 60.0, packageGrams = 600.0, packageCount = 10))
+            .withNewIngredientUnit(IngredientUnit(-3, PieceUnit.PACKET, 600.0))
+            .withLine(null, RecipeFormLine(1.0, LineUnit.Of(PieceUnit.PACKET), -3))
+
+        val units = listOf(IngredientUnit(-3, PieceUnit.PIECE, 55.0), IngredientUnit(-3, PieceUnit.PACKET, 600.0))
+        assertEquals(mapOf(-3L to units), form.newIngredientUnits())
+        assertEquals(units.map { it.copy(ingredientId = 0) }, form.newIngredientsToCreate().getValue(-3).units())
+        assertEquals(form, form.withNewIngredientUnit(IngredientUnit(-9, PieceUnit.SLICE, 30.0)))
+    }
 }

@@ -5,15 +5,18 @@ import com.example.plantry.data.IngredientAliases
 import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.LineAmount
 import com.example.plantry.data.LineUnit
+import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.RecipeIngredientDraft
 import com.example.plantry.data.ResolvedAmount
+import com.example.plantry.ui.ingredient.UnitForm
 import com.example.plantry.ui.ingredient.formatDecimal
 import com.example.plantry.ui.ingredient.toPositiveDecimalOrNull
 
 /**
  * Raw input of the ingredient line editor: amount, unit, ingredient and an optional wording.
  * Typing into the ingredient field clears the selected ingredient until the user picks one of the
- * suggestions; a unit the newly picked ingredient lacks falls back to g.
+ * suggestions. Any unit can be picked; one the ingredient lacks ([missingUnit]) needs its grams
+ * ([definition]) before the line can be applied, and applying saves it to the ingredient.
  */
 data class RecipeLineForm(
     val amount: String = "",
@@ -29,6 +32,8 @@ data class RecipeLineForm(
     val scannedName: String = "",
     /** Of the selected ingredient, offered after g and ml. */
     val units: List<IngredientUnit> = emptyList(),
+    /** The grams of [missingUnit]; its unit is ignored, as the line's unit decides it. */
+    val definition: UnitForm = UnitForm(),
 ) {
     fun withAmount(amount: String) = copy(amount = amount)
 
@@ -36,8 +41,9 @@ data class RecipeLineForm(
 
     fun withWording(wording: String) = copy(wording = wording)
 
-    fun withIngredientQuery(query: String) =
-        copy(ingredientQuery = query, ingredientId = null, units = emptyList()).withAvailableUnit()
+    fun withDefinition(transform: UnitForm.() -> UnitForm) = copy(definition = definition.transform())
+
+    fun withIngredientQuery(query: String) = copy(ingredientQuery = query, ingredientId = null, units = emptyList())
 
     /**
      * Selects the ingredient the typed text is a learned alias of, if none is selected yet; [names]
@@ -57,23 +63,43 @@ data class RecipeLineForm(
 
     /** A negative [id] is a new ingredient proposed by Claude, see [RecipeForm.newIngredients]. */
     fun withIngredient(id: Long, name: String, units: List<IngredientUnit> = emptyList()) =
-        copy(ingredientQuery = name, ingredientId = id, units = units).withAvailableUnit()
+        copy(ingredientQuery = name, ingredientId = id, units = units)
 
-    /** g, ml, then the units of the selected ingredient. */
-    fun unitOptions(): List<LineUnit> = LineUnit.ALWAYS + units.map { LineUnit.Of(it.unit) }
+    /** g, ml, the units of the selected ingredient, then all other units. */
+    fun unitOptions(): List<LineUnit> {
+        val own = units.map { it.unit }
+        return LineUnit.ALWAYS + (own + PieceUnit.entries.filter { it !in own }).map(LineUnit::Of)
+    }
+
+    /** The line's unit, once an ingredient is selected that doesn't have it yet. */
+    val missingUnit: PieceUnit?
+        get() {
+            if (ingredientId == null) return null
+            val unit = (unit as? LineUnit.Of)?.unit ?: return null
+            return unit.takeIf { units.none { it.unit == unit } }
+        }
+
+    /** Whether [missingUnit] can be entered as a package and a count ("750 g ÷ 20"). */
+    val offersPackage: Boolean get() = missingUnit in PACKAGE_UNITS
+
+    /** [missingUnit] as defined, or null while there is none or its grams are invalid. */
+    fun newUnit(): IngredientUnit? {
+        val unit = missingUnit ?: return null
+        return definition.copy(unit = unit, inPackage = definition.inPackage && offersPackage).toUnit()?.copy(ingredientId = ingredientId!!)
+    }
 
     /** The line worked out, once amount and ingredient are valid; for the calculation under the amount. */
     fun resolved(): ResolvedAmount? {
         val amount = amount.toPositiveDecimalOrNull() ?: return null
         if (ingredientId == null) return null
-        return LineAmount.resolve(amount, unit, units, ingredientQuery, wording)
+        return LineAmount.resolve(amount, unit, units + listOfNotNull(newUnit()), ingredientQuery, wording)
     }
-
-    private fun withAvailableUnit() = if (unit in unitOptions()) this else copy(unit = LineUnit.Grams)
 
     fun errors() = RecipeLineFormErrors(
         amount = amount.toPositiveDecimalOrNull() == null,
         ingredient = ingredientId == null,
+        unitGrams = missingUnit != null && definition.gramsInvalid,
+        unitCount = missingUnit != null && offersPackage && definition.countInvalid,
     )
 
     /** Returns the validated line, or null if any field is invalid. */
@@ -93,6 +119,9 @@ data class RecipeLineForm(
     }
 
     companion object {
+        /** The units that come in packages of several, e.g. 20 Scheiben in 750 g Toast. */
+        val PACKAGE_UNITS = setOf(PieceUnit.PIECE, PieceUnit.SLICE, PieceUnit.PACKET)
+
         fun from(line: RecipeIngredientDraft, ingredientName: String, units: List<IngredientUnit> = emptyList()) =
             from(RecipeFormLine.from(line), ingredientName, units)
 
@@ -109,6 +138,13 @@ data class RecipeLineForm(
     }
 }
 
-data class RecipeLineFormErrors(val amount: Boolean, val ingredient: Boolean) {
-    val hasAny: Boolean get() = amount || ingredient
+data class RecipeLineFormErrors(
+    val amount: Boolean,
+    val ingredient: Boolean,
+    /** The grams of a unit the ingredient lacks are missing or invalid. */
+    val unitGrams: Boolean = false,
+    /** The package count of that unit is missing or invalid. */
+    val unitCount: Boolean = false,
+) {
+    val hasAny: Boolean get() = amount || ingredient || unitGrams || unitCount
 }

@@ -98,6 +98,11 @@
     <string name="recipe_line_text_hint">z. B. „1 große Süßkartoffel“</string>
     <string name="recipe_line_amount_field">Menge</string>
     <string name="recipe_line_unit">Einheit</string>
+    <string name="recipe_line_unit_missing">„%1$s“ gibt es für diese Zutat noch nicht. Einmal angegeben, gilt es für alle Rezepte.</string>
+    <string name="recipe_line_unit_one">1 %1$s %2$s</string>
+    <string name="recipe_line_unit_grams">Gramm</string>
+    <string name="recipe_line_unit_package_grams">Packung (g)</string>
+    <string name="recipe_line_unit_package_count">Anzahl</string>
     <string name="recipe_line_ingredient">Zutat aus deiner Tabelle</string>
     <string name="recipe_line_no_match">Keine passende Zutat in deiner Tabelle.</string>
     <string name="recipe_line_uncertain">Unsicher – bitte prüfen</string>

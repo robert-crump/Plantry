@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -51,6 +52,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -75,6 +79,7 @@ import com.example.plantry.data.BookSession
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.LineAmount
+import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.LineUnit
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientAliases
@@ -557,19 +562,29 @@ class RecipeEditViewModel(
         }
     }
 
+    /**
+     * Takes the line into the recipe. A unit the ingredient lacks is saved to it right away, or for
+     * a new ingredient kept with it until it is created on save.
+     */
     fun applyLine() {
-        _state.update { state ->
-            val editor = state.lineEditor ?: return@update state
-            // A typed wording the user confirmed before needs no picking.
-            val line = editor.form.withAlias(aliases.value, ingredientNames.value, unitsOf(state.form)).toFormLine()
-            if (line == null || !state.form.isReady(line.ingredientId)) {
-                state.copy(lineEditor = editor.copy(showErrors = true))
-            } else {
-                val form = state.form.withLine(editor.index, line)
-                val next = editor.index?.takeIf { editor.toNextProblem }?.let(form::nextProblem)
-                state.copy(form = form, lineEditor = next?.let { lineEditor(form, it) })
-            }
+        val state = _state.value
+        val editor = state.lineEditor ?: return
+        // A typed wording the user confirmed before needs no picking.
+        val lineForm = editor.form.withAlias(aliases.value, ingredientNames.value, unitsOf(state.form))
+        val line = lineForm.toFormLine()
+        if (line == null || !state.form.isReady(line.ingredientId)) {
+            _state.update { it.copy(lineEditor = editor.copy(form = lineForm, showErrors = true)) }
+            return
         }
+        val newUnit = lineForm.newUnit()
+        val withUnit = when {
+            newUnit == null -> state.form
+            newUnit.ingredientId > 0 -> state.form.also { viewModelScope.launch { ingredientRepository.addUnit(newUnit) } }
+            else -> state.form.withNewIngredientUnit(newUnit)
+        }
+        val form = withUnit.withLine(editor.index, line)
+        val next = editor.index?.takeIf { editor.toNextProblem }?.let(form::nextProblem)
+        _state.update { it.copy(form = form, lineEditor = next?.let { index -> lineEditor(form, index) }) }
     }
 
     fun dismissLineEditor() {
@@ -1309,6 +1324,9 @@ private fun LineEditorDialog(
                         )
                     }
                 }
+                form.missingUnit?.let { unit ->
+                    MissingUnitFields(unit, form, errors, onChange)
+                }
                 FormField(
                     value = form.wording,
                     onValueChange = { onChange { withWording(it) } },
@@ -1329,7 +1347,80 @@ private fun LineEditorDialog(
     )
 }
 
-/** The line's unit, picked from g, ml and the ingredient's units. */
+/**
+ * The grams of [unit], which the line's ingredient doesn't have yet: "1 Scheibe Vollkorntoast =
+ * __ g", or for units that come in packages also "Packung ÷ Anzahl".
+ */
+@Composable
+private fun MissingUnitFields(
+    unit: PieceUnit,
+    form: RecipeLineForm,
+    errors: RecipeLineFormErrors?,
+    onChange: (RecipeLineForm.() -> RecipeLineForm) -> Unit,
+) {
+    val definition = form.definition
+    val inPackage = definition.inPackage && form.offersPackage
+    val one = stringResource(R.string.recipe_line_unit_one, unit.singular, form.ingredientQuery.trim())
+    val gramsError = if (errors?.unitGrams == true) R.string.error_positive_decimal else null
+    Text(stringResource(R.string.recipe_line_unit_missing, unit.singular), style = MaterialTheme.typography.bodySmall)
+    if (form.offersPackage) {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            listOf(false to R.string.ingredient_unit_mode_single, true to R.string.ingredient_unit_mode_package)
+                .forEachIndexed { index, (value, label) ->
+                    SegmentedButton(
+                        selected = inPackage == value,
+                        onClick = { onChange { withDefinition { copy(inPackage = value) } } },
+                        shape = SegmentedButtonDefaults.itemShape(index, 2),
+                    ) { Text(stringResource(label)) }
+                }
+        }
+    }
+    if (inPackage) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            FormField(
+                value = definition.grams,
+                onValueChange = { onChange { withDefinition { copy(grams = it) } } },
+                label = R.string.recipe_line_unit_package_grams,
+                error = gramsError,
+                keyboardType = KeyboardType.Decimal,
+                imeAction = ImeAction.Next,
+                modifier = Modifier.weight(1f),
+            )
+            Text("÷")
+            FormField(
+                value = definition.count,
+                onValueChange = { onChange { withDefinition { copy(count = it) } } },
+                label = R.string.recipe_line_unit_package_count,
+                error = if (errors?.unitCount == true) R.string.error_positive_number else null,
+                numeric = true,
+                imeAction = ImeAction.Next,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        form.newUnit()?.let {
+            Text(
+                "$one = ${LineAmount.calculation(it.gramsPerUnit, LineUnit.Grams, null)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    } else {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("$one =", Modifier.weight(1f))
+            FormField(
+                value = definition.grams,
+                onValueChange = { onChange { withDefinition { copy(grams = it) } } },
+                label = R.string.recipe_line_unit_grams,
+                error = gramsError,
+                keyboardType = KeyboardType.Decimal,
+                imeAction = ImeAction.Next,
+                modifier = Modifier.width(112.dp),
+            )
+        }
+    }
+}
+
+/** The line's unit, picked from g, ml, the ingredient's units and all other units. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun UnitField(unit: LineUnit, options: List<LineUnit>, onSelect: (LineUnit) -> Unit, modifier: Modifier = Modifier) {

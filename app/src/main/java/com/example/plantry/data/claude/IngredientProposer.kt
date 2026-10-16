@@ -65,6 +65,8 @@ data class IngredientProposal(
     val drainedWeight: DrainedWeight? = null,
     /** Only for naturally counted foods; always the weight of one piece. */
     val pieceWeight: IngredientUnit? = null,
+    /** Units the user defined for it in the line editor, created with it. */
+    val addedUnits: List<IngredientUnit> = emptyList(),
     /** Claude gave no valid store section / plant points, so the value above is a fallback to replace. */
     val storeSectionUndecided: Boolean = false,
     val plantPointsUndecided: Boolean = false,
@@ -92,7 +94,11 @@ data class IngredientProposal(
     }
 
     /** The unit rows to create with the ingredient, with [ingredientId] (its temporary id before that). */
-    fun units(ingredientId: Long = 0): List<IngredientUnit> = listOfNotNull(pieceWeight?.copy(ingredientId = ingredientId))
+    fun units(ingredientId: Long = 0): List<IngredientUnit> =
+        (listOfNotNull(pieceWeight) + addedUnits).map { it.copy(ingredientId = ingredientId) }.sortedBy { it.unit }
+
+    /** Adds [unit] to [addedUnits], replacing a row with the same unit. */
+    fun withUnit(unit: IngredientUnit) = copy(addedUnits = addedUnits.filter { it.unit != unit.unit } + unit)
 }
 
 sealed interface ClaudeResult<out T> {

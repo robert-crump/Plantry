@@ -222,6 +222,18 @@ class IngredientRepositoryTest {
     }
 
     @Test
+    fun addUnit_addsARowAndKeepsTheOthers_replacingOneWithTheSameUnit() = runTest {
+        val id = repository.createFromLabel("Toast", Nutrition())
+        val clove = IngredientUnit(id, PieceUnit.CLOVE, 4.0)
+        repository.addUnit(clove)
+
+        repository.addUnit(slice(20).copy(ingredientId = id))
+        repository.addUnit(slice(25).copy(ingredientId = id))
+
+        assertEquals(setOf(clove, slice(25).copy(ingredientId = id)), repository.getUnits(id).toSet())
+    }
+
+    @Test
     fun update_changedUnitWeight_isSavedWithoutAsking() = runTest {
         val id = repository.createFromLabel("Toast", Nutrition())
         val toast = repository.getIngredient(id)!!
@@ -429,6 +441,10 @@ private class FakeIngredientDao : IngredientDao {
 
     override suspend fun insertUnits(units: List<IngredientUnit>) {
         this.units.value += units
+    }
+
+    override suspend fun upsertUnit(unit: IngredientUnit) {
+        units.value = units.value.filter { it.ingredientId != unit.ingredientId || it.unit != unit.unit } + unit
     }
 
     override suspend fun deleteUnits(id: Long) {

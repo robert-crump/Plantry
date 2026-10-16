@@ -142,6 +142,22 @@ class IngredientDaoTest {
     }
 
     @Test
+    fun upsertUnit_addsARow_replacesTheSameUnit_andLinesFollow() = runTest {
+        val clove = IngredientUnit(0, PieceUnit.CLOVE, 4.0)
+        val toast = dao.insertWithUnits(ingredient("Toast"), listOf(clove))
+        val recipeDao = db.recipeDao()
+        val id = recipeDao.insertWithLines(recipe("Croque"), listOf(RecipeIngredientDraft(2.0, LineUnit.Of(PieceUnit.SLICE), toast)))
+        assertEquals(listOf<Double?>(null), recipeDao.getLines(id).map { it.grams })
+
+        dao.upsertUnit(IngredientUnit(toast, PieceUnit.SLICE, 37.5, 750.0, 20))
+        assertEquals(listOf<Double?>(75.0), recipeDao.getLines(id).map { it.grams })
+
+        val thicker = IngredientUnit(toast, PieceUnit.SLICE, 50.0)
+        dao.upsertUnit(thicker)
+        assertEquals(listOf(clove.copy(ingredientId = toast), thicker), dao.getUnits(toast))
+    }
+
+    @Test
     fun linesInAUnit_readTheirGramsFromIt_andFollowAChange() = runTest {
         val toast = dao.insertWithUnits(ingredient("Toast"), listOf(IngredientUnit(0, PieceUnit.SLICE, 37.5, 750.0, 20)))
         val recipeDao = db.recipeDao()

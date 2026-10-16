@@ -62,6 +62,9 @@ interface IngredientDao {
     @Insert
     suspend fun insertUnits(units: List<IngredientUnit>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertUnit(unit: IngredientUnit)
+
     @Query("DELETE FROM ingredient_units WHERE ingredientId = :id")
     suspend fun deleteUnits(id: Long)
 

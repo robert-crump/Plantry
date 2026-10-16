@@ -71,22 +71,81 @@ class RecipeLineFormTest {
     }
 
     @Test
-    fun unitOptions_gAndMlThenTheIngredientsUnits() {
-        assertEquals(listOf(LineUnit.Grams, LineUnit.Milliliters), RecipeLineForm().unitOptions())
-        assertEquals(
-            listOf(LineUnit.Grams, LineUnit.Milliliters, sliceUnit),
-            RecipeLineForm().withIngredient(toast, listOf(slice)).unitOptions(),
-        )
+    fun unitOptions_gAndMlThenTheIngredientsUnitsThenTheOthers() {
+        val others = PieceUnit.entries.map(LineUnit::Of)
+        assertEquals(listOf(LineUnit.Grams, LineUnit.Milliliters) + others, RecipeLineForm().unitOptions())
+
+        val clove = IngredientUnit(5, PieceUnit.CLOVE, 4.0)
+        val options = RecipeLineForm().withIngredient(toast, listOf(slice, clove)).unitOptions()
+        assertEquals(listOf(LineUnit.Grams, LineUnit.Milliliters, sliceUnit, LineUnit.Of(PieceUnit.CLOVE)), options.take(4))
+        assertEquals(others - sliceUnit - LineUnit.Of(PieceUnit.CLOVE), options.drop(4))
     }
 
     @Test
-    fun aUnitTheNewIngredientLacks_fallsBackToGrams_gAndMlStay() {
+    fun theUnitStaysWhenTheIngredientChanges_andIsMissingForOneThatLacksIt() {
         val slices = RecipeLineForm(amount = "2").withIngredient(toast, listOf(slice)).withUnit(sliceUnit)
 
-        assertEquals(sliceUnit, slices.unit)
-        assertEquals(LineUnit.Grams, slices.withIngredientQuery("Brot").unit)
-        assertEquals(LineUnit.Grams, slices.withIngredient(sweetPotato, emptyList()).unit)
-        assertEquals(LineUnit.Milliliters, slices.withUnit(LineUnit.Milliliters).withIngredient(sweetPotato, emptyList()).unit)
+        assertNull(slices.missingUnit)
+        assertEquals(sliceUnit, slices.withIngredient(sweetPotato, emptyList()).unit)
+        assertEquals(PieceUnit.SLICE, slices.withIngredient(sweetPotato, emptyList()).missingUnit)
+        assertNull("no ingredient selected", slices.withIngredientQuery("Brot").missingUnit)
+        assertNull("g is always there", slices.withUnit(LineUnit.Grams).withIngredient(sweetPotato, emptyList()).missingUnit)
+    }
+
+    @Test
+    fun aMissingUnit_needsValidGramsBeforeTheLineApplies() {
+        val form = RecipeLineForm(amount = "2").withIngredient(toast, emptyList()).withUnit(sliceUnit)
+
+        assertTrue(form.errors().unitGrams)
+        assertNull(form.toFormLine())
+        assertNull(form.withDefinition { copy(grams = "0") }.toFormLine())
+        assertNull(form.withDefinition { copy(grams = "viel") }.newUnit())
+
+        val defined = form.withDefinition { copy(grams = "37,5") }
+        assertFalse(defined.errors().hasAny)
+        assertEquals(IngredientUnit(5, PieceUnit.SLICE, 37.5), defined.newUnit())
+        assertEquals(RecipeIngredientDraft(2.0, sliceUnit, 5), defined.toDraft())
+        assertEquals("2 × 37,5 g = 75 g", defined.resolved()!!.calculation)
+    }
+
+    @Test
+    fun aMissingUnitThatComesInPackages_isDefinedAsPackageDividedByCount() {
+        val form = RecipeLineForm(amount = "2").withIngredient(toast, emptyList()).withUnit(sliceUnit)
+            .withDefinition { copy(inPackage = true, grams = "750") }
+
+        assertTrue(form.offersPackage)
+        assertTrue(form.errors().unitCount)
+        assertNull(form.toFormLine())
+
+        val defined = form.withDefinition { copy(count = "20") }
+        assertEquals(slice, defined.newUnit())
+        assertEquals("2 × 37,5 g = 75 g", defined.resolved()!!.calculation)
+    }
+
+    @Test
+    fun aUnitThatDoesNotComeInPackages_ignoresThePackageMode() {
+        val form = RecipeLineForm(amount = "1").withIngredient(toast, emptyList()).withUnit(LineUnit.Of(PieceUnit.TBSP))
+            .withDefinition { copy(inPackage = true, grams = "15") }
+
+        assertFalse(form.offersPackage)
+        assertFalse(form.errors().hasAny)
+        assertEquals(IngredientUnit(5, PieceUnit.TBSP, 15.0), form.newUnit())
+    }
+
+    @Test
+    fun aUnitTheIngredientHas_definesNothing() {
+        val form = RecipeLineForm(amount = "2").withIngredient(toast, listOf(slice)).withUnit(sliceUnit)
+            .withDefinition { copy(grams = "99") }
+
+        assertNull(form.newUnit())
+        assertEquals("2 × 37,5 g = 75 g", form.resolved()!!.calculation)
+    }
+
+    @Test
+    fun aNewIngredientsMissingUnit_carriesItsTemporaryId() {
+        val form = RecipeLineForm(amount = "1").withIngredient(-1, "Seitan").withUnit(sliceUnit).withDefinition { copy(grams = "30") }
+
+        assertEquals(IngredientUnit(-1, PieceUnit.SLICE, 30.0), form.newUnit())
     }
 
     @Test
