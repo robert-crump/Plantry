@@ -43,8 +43,7 @@ class IngredientDaoTest {
         title = title,
         source = "Buch",
         page = null,
-        bookServings = 2,
-        ourServings = 2,
+        servings = 2,
         totalTimeMinutes = null,
     )
 

@@ -20,7 +20,7 @@ class RecipeQueryTest {
 
     private fun recipe(id: Long, title: String, minutes: Int? = 30, active: Int? = null) = Recipe(
         id = id, title = title, source = "", page = null,
-        bookServings = 2, ourServings = 2, totalTimeMinutes = minutes, activeTimeMinutes = active,
+        servings = 2, totalTimeMinutes = minutes, activeTimeMinutes = active,
     )
 
     private fun line(recipeId: Long, ingredient: Ingredient, grams: Double = 100.0) =

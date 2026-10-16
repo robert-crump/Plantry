@@ -58,7 +58,7 @@ class BackupDaoTest {
 
     private val snapshot = BackupSnapshot(
         ingredients = listOf(ingredient(1, "Reis, gekocht"), ingredient(5, "Reis, trocken")),
-        recipes = listOf(Recipe(3, "Curry", "Buch", 12, 4, 2, 30, modified = true)),
+        recipes = listOf(Recipe(3, "Curry", "Buch", 12, 2, 30, modified = true)),
         lines = listOf(
             RecipeIngredient(8, 3, 0, 180.0, LineUnit.Grams, 1, wording = "1 Tasse Reis"),
             RecipeIngredient(9, 3, 1, 0.5, LineUnit.Of(PieceUnit.PACKET), 5),
@@ -76,7 +76,7 @@ class BackupDaoTest {
     @Test
     fun replaceAll_restoresEverything_withIds() = runTest {
         db.ingredientDao().insert(ingredient(0, "Alt"))
-        db.recipeDao().insert(Recipe(title = "Alt", source = "", page = null, bookServings = 1, ourServings = 1, totalTimeMinutes = 1))
+        db.recipeDao().insert(Recipe(title = "Alt", source = "", page = null, servings = 1, totalTimeMinutes = 1))
 
         dao.replaceAll(snapshot)
 

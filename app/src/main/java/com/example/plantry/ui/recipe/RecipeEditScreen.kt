@@ -161,7 +161,7 @@ data class RecipeEditUiState(
 ) {
     /** Closing would lose something: the form differs from [loadedForm], or a photo was taken for a scan. */
     val hasChanges: Boolean
-        get() = scanning || photoChanged || form.copy(ourServingsEdited = loadedForm.ourServingsEdited) != loadedForm
+        get() = scanning || photoChanged || form != loadedForm
 }
 
 /** What uses Claude here; each waits until Claude is set up, see [RecipeEditViewModel.useClaude]. */
@@ -1012,8 +1012,9 @@ private fun PhotoSection(
 }
 
 /**
- * The recipe fields in input order; IME "Next" moves to the following field. The last one calls
- * [onDone] (a scan's next step) when given, else just closes the keyboard.
+ * The recipe fields in input order, Art first: a main dish has all of them, a snack only Titel and
+ * Portionen. IME "Next" moves to the following field. The last one calls [onDone] (a scan's next
+ * step) when given, else just closes the keyboard.
  */
 @Composable
 private fun RecipeFields(
@@ -1023,6 +1024,8 @@ private fun RecipeFields(
     onFormChange: (RecipeForm.() -> RecipeForm) -> Unit,
     onDone: (() -> Unit)?,
 ) {
+    val lastImeAction = if (onDone != null) ImeAction.Next else ImeAction.Done
+    DishRow(form.dish, onSelect = { onFormChange { withDish(it) } })
     FormField(
         value = form.title,
         onValueChange = { onFormChange { copy(title = it) } },
@@ -1031,68 +1034,63 @@ private fun RecipeFields(
         capitalize = true,
         imeAction = ImeAction.Next,
     )
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        SourceField(
-            value = form.source,
-            suggestions = sourceSuggestions,
-            onValueChange = { onFormChange { copy(source = it) } },
-            modifier = Modifier.weight(2f),
-        )
-        FormField(
-            value = form.page,
-            onValueChange = { onFormChange { copy(page = it) } },
-            label = R.string.recipe_page,
-            error = if (errors?.page == true) R.string.error_positive_number else null,
-            numeric = true,
-            imeAction = ImeAction.Next,
-            modifier = Modifier.weight(1f),
-        )
+    if (form.isMain) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SourceField(
+                value = form.source,
+                suggestions = sourceSuggestions,
+                onValueChange = { onFormChange { copy(source = it) } },
+                modifier = Modifier.weight(2f),
+            )
+            FormField(
+                value = form.page,
+                onValueChange = { onFormChange { copy(page = it) } },
+                label = R.string.recipe_page,
+                error = if (errors?.page == true) R.string.error_positive_number else null,
+                numeric = true,
+                imeAction = ImeAction.Next,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
     FormField(
-        value = form.bookServings,
-        onValueChange = { onFormChange { withBookServings(it) } },
-        label = R.string.recipe_book_servings,
-        error = if (errors?.bookServings == true) R.string.error_positive_number else null,
+        value = form.servings,
+        onValueChange = { onFormChange { copy(servings = it) } },
+        label = R.string.recipe_servings,
+        error = if (errors?.servings == true) R.string.error_positive_number else null,
         numeric = true,
-        imeAction = ImeAction.Next,
+        imeAction = if (form.isMain) ImeAction.Next else lastImeAction,
+        onImeAction = if (form.isMain) null else onDone,
     )
-    FormField(
-        value = form.ourServings,
-        onValueChange = { onFormChange { withOurServings(it) } },
-        label = R.string.recipe_our_servings,
-        error = if (errors?.ourServings == true) R.string.error_positive_number else null,
-        hint = R.string.recipe_our_servings_hint,
-        numeric = true,
-        imeAction = ImeAction.Next,
-    )
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FormField(
-            value = form.activeTime,
-            onValueChange = { onFormChange { copy(activeTime = it) } },
-            label = R.string.recipe_active_time_minutes,
-            error = when {
-                errors?.activeTime != true -> null
-                form.activeTime.trim().toIntOrNull()?.takeIf { it > 0 } != null -> R.string.error_active_time_exceeds_total
-                else -> R.string.error_positive_number
-            },
-            hint = R.string.recipe_cooking_time_hint,
-            numeric = true,
-            imeAction = ImeAction.Next,
-            modifier = Modifier.weight(1f),
-        )
-        FormField(
-            value = form.totalTime,
-            onValueChange = { onFormChange { copy(totalTime = it) } },
-            label = R.string.recipe_total_time_minutes,
-            error = if (errors?.totalTime == true) R.string.error_positive_number else null,
-            hint = R.string.recipe_cooking_time_hint,
-            numeric = true,
-            imeAction = if (onDone != null) ImeAction.Next else ImeAction.Done,
-            onImeAction = onDone,
-            modifier = Modifier.weight(1f),
-        )
+    if (form.isMain) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FormField(
+                value = form.activeTime,
+                onValueChange = { onFormChange { copy(activeTime = it) } },
+                label = R.string.recipe_active_time_minutes,
+                error = when {
+                    errors?.activeTime != true -> null
+                    form.activeTime.trim().toIntOrNull()?.takeIf { it > 0 } != null -> R.string.error_active_time_exceeds_total
+                    else -> R.string.error_positive_number
+                },
+                hint = R.string.recipe_cooking_time_hint,
+                numeric = true,
+                imeAction = ImeAction.Next,
+                modifier = Modifier.weight(1f),
+            )
+            FormField(
+                value = form.totalTime,
+                onValueChange = { onFormChange { copy(totalTime = it) } },
+                label = R.string.recipe_total_time_minutes,
+                error = if (errors?.totalTime == true) R.string.error_positive_number else null,
+                hint = R.string.recipe_cooking_time_hint,
+                numeric = true,
+                imeAction = lastImeAction,
+                onImeAction = onDone,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
-    DishRow(form.dish, onSelect = { onFormChange { copy(dish = it) } })
 }
 
 /** "Art" with the recipe's dish; tapping opens a radio dialog that applies on tap. */

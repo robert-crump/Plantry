@@ -15,9 +15,11 @@ import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.StoreSection
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
@@ -131,14 +133,15 @@ data class BackupIngredient(
 @Serializable
 data class BackupUnit(val unit: PieceUnit, val gramsPerUnit: Double, val packageGrams: Double?, val packageCount: Int?)
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class BackupRecipe(
     val id: Long,
     val title: String,
     val source: String,
     val page: Int?,
-    val bookServings: Int,
-    val ourServings: Int,
+    /** Read from "ourServings" in backups made before book and our servings merged. */
+    @JsonNames("ourServings") val servings: Int,
     /** The Gesamtzeit; null when unknown. */
     val totalTimeMinutes: Int?,
     /** The Arbeitszeit; null when unknown. */
@@ -290,8 +293,7 @@ private fun Recipe.toBackup(photo: String?, lines: List<RecipeIngredient>) = Bac
     title = title,
     source = source,
     page = page,
-    bookServings = bookServings,
-    ourServings = ourServings,
+    servings = servings,
     totalTimeMinutes = totalTimeMinutes,
     activeTimeMinutes = activeTimeMinutes,
     modified = modified,
@@ -305,8 +307,7 @@ private fun BackupRecipe.toEntity() = Recipe(
     title = title,
     source = source,
     page = page,
-    bookServings = bookServings,
-    ourServings = ourServings,
+    servings = servings,
     totalTimeMinutes = totalTimeMinutes,
     modified = modified,
     dish = dish,

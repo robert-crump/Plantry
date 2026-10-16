@@ -189,8 +189,8 @@ class PlannedRepositoryTest {
     @Test
     fun plannedItems_currentStatsInPlanOrder_missingRecipesSkipped() {
         val recipes = listOf(
-            Recipe(1, "Dal", "", null, 2, 2, null),
-            Recipe(2, "Curry", "", null, 4, 2, null),
+            Recipe(1, "Dal", "", null, 2, null),
+            Recipe(2, "Curry", "", null, 2, null),
         )
         val lentils = Ingredient(
             id = 5, name = "Linsen", fdcId = null, usdaDescription = null,

@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "044ac59caa68029f51cb198147b6136f",
+    "identityHash": "a821919048a87138c4a940252e969f7c",
     "entities": [
       {
         "tableName": "recipes",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `source` TEXT NOT NULL, `page` INTEGER, `bookServings` INTEGER NOT NULL, `ourServings` INTEGER NOT NULL, `cookingTimeMinutes` INTEGER, `modified` INTEGER NOT NULL DEFAULT 0, `dish` TEXT NOT NULL DEFAULT 'MAIN', `activeTimeMinutes` INTEGER)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `source` TEXT NOT NULL, `page` INTEGER, `servings` INTEGER NOT NULL, `cookingTimeMinutes` INTEGER, `modified` INTEGER NOT NULL DEFAULT 0, `dish` TEXT NOT NULL DEFAULT 'MAIN', `activeTimeMinutes` INTEGER)",
         "fields": [
           {
             "fieldPath": "id",
@@ -32,14 +32,8 @@
             "affinity": "INTEGER"
           },
           {
-            "fieldPath": "bookServings",
-            "columnName": "bookServings",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "ourServings",
-            "columnName": "ourServings",
+            "fieldPath": "servings",
+            "columnName": "servings",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -493,7 +487,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '044ac59caa68029f51cb198147b6136f')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a821919048a87138c4a940252e969f7c')"
     ]
   }
 }

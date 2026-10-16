@@ -162,6 +162,16 @@ class BackupRepositoryTest {
     }
 
     @Test
+    fun read_takesOurServingsFromABackupBeforeTheMerge() = runTest {
+        val old = source.export().replace("\"servings\": 2,", "\"bookServings\": 4, \"ourServings\": 2,")
+
+        assertTrue(old.contains("\"ourServings\": 2"))
+        val target = Device()
+        target.repository.import(target.repository.read(old))
+        assertEquals(source.store.data.recipes, target.store.data.recipes)
+    }
+
+    @Test
     fun read_rejectsAnUnknownUnit() = runTest {
         val unknown = source.export().replace("\"unit\": \"ML\"", "\"unit\": \"PINCH\"")
 
@@ -262,9 +272,9 @@ class BackupRepositoryTest {
                 ),
             ),
             recipes = listOf(
-                Recipe(2, "Curry", "Kochbuch", 42, 4, 2, 30, modified = true, activeTimeMinutes = 15),
-                Recipe(7, "Chili", "", null, 2, 2, totalTimeMinutes = null),
-                Recipe(8, "Skyr mit Banane", "", null, 1, 1, totalTimeMinutes = 2, dish = Dish.SNACK),
+                Recipe(2, "Curry", "Kochbuch", 42, 2, 30, modified = true, activeTimeMinutes = 15),
+                Recipe(7, "Chili", "", null, 2, totalTimeMinutes = null),
+                Recipe(8, "Skyr mit Banane", "", null, 1, totalTimeMinutes = 2, dish = Dish.SNACK),
             ),
             lines = listOf(
                 RecipeIngredient(10, 2, 0, 1.5, LineUnit.Of(PieceUnit.PIECE), 3),

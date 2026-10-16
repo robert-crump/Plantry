@@ -132,7 +132,7 @@ class RecipeDetailViewModel(
             },
             nutrition = RecipeNutrition.calculate(
                 nutritionLines(lines, byId),
-                recipe.ourServings,
+                recipe.servings,
             ),
             stats = stats,
             highlights = RecipeHighlight.of(stats, hasLines = lines.isNotEmpty()),
@@ -324,7 +324,7 @@ private fun DetailCard(content: @Composable () -> Unit) {
     }
 }
 
-/** Arbeitszeit | Gesamtzeit, Portionen laut Buch | Unsere Portionen, Quelle | Art (for a snack only). */
+/** A main dish: Arbeitszeit | Gesamtzeit, Portionen | Quelle. A snack: Portionen | Art. */
 @Composable
 private fun MetadataCard(recipe: Recipe) {
     DetailCard {
@@ -332,24 +332,18 @@ private fun MetadataCard(recipe: Recipe) {
             Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                MetadataCell(R.string.recipe_active_time, Modifier.weight(1f)) { MinutesValue(recipe.activeTimeMinutes) }
-                MetadataCell(R.string.recipe_total_time, Modifier.weight(1f)) { MinutesValue(recipe.totalTimeMinutes) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                MetadataCell(R.string.recipe_book_servings, Modifier.weight(1f)) {
-                    MetadataValue(recipe.bookServings.toString())
-                }
-                MetadataCell(R.string.recipe_our_servings, Modifier.weight(1f)) {
-                    MetadataValue(recipe.ourServings.toString())
+            if (recipe.dish == Dish.MAIN) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    MetadataCell(R.string.recipe_active_time, Modifier.weight(1f)) { MinutesValue(recipe.activeTimeMinutes) }
+                    MetadataCell(R.string.recipe_total_time, Modifier.weight(1f)) { MinutesValue(recipe.totalTimeMinutes) }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                MetadataCell(R.string.recipe_source, Modifier.weight(1f)) { MetadataValue(sourceLabel(recipe)) }
-                if (recipe.dish == Dish.SNACK) {
-                    MetadataCell(R.string.recipe_dish, Modifier.weight(1f)) { MetadataValue(stringResource(recipe.dish.label)) }
+                MetadataCell(R.string.recipe_servings, Modifier.weight(1f)) { MetadataValue(recipe.servings.toString()) }
+                if (recipe.dish == Dish.MAIN) {
+                    MetadataCell(R.string.recipe_source, Modifier.weight(1f)) { MetadataValue(sourceLabel(recipe)) }
                 } else {
-                    Spacer(Modifier.weight(1f))
+                    MetadataCell(R.string.recipe_dish, Modifier.weight(1f)) { MetadataValue(stringResource(recipe.dish.label)) }
                 }
             }
         }

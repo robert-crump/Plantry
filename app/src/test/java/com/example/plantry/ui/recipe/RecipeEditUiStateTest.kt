@@ -6,7 +6,7 @@ import org.junit.Test
 
 class RecipeEditUiStateTest {
 
-    private val loaded = RecipeForm(title = "Croque", bookServings = "2", ourServings = "2")
+    private val loaded = RecipeForm(title = "Croque", servings = "2")
 
     @Test
     fun newRecipe_withEmptyForm_hasNoChanges() {
@@ -30,8 +30,7 @@ class RecipeEditUiStateTest {
 
     @Test
     fun savedRecipe_editedBackToLoaded_hasNoChanges() {
-        // Typing into "our servings" marks it edited, even when the value ends up as loaded.
-        val retyped = loaded.copy(ourServingsEdited = true)
+        val retyped = loaded.copy(servings = "3").copy(servings = "2")
         assertFalse(RecipeEditUiState(form = retyped, loadedForm = loaded).hasChanges)
     }
 

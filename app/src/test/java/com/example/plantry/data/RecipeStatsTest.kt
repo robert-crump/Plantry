@@ -5,7 +5,7 @@ import org.junit.Test
 
 class RecipeStatsTest {
 
-    private val recipe = Recipe(1, "Dal", "", null, bookServings = 4, ourServings = 2, totalTimeMinutes = 30)
+    private val recipe = Recipe(1, "Dal", "", null, servings = 2, totalTimeMinutes = 30)
 
     private val ingredients = listOf(
         ingredient(1, "Linsen", PlantPoints.ONE, Nutrition(kcal = 340.0, protein = 24.0, carbs = 50.0, fibre = 11.0)),
@@ -16,7 +16,7 @@ class RecipeStatsTest {
     ).associateBy { it.id }
 
     @Test
-    fun of_sumsDistinctPlantsAndDividesNutritionByOurServings() {
+    fun of_sumsDistinctPlantsAndDividesNutritionByServings() {
         val lines = listOf(
             line(0, 200.0, ingredientId = 1),
             line(1, 10.0, ingredientId = 2),

@@ -29,14 +29,12 @@
     <string name="dish_main">Hauptgericht</string>
     <string name="dish_snack">Snack</string>
     <string name="recipe_page">Seite</string>
-    <string name="recipe_book_servings">Portionen laut Buch</string>
-    <string name="recipe_our_servings">Unsere Portionen</string>
+    <string name="recipe_servings">Portionen</string>
     <string name="recipe_active_time">Arbeitszeit</string>
     <string name="recipe_total_time">Gesamtzeit</string>
     <string name="recipe_active_time_minutes">Arbeitszeit (Min.)</string>
     <string name="recipe_total_time_minutes">Gesamtzeit (Min.)</string>
     <string name="recipe_cooking_time_hint">Optional</string>
-    <string name="recipe_our_servings_hint">Standardmäßig wie laut Buch</string>
 
     <!-- Recipe formatting -->
     <string name="recipe_source_with_page">%1$s, S. %2$d</string>

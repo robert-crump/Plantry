@@ -20,32 +20,16 @@ class RecipeRepositoryTest {
     private val lentils = RecipeIngredientDraft(200.0, LineUnit.Grams, ingredientId = 2)
 
     private fun draft(
-        bookServings: Int = 4,
-        ourServings: Int? = null,
+        servings: Int = 4,
         lines: List<RecipeIngredientDraft> = listOf(sweetPotato, lentils),
     ) = RecipeDraft(
         title = "Linsen-Dal",
         source = "Kochbuch",
         page = 42,
-        bookServings = bookServings,
-        ourServings = ourServings,
+        servings = servings,
         totalTimeMinutes = 30,
         lines = lines,
     )
-
-    @Test
-    fun create_withoutOurServings_defaultsToBookServings() = runTest {
-        val id = repository.create(draft(bookServings = 4, ourServings = null))
-
-        assertEquals(4, repository.getRecipe(id)!!.ourServings)
-    }
-
-    @Test
-    fun create_withOurServings_keepsThem() = runTest {
-        val id = repository.create(draft(bookServings = 4, ourServings = 2))
-
-        assertEquals(2, repository.getRecipe(id)!!.ourServings)
-    }
 
     @Test
     fun create_storesAllFieldsAndTrimsText() = runTest {
@@ -57,8 +41,7 @@ class RecipeRepositoryTest {
                 title = "Linsen-Dal",
                 source = "Kochbuch",
                 page = 42,
-                bookServings = 4,
-                ourServings = 4,
+                servings = 4,
                 totalTimeMinutes = 30,
                 modified = false,
             ),
@@ -70,22 +53,13 @@ class RecipeRepositoryTest {
     fun update_replacesFieldsOfExistingRecipe() = runTest {
         val id = repository.create(draft())
 
-        repository.update(id, draft().copy(title = "Chili", page = null, ourServings = 6))
+        repository.update(id, draft().copy(title = "Chili", page = null, servings = 6))
 
         val updated = repository.getRecipe(id)!!
         assertEquals("Chili", updated.title)
         assertNull(updated.page)
-        assertEquals(6, updated.ourServings)
+        assertEquals(6, updated.servings)
         assertEquals(1, repository.observeRecipes().first().size)
-    }
-
-    @Test
-    fun update_withoutOurServings_fallsBackToBookServings() = runTest {
-        val id = repository.create(draft(ourServings = 2))
-
-        repository.update(id, draft(bookServings = 3, ourServings = null))
-
-        assertEquals(3, repository.getRecipe(id)!!.ourServings)
     }
 
     @Test
@@ -104,7 +78,7 @@ class RecipeRepositoryTest {
     fun update_withSameLines_doesNotFlagModified() = runTest {
         val id = repository.create(draft())
 
-        repository.update(id, draft().copy(title = "Dal", ourServings = 2))
+        repository.update(id, draft().copy(title = "Dal", servings = 2))
 
         assertFalse(repository.getRecipe(id)!!.modified)
     }

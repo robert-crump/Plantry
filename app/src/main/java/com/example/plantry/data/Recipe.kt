@@ -10,8 +10,8 @@ data class Recipe(
     val title: String,
     val source: String,
     val page: Int?,
-    val bookServings: Int,
-    val ourServings: Int,
+    /** "Portionen", what nutrition per portion divides by; for a snack e.g. 20 rice cakes. */
+    val servings: Int,
     /** "Gesamtzeit", until the food is ready; null when the recipe states no time, as most handwritten ones. */
     @ColumnInfo(name = "cookingTimeMinutes") val totalTimeMinutes: Int?,
     /** Set once the ingredient lines were edited after the recipe was first saved. */
@@ -25,13 +25,12 @@ data class Recipe(
 /** What a recipe is eaten as: "Hauptgericht" or "Snack". */
 enum class Dish { MAIN, SNACK }
 
-/** User input for creating or updating a [Recipe]; [ourServings] falls back to [bookServings]. */
+/** User input for creating or updating a [Recipe]. */
 data class RecipeDraft(
     val title: String,
     val source: String,
     val page: Int?,
-    val bookServings: Int,
-    val ourServings: Int?,
+    val servings: Int,
     val totalTimeMinutes: Int?,
     val lines: List<RecipeIngredientDraft>,
     val dish: Dish = Dish.MAIN,

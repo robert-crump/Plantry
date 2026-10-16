@@ -35,7 +35,7 @@ class PlannedRecipeDaoTest {
     fun tearDown() = db.close()
 
     private suspend fun insertRecipe(title: String) = db.recipeDao().insert(
-        Recipe(title = title, source = "", page = null, bookServings = 2, ourServings = 2, totalTimeMinutes = 20),
+        Recipe(title = title, source = "", page = null, servings = 2, totalTimeMinutes = 20),
     )
 
     @Test

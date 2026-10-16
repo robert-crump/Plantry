@@ -16,7 +16,7 @@ class SuggestionCardTest {
 
     private fun recipe(id: Long, minutes: Int? = 25) = Recipe(
         id = id, title = "Rezept $id", source = "", page = null,
-        bookServings = 2, ourServings = 2, totalTimeMinutes = minutes,
+        servings = 2, totalTimeMinutes = minutes,
     )
 
     private fun line(

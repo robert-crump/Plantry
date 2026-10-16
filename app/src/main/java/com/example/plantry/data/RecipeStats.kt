@@ -27,7 +27,7 @@ data class RecipeStats(
             val used = lines.mapNotNullTo(mutableSetOf()) { ingredients[it.ingredientId] }
             val nutrition = RecipeNutrition.calculate(
                 nutritionLines(lines.sortedBy { it.position }, ingredients),
-                recipe.ourServings,
+                recipe.servings,
             ).perPortion
             return RecipeStats(
                 plantPoints = used.sumOf { it.plantPoints.value },

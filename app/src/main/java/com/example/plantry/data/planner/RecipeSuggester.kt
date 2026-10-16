@@ -47,7 +47,7 @@ class RecipeSuggester(
             val linesByRecipe = lines.groupBy { it.recipeId }
             return recipes.filter { it.dish == Dish.MAIN }.map { recipe ->
                 val recipeLines = linesByRecipe[recipe.id].orEmpty().sortedBy { it.position }
-                val nutrition = RecipeNutrition.calculate(nutritionLines(recipeLines, ingredientsById), recipe.ourServings)
+                val nutrition = RecipeNutrition.calculate(nutritionLines(recipeLines, ingredientsById), recipe.servings)
                 Candidate(
                     recipeId = recipe.id,
                     daysSinceLastCooked = CookingStats.daysSinceLastCooked(listOfNotNull(lastCooked[recipe.id]), today),

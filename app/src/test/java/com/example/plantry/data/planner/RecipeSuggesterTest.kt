@@ -17,7 +17,7 @@ class RecipeSuggesterTest {
 
     private fun recipe(id: Long, servings: Int = 2) = Recipe(
         id = id, title = "Rezept $id", source = "", page = null,
-        bookServings = servings, ourServings = servings, totalTimeMinutes = 20,
+        servings = servings, totalTimeMinutes = 20,
     )
 
     private fun line(recipeId: Long, grams: Double) =

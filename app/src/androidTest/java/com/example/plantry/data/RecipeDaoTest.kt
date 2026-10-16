@@ -34,8 +34,7 @@ class RecipeDaoTest {
         title = title,
         source = "Kochbuch",
         page = page,
-        bookServings = 4,
-        ourServings = 2,
+        servings = 2,
         totalTimeMinutes = 30,
     )
 
@@ -59,11 +58,11 @@ class RecipeDaoTest {
     fun update_changesStoredRecipe() = runTest {
         val id = dao.insert(recipe("Chili"))
 
-        dao.update(recipe("Chili sin Carne").copy(id = id, ourServings = 6))
+        dao.update(recipe("Chili sin Carne").copy(id = id, servings = 6))
 
         val updated = dao.observeById(id).first()!!
         assertEquals("Chili sin Carne", updated.title)
-        assertEquals(6, updated.ourServings)
+        assertEquals(6, updated.servings)
     }
 
     @Test

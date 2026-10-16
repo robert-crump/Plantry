@@ -21,19 +21,18 @@ import com.example.plantry.data.toDraft
 import com.example.plantry.data.usda.UsdaFood
 
 /**
- * Raw text input of the recipe edit screen. Until the user touches "our servings" it mirrors
- * "book servings", so a new recipe defaults to the book's serving count.
+ * Raw text input of the recipe edit screen. A snack has only title, servings and lines; its
+ * source, page and times stay in the form while hidden, so switching back keeps them, but are
+ * saved empty.
  */
 data class RecipeForm(
+    val dish: Dish = Dish.MAIN,
     val title: String = "",
     val source: String = "",
     val page: String = "",
-    val bookServings: String = "",
-    val ourServings: String = "",
+    val servings: String = "",
     val activeTime: String = "",
     val totalTime: String = "",
-    val dish: Dish = Dish.MAIN,
-    val ourServingsEdited: Boolean = false,
     /** Ingredient lines are validated in the line editor, so they are kept parsed. */
     val lines: List<RecipeFormLine> = emptyList(),
     /**
@@ -45,12 +44,14 @@ data class RecipeForm(
     /** Nothing entered yet, so a scan replaces nothing. */
     val isEmpty: Boolean get() = this == RecipeForm()
 
-    fun withBookServings(value: String) = copy(
-        bookServings = value,
-        ourServings = if (ourServingsEdited) ourServings else value,
-    )
+    /** Whether the main-dish fields (source, page, times) are shown and saved. */
+    val isMain: Boolean get() = dish == Dish.MAIN
 
-    fun withOurServings(value: String) = copy(ourServings = value, ourServingsEdited = true)
+    /** A snack without servings starts at 1, e.g. one bar; 20 rice cakes are typed in. */
+    fun withDish(value: Dish) = copy(
+        dish = value,
+        servings = if (value == Dish.SNACK && servings.isBlank()) "1" else servings,
+    )
 
     /** Replaces the line at [index], or appends [line] when [index] is null. */
     fun withLine(index: Int?, line: RecipeIngredientDraft) = withLine(index, RecipeFormLine.from(line))
@@ -72,8 +73,7 @@ data class RecipeForm(
         title = scan.title,
         source = book.source,
         page = book.page?.toString().orEmpty(),
-        bookServings = scan.servings?.toString().orEmpty(),
-        ourServings = scan.servings?.toString().orEmpty(),
+        servings = scan.servings?.toString().orEmpty(),
         activeTime = scan.activeTimeMinutes?.toString().orEmpty(),
         totalTime = scan.totalTimeMinutes?.toString().orEmpty(),
         lines = scan.lines.map {
@@ -202,16 +202,16 @@ data class RecipeForm(
 
     fun removeLine(index: Int) = copy(lines = lines.filterIndexed { i, _ -> i != index })
 
-    /** The servings nutrition is divided by: our servings, else book servings, else null. */
-    fun effectiveServings(): Int? = ourServings.toPositiveIntOrNull() ?: bookServings.toPositiveIntOrNull()
+    /** The servings nutrition is divided by, or null while not a positive number. */
+    fun effectiveServings(): Int? = servings.toPositiveIntOrNull()
 
+    /** The hidden fields of a snack are never wrong. */
     fun errors() = RecipeFormErrors(
         title = title.isBlank(),
-        page = page.isNotBlank() && page.toPositiveIntOrNull() == null,
-        bookServings = bookServings.toPositiveIntOrNull() == null,
-        ourServings = ourServings.isNotBlank() && ourServings.toPositiveIntOrNull() == null,
-        activeTime = activeTime.isNotBlank() && activeTime.toPositiveIntOrNull() == null || activeExceedsTotal(),
-        totalTime = totalTime.isNotBlank() && totalTime.toPositiveIntOrNull() == null,
+        page = isMain && page.isNotBlank() && page.toPositiveIntOrNull() == null,
+        servings = servings.toPositiveIntOrNull() == null,
+        activeTime = isMain && (activeTime.isNotBlank() && activeTime.toPositiveIntOrNull() == null || activeExceedsTotal()),
+        totalTime = isMain && totalTime.isNotBlank() && totalTime.toPositiveIntOrNull() == null,
         lines = lines.any { problem(it) != null },
         noLines = lines.isEmpty(),
     )
@@ -223,19 +223,18 @@ data class RecipeForm(
         return active > total
     }
 
-    /** Returns the validated draft, or null if any field is invalid. */
+    /** Returns the validated draft, or null if any field is invalid; a snack's hidden fields are empty. */
     fun toDraft(): RecipeDraft? {
         if (errors().hasAny) return null
         return RecipeDraft(
             title = title,
-            source = source,
-            page = page.toPositiveIntOrNull(),
-            bookServings = bookServings.toPositiveIntOrNull()!!,
-            ourServings = ourServings.toPositiveIntOrNull(),
-            totalTimeMinutes = totalTime.toPositiveIntOrNull(),
+            source = if (isMain) source else "",
+            page = if (isMain) page.toPositiveIntOrNull() else null,
+            servings = servings.toPositiveIntOrNull()!!,
+            totalTimeMinutes = if (isMain) totalTime.toPositiveIntOrNull() else null,
             lines = completeLines(),
             dish = dish,
-            activeTimeMinutes = activeTime.toPositiveIntOrNull(),
+            activeTimeMinutes = if (isMain) activeTime.toPositiveIntOrNull() else null,
         )
     }
 
@@ -244,12 +243,10 @@ data class RecipeForm(
             title = recipe.title,
             source = recipe.source,
             page = recipe.page?.toString().orEmpty(),
-            bookServings = recipe.bookServings.toString(),
-            ourServings = recipe.ourServings.toString(),
+            servings = recipe.servings.toString(),
             activeTime = recipe.activeTimeMinutes?.toString().orEmpty(),
             totalTime = recipe.totalTimeMinutes?.toString().orEmpty(),
             dish = recipe.dish,
-            ourServingsEdited = true,
             lines = lines.map { RecipeFormLine.from(it.toDraft()) },
         )
     }
@@ -258,8 +255,7 @@ data class RecipeForm(
 data class RecipeFormErrors(
     val title: Boolean,
     val page: Boolean,
-    val bookServings: Boolean,
-    val ourServings: Boolean,
+    val servings: Boolean,
     /** Not a number, or longer than the total time. */
     val activeTime: Boolean,
     val totalTime: Boolean,
@@ -269,7 +265,7 @@ data class RecipeFormErrors(
     val noLines: Boolean = false,
 ) {
     /** Some recipe field (all but the lines) is invalid. */
-    val fields: Boolean get() = title || page || bookServings || ourServings || activeTime || totalTime
+    val fields: Boolean get() = title || page || servings || activeTime || totalTime
 
     val hasAny: Boolean get() = fields || lines || noLines
 }
