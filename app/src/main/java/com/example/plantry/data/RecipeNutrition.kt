@@ -51,12 +51,11 @@ data class RecipeNutrition(
 fun Nutrition.scaled(factor: Double) = Nutrition.of(Nutrient.entries.associateWith { this[it] * factor })
 
 /**
- * Builds the nutrition lines for [lines], looking up each ingredient in [ingredients] by id. Of a
- * drained ingredient only the drained share of the line's grams counts. Lines whose ingredient is
- * missing, or lacks the line's unit, are skipped.
+ * Builds the nutrition lines for [lines], looking up each ingredient in [ingredients] by id. Lines
+ * whose ingredient is missing, or lacks the line's unit, are skipped.
  */
 fun nutritionLines(lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>): List<NutritionLine> =
     lines.mapNotNull { line ->
         val grams = line.grams ?: return@mapNotNull null
-        ingredients[line.ingredientId]?.let { NutritionLine(it.id, it.name, grams * it.drainedShare, it.nutrition) }
+        ingredients[line.ingredientId]?.let { NutritionLine(it.id, it.name, grams, it.nutrition) }
     }

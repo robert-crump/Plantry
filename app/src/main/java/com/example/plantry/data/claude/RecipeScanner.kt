@@ -152,11 +152,9 @@ object ScanPrompt {
                 e.g. "1 Bund glatte Petersilie".
               - grams: your best estimate of the weight in grams of the amount as printed, for
                 the whole recipe (not per serving). Use typical weights for pieces, bunches
-                and spoons. For canned and jarred goods use the net weight printed on the
-                container (the full can, e.g. 400 g for "1 Dose Kichererbsen"), also for
-                products that are drained; if the matched ingredient lists a net weight, use it.
-                If the matched ingredient lists the weight of one piece, use it for amounts in
-                that unit.
+                and spoons. Canned goods that are drained count in drained grams (about 240 g
+                for "1 Dose Kichererbsen"). If the matched ingredient lists the weight of one
+                piece or can, use it for amounts in that unit.
               - ingredientId: the id of the matching entry in the user's ingredient table below,
                 or 0 if none fits. Match the same food in an equivalent form (fresh vs. fresh,
                 cooked vs. cooked); do not match a different food just because it is similar.
@@ -169,22 +167,17 @@ object ScanPrompt {
 
             If the photo shows no recipe, return an empty title and no lines.
 
-            The user's ingredient table (id, tab, German name; for drained canned or jarred goods
-            a tab and the net weight of one container; for ingredients counted in pieces a tab and
-            the weight of one piece, e.g. "1 Scheibe = 37.5 g"):
+            The user's ingredient table (id, tab, German name; for ingredients counted in units a
+            tab and the weight of one unit per unit, e.g. "1 Scheibe = 37.5 g"):
             """.trimIndent(),
         )
         ingredients.sortedBy { it.name.lowercase() }.forEach { ingredient ->
-            val net = ingredient.drainedWeight?.let { "\t${containerWord(ingredient.name)} ${formatGrams(it.netWeightGrams)} g" }
             val piece = units[ingredient.id].orEmpty().joinToString("") {
                 "\t1 ${it.unit.singular} = ${formatGrams((it.gramsPerUnit * 10).roundToLong() / 10.0)} g"
             }
-            appendLine("${ingredient.id}\t${ingredient.name}${net.orEmpty()}$piece")
+            appendLine("${ingredient.id}\t${ingredient.name}$piece")
         }
     }
-
-    /** "Glas" for jarred goods, "Dose" otherwise, as the ingredient names say. */
-    private fun containerWord(name: String) = if (name.contains("Glas", ignoreCase = true)) "Glas" else "Dose"
 
     private fun formatGrams(grams: Double) = BigDecimal.valueOf(grams).stripTrailingZeros().toPlainString()
 

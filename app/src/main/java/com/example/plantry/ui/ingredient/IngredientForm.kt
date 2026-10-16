@@ -1,6 +1,5 @@
 package com.example.plantry.ui.ingredient
 
-import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientDraft
 import com.example.plantry.data.IngredientUnit
@@ -23,10 +22,6 @@ data class IngredientForm(
     val storeSection: StoreSection? = StoreSection.OTHER,
     /** Null while undecided, like [storeSection]. */
     val plantPoints: PlantPoints? = PlantPoints.ZERO,
-    /** Already validated by [DrainedWeightForm] in its dialog. */
-    val drainedWeight: DrainedWeight? = null,
-    /** False until the user said whether the product is drained, as null means "no" as well. */
-    val drainedAnswered: Boolean = true,
     /** One row per unit in [PieceUnit] order, each already validated by [UnitForm] in its dialog. */
     val units: List<IngredientUnit> = emptyList(),
     /** The package applied from a barcode scan; replaces the USDA reference on save. */
@@ -44,9 +39,6 @@ data class IngredientForm(
 
     fun withNutrient(nutrient: Nutrient, value: String) = copy(nutrition = nutrition + (nutrient to value))
 
-    /** Null for "not drained"; either way the question is answered. */
-    fun withDrainedWeight(weight: DrainedWeight?) = copy(drainedWeight = weight, drainedAnswered = true)
-
     /** Takes the values [product] has and keeps the others; the name stays as it is. */
     fun withScanned(product: OffProduct) = copy(
         nutrition = nutrition + product.nutrition.mapValues { formatDecimal(it.value) },
@@ -60,7 +52,6 @@ data class IngredientForm(
         },
         storeSection = storeSection == null,
         plantPoints = plantPoints == null,
-        drained = !drainedAnswered,
     )
 
     /** Returns the validated draft, or null if any field is invalid. */
@@ -71,55 +62,21 @@ data class IngredientForm(
             nutrition = Nutrition.of(nutrition.mapValues { it.value.toDecimalOrNull()!! }),
             storeSection = storeSection!!,
             plantPoints = plantPoints!!,
-            drainedWeight = drainedWeight,
             units = units,
             scannedLabel = scannedLabel,
         )
     }
 
     companion object {
-        /** [drainedAnswered] is false for an ingredient that doesn't exist yet. */
-        fun from(ingredient: Ingredient, units: List<IngredientUnit> = emptyList(), drainedAnswered: Boolean = true) = IngredientForm(
+        fun from(ingredient: Ingredient, units: List<IngredientUnit> = emptyList()) = IngredientForm(
             name = ingredient.name,
             nutrition = Nutrient.entries.associateWith { formatDecimal(ingredient.nutrition[it]) },
             storeSection = ingredient.storeSection.takeUnless { ingredient.storeSectionUndecided },
             plantPoints = ingredient.plantPoints.takeUnless { ingredient.plantPointsUndecided },
-            drainedWeight = ingredient.drainedWeight,
-            drainedAnswered = drainedAnswered,
             units = units.sortedBy { it.unit },
         )
     }
 }
-
-/** Raw input of the Abtropfgewicht dialog, in grams: both empty, or 0 < drained ≤ net. */
-data class DrainedWeightForm(val net: String = "", val drained: String = "") {
-    private val isEmpty: Boolean get() = net.isBlank() && drained.isBlank()
-
-    val netInvalid: Boolean get() = !isEmpty && net.toPositiveDecimalOrNull() == null
-
-    val drainedError: DrainedWeightError?
-        get() {
-            if (isEmpty) return null
-            val drained = drained.toPositiveDecimalOrNull() ?: return DrainedWeightError.INVALID
-            val net = net.toPositiveDecimalOrNull()
-            return if (net != null && drained > net) DrainedWeightError.EXCEEDS_NET else null
-        }
-
-    val isValid: Boolean get() = !netInvalid && drainedError == null
-
-    /** The weights, or null when both fields are empty (not a drained product) or invalid. */
-    fun toDrainedWeight(): DrainedWeight? =
-        if (isValid) DrainedWeight.of(net.toPositiveDecimalOrNull(), drained.toPositiveDecimalOrNull()) else null
-
-    companion object {
-        fun from(weight: DrainedWeight?) = DrainedWeightForm(
-            net = weight?.let { formatDecimal(it.netWeightGrams) }.orEmpty(),
-            drained = weight?.let { formatDecimal(it.drainedWeightGrams) }.orEmpty(),
-        )
-    }
-}
-
-enum class DrainedWeightError { INVALID, EXCEEDS_NET }
 
 /**
  * Raw input of the dialog for one unit row: [grams] is the weight of one [unit], or of a package
@@ -136,12 +93,6 @@ data class UnitForm(
     val countInvalid: Boolean get() = inPackage && count.toPositiveWholeOrNull() == null
 
     val isValid: Boolean get() = unit != null && !gramsInvalid && !countInvalid
-
-    /** Picks [unit]; a can of a drained product starts from its [netWeightGrams] if no weight was typed yet. */
-    fun withUnit(unit: PieceUnit, netWeightGrams: Double?) = copy(
-        unit = unit,
-        grams = if (unit == PieceUnit.CAN && grams.isBlank() && netWeightGrams != null) formatDecimal(netWeightGrams) else grams,
-    )
 
     /** The row, or null while invalid. */
     fun toUnit(): IngredientUnit? {
@@ -169,10 +120,8 @@ data class IngredientFormErrors(
     val nutrients: Set<Nutrient>,
     val storeSection: Boolean = false,
     val plantPoints: Boolean = false,
-    /** Whether the product is drained was never answered. */
-    val drained: Boolean = false,
 ) {
-    val hasAny: Boolean get() = name || nutrients.isNotEmpty() || storeSection || plantPoints || drained
+    val hasAny: Boolean get() = name || nutrients.isNotEmpty() || storeSection || plantPoints
 }
 
 /** Formats with the decimal separator of [locale] and without trailing zeros, e.g. 0.40 -> "0,4" (German). */

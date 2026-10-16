@@ -1,6 +1,5 @@
 package com.example.plantry.ui.ingredient
 
-import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientDraft
 import com.example.plantry.data.LabelSource
@@ -37,15 +36,14 @@ class IngredientFormTest {
     fun undecidedProperties_areErrorsUntilChosen() {
         val undecided = IngredientForm.from(
             ingredient.copy(storeSectionUndecided = true, plantPointsUndecided = true),
-            drainedAnswered = false,
         )
 
         assertNull(undecided.storeSection)
         assertNull(undecided.plantPoints)
-        assertTrue(undecided.errors().storeSection && undecided.errors().plantPoints && undecided.errors().drained)
+        assertTrue(undecided.errors().storeSection && undecided.errors().plantPoints)
         assertNull(undecided.toDraft())
 
-        val chosen = undecided.copy(storeSection = StoreSection.PRODUCE, plantPoints = PlantPoints.ONE).withDrainedWeight(null)
+        val chosen = undecided.copy(storeSection = StoreSection.PRODUCE, plantPoints = PlantPoints.ONE)
         assertEquals(valid.toDraft(), chosen.toDraft())
     }
 
@@ -102,69 +100,6 @@ class IngredientFormTest {
     }
 
     @Test
-    fun drainedWeight_isKeptInTheDraft() {
-        val can = ingredient.copy(drainedWeight = DrainedWeight(400.0, 240.0))
-
-        assertEquals(DrainedWeight(400.0, 240.0), IngredientForm.from(can).toDraft()!!.drainedWeight)
-        assertNull(valid.toDraft()!!.drainedWeight)
-    }
-
-    @Test
-    fun drainedWeightForm_bothEmptyMeansNotDrained() {
-        val form = DrainedWeightForm(" ", "")
-
-        assertTrue(form.isValid)
-        assertNull(form.toDrainedWeight())
-    }
-
-    @Test
-    fun drainedWeightForm_acceptsCommaDecimalsUpToTheNetWeight() {
-        assertEquals(DrainedWeight(400.0, 240.5), DrainedWeightForm("400", "240,5").toDrainedWeight())
-        assertEquals(DrainedWeight(400.0, 400.0), DrainedWeightForm("400", "400").toDrainedWeight())
-    }
-
-    @Test
-    fun drainedWeightForm_rejectsOneEmptyFieldZeroAndMoreThanNet() {
-        assertTrue(DrainedWeightForm("400", "").let { !it.isValid && it.drainedError == DrainedWeightError.INVALID })
-        assertTrue(DrainedWeightForm("", "240").let { !it.isValid && it.netInvalid })
-        assertTrue(DrainedWeightForm("0", "0").let { it.netInvalid && it.drainedError == DrainedWeightError.INVALID })
-        assertEquals(DrainedWeightError.EXCEEDS_NET, DrainedWeightForm("240", "400").drainedError)
-        assertNull(DrainedWeightForm("240", "400").toDrainedWeight())
-    }
-
-    @Test
-    fun drainedWeightForm_fromWeight_formatsWithoutTrailingZeros() {
-        assertEquals(DrainedWeightForm("400", "240"), DrainedWeightForm.from(DrainedWeight(400.0, 240.0)))
-        assertEquals(DrainedWeightForm(), DrainedWeightForm.from(null))
-    }
-
-    @Test
-    fun withScanned_takesFoundValuesKeepsMissingOnesAndTheName() {
-        val product = OffProduct(
-            barcode = "4000000000001",
-            nameSuggestion = "Süßkartoffeln",
-            productName = "Süßkartoffel-Würfel (Frosta)",
-            quantity = "400 g",
-            nutrition = mapOf(Nutrient.KCAL to 90.0, Nutrient.PROTEIN to 1.6, Nutrient.FAT to 0.1),
-        )
-
-        val scanned = valid.withScanned(product)
-
-        assertEquals("Süßkartoffel", scanned.name)
-        assertEquals("90", scanned.nutrition[Nutrient.KCAL])
-        assertEquals("1,6", scanned.nutrition[Nutrient.PROTEIN])
-        assertEquals("0,1", scanned.nutrition[Nutrient.FAT])
-        assertEquals(valid.nutrition[Nutrient.CARBS], scanned.nutrition[Nutrient.CARBS])
-        assertEquals(valid.nutrition[Nutrient.FIBRE], scanned.nutrition[Nutrient.FIBRE])
-        assertEquals(LabelSource("Süßkartoffel-Würfel (Frosta)", "4000000000001"), scanned.toDraft()!!.scannedLabel)
-    }
-
-    @Test
-    fun loadedForm_hasNoScannedLabel() {
-        assertNull(valid.toDraft()!!.scannedLabel)
-    }
-
-    @Test
     fun unitForm_package_keepsWeightAndCountAsEntered() {
         val form = UnitForm(PieceUnit.SLICE, inPackage = true, grams = "750", count = "20")
 
@@ -213,14 +148,6 @@ class IngredientFormTest {
             UnitForm.from(IngredientUnit.perUnit(PieceUnit.TBSP, 12.5)),
         )
         assertEquals(UnitForm(), UnitForm.from(null))
-    }
-
-    @Test
-    fun unitForm_canStartsFromTheNetWeight() {
-        assertEquals("400", UnitForm().withUnit(PieceUnit.CAN, netWeightGrams = 400.0).grams)
-        assertEquals("", UnitForm().withUnit(PieceUnit.PACKET, netWeightGrams = 400.0).grams)
-        assertEquals("", UnitForm().withUnit(PieceUnit.CAN, netWeightGrams = null).grams)
-        assertEquals("425", UnitForm(grams = "425").withUnit(PieceUnit.CAN, netWeightGrams = 400.0).grams)
     }
 
     @Test

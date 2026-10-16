@@ -52,11 +52,10 @@ class IngredientRepositoryTest {
     fun create_storesTheUsersDecisionsAndEditedNutrition() = runTest {
         val seed = NewIngredientSeed("Kichererbsen", riceCooked.nutrition, riceCooked.fdcId, riceCooked.description)
         val edited = riceCooked.nutrition.copy(protein = 9.0)
-        val drained = DrainedWeight(400.0, 240.0)
 
         val id = repository.create(
             seed,
-            IngredientDraft(" Kichererbsen (Dose) ", edited, StoreSection.DRY_GOODS, PlantPoints.ONE, drained),
+            IngredientDraft(" Kichererbsen (Dose) ", edited, StoreSection.DRY_GOODS, PlantPoints.ONE),
         )
 
         val ingredient = repository.getIngredient(id)!!
@@ -64,7 +63,6 @@ class IngredientRepositoryTest {
         assertEquals(edited, ingredient.nutrition)
         assertEquals(StoreSection.DRY_GOODS, ingredient.storeSection)
         assertEquals(PlantPoints.ONE, ingredient.plantPoints)
-        assertEquals(drained, ingredient.drainedWeight)
         assertEquals(riceCooked.fdcId, ingredient.fdcId)
         assertFalse(ingredient.hasUndecided)
         assertFalse(ingredient.reviewed)

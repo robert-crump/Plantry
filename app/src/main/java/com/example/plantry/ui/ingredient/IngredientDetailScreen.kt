@@ -68,7 +68,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
-import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientUnit
@@ -140,7 +139,7 @@ class IngredientDetailViewModel(
             _state.update {
                 it.copy(
                     ingredient = ingredient,
-                    form = IngredientForm.from(ingredient, drainedAnswered = false),
+                    form = IngredientForm.from(ingredient),
                     editing = true,
                     isNew = true,
                 )
@@ -163,7 +162,7 @@ class IngredientDetailViewModel(
     /** Leaves edit mode; with unsaved edits it asks first, see [discard]. */
     fun cancelEdit() {
         val current = _state.value
-        val unchanged = current.ingredient?.let { IngredientForm.from(it, current.units, drainedAnswered = !current.isNew) == current.form } ?: true
+        val unchanged = current.ingredient?.let { IngredientForm.from(it, current.units) == current.form } ?: true
         if (unchanged) discard() else _state.update { it.copy(confirmDiscard = true) }
     }
 
@@ -482,7 +481,6 @@ fun IngredientDetailScreen(
                 errors = errors,
                 onStoreSection = { onChange { copy(storeSection = it) } },
                 onPlantPoints = { onChange { copy(plantPoints = it) } },
-                onDrainedWeight = { onChange { withDrainedWeight(it) } },
                 editable = editing,
             )
 
@@ -494,9 +492,7 @@ fun IngredientDetailScreen(
                 onRemove = viewModel::removeUnit,
             )
 
-            SectionTitle(
-                if (form.drainedWeight != null) R.string.ingredient_section_nutrition_drained else R.string.ingredient_section_nutrition,
-            )
+            SectionTitle(R.string.ingredient_section_nutrition)
             Nutrient.entries.chunked(2).forEach { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     pair.forEach { nutrient ->
@@ -585,7 +581,7 @@ private fun DeleteDialog(name: String, usedIn: List<String>, onConfirm: () -> Un
     }
 }
 
-private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_INFO, DRAINED_WEIGHT }
+private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_INFO }
 
 /** One line per property with its current value; when [editable], tapping opens a radio dialog that applies on tap. */
 @Composable
@@ -595,7 +591,6 @@ private fun PropertiesGroup(
     errors: IngredientFormErrors?,
     onStoreSection: (StoreSection) -> Unit,
     onPlantPoints: (PlantPoints) -> Unit,
-    onDrainedWeight: (DrainedWeight?) -> Unit,
     editable: Boolean,
 ) {
     var dialog by rememberSaveable { mutableStateOf<PropertyDialog?>(null) }
@@ -623,22 +618,6 @@ private fun PropertiesGroup(
                 },
             )
         },
-        {
-            SettingsRow(
-                icon = null,
-                title = stringResource(R.string.ingredient_drained_weight),
-                summary = form.drainedWeight?.let {
-                    val locale = currentLocale()
-                    stringResource(
-                        R.string.ingredient_drained_weight_summary,
-                        formatDecimal(it.drainedWeightGrams, locale),
-                        formatDecimal(it.netWeightGrams, locale),
-                    )
-                } ?: stringResource(if (form.drainedAnswered) R.string.ingredient_not_drained else R.string.ingredient_choose),
-                summaryColor = undecidedColor(!form.drainedAnswered, errors?.drained == true),
-                onClick = if (editable) ({ dialog = PropertyDialog.DRAINED_WEIGHT }) else null,
-            )
-        },
         horizontalPadding = 0.dp,
     )
 
@@ -661,11 +640,6 @@ private fun PropertiesGroup(
             onDismiss = dismiss,
         )
         PropertyDialog.PLANT_POINTS_INFO -> PlantPointsInfoDialog(onDismiss = dismiss)
-        PropertyDialog.DRAINED_WEIGHT -> DrainedWeightDialog(
-            initial = form.drainedWeight,
-            onConfirm = { onDrainedWeight(it); dismiss() },
-            onDismiss = dismiss,
-        )
         null -> Unit
     }
 }
@@ -676,49 +650,6 @@ private fun undecidedColor(undecided: Boolean, error: Boolean): Color = when {
     error -> MaterialTheme.colorScheme.error
     undecided -> MaterialTheme.colorScheme.primary
     else -> Color.Unspecified
-}
-
-/** Net and drained weight from the can; OK stays disabled until both are empty or 0 < drained ≤ net. */
-@Composable
-private fun DrainedWeightDialog(initial: DrainedWeight?, onConfirm: (DrainedWeight?) -> Unit, onDismiss: () -> Unit) {
-    var net by rememberSaveable { mutableStateOf(DrainedWeightForm.from(initial).net) }
-    var drained by rememberSaveable { mutableStateOf(DrainedWeightForm.from(initial).drained) }
-    val form = DrainedWeightForm(net, drained)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.ingredient_drained_weight)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    stringResource(R.string.ingredient_drained_weight_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                FormField(
-                    value = net,
-                    onValueChange = { net = it },
-                    label = R.string.ingredient_net_weight_field,
-                    error = if (form.netInvalid) R.string.error_positive_decimal else null,
-                )
-                FormField(
-                    value = drained,
-                    onValueChange = { drained = it },
-                    label = R.string.ingredient_drained_weight_field,
-                    error = when (form.drainedError) {
-                        DrainedWeightError.INVALID -> R.string.error_positive_decimal
-                        DrainedWeightError.EXCEEDS_NET -> R.string.error_drained_exceeds_net
-                        null -> null
-                    },
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(form.toDrainedWeight()) }, enabled = form.isValid) {
-                Text(stringResource(R.string.action_ok))
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
 }
 
 /**
@@ -778,7 +709,6 @@ private fun UnitsGroup(
         UnitDialog(
             initial = form.units.find { it.unit == editedUnit },
             options = form.availableUnits(editedUnit),
-            netWeightGrams = form.drainedWeight?.netWeightGrams,
             onConfirm = { onSave(it, editedUnit); dismiss() },
             onDismiss = dismiss,
         )
@@ -809,12 +739,10 @@ private fun UnitDialog(
     /** Null when adding. */
     initial: IngredientUnit?,
     options: List<PieceUnit>,
-    /** The drained product's net weight, which a can starts from. */
-    netWeightGrams: Double?,
     onConfirm: (IngredientUnit) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val start = remember { initial?.let(UnitForm::from) ?: UnitForm().withUnit(options.first(), netWeightGrams) }
+    val start = remember { initial?.let(UnitForm::from) ?: UnitForm(unit = options.first()) }
     var unit by rememberSaveable { mutableStateOf(start.unit) }
     var inPackage by rememberSaveable { mutableStateOf(start.inPackage) }
     var grams by rememberSaveable { mutableStateOf(start.grams) }
@@ -844,9 +772,7 @@ private fun UnitDialog(
                             DropdownMenuItem(
                                 text = { Text(stringResource(option.label)) },
                                 onClick = {
-                                    val picked = form.withUnit(option, netWeightGrams)
-                                    unit = picked.unit
-                                    grams = picked.grams
+                                    unit = option
                                     unitsExpanded = false
                                 },
                             )

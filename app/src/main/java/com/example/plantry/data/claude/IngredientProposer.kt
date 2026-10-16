@@ -8,7 +8,6 @@ import com.anthropic.models.messages.JsonOutputFormat
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.anthropic.models.messages.StopReason
-import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientOrigin
 import com.example.plantry.data.Nutrition
@@ -61,9 +60,7 @@ data class IngredientProposal(
     val searchTerms: List<String>,
     val storeSection: StoreSection,
     val plantPoints: PlantPoints,
-    /** Only for drained canned or jarred goods. */
-    val drainedWeight: DrainedWeight? = null,
-    /** Only for naturally counted foods; always the weight of one piece. */
+    /** Only for naturally counted foods and canned goods; always the weight of one piece or can. */
     val pieceWeight: IngredientUnit? = null,
     /** Units the user defined for it in the line editor, created with it. */
     val addedUnits: List<IngredientUnit> = emptyList(),
@@ -86,7 +83,6 @@ data class IngredientProposal(
             storeSection = storeSection,
             plantPoints = plantPoints,
             reviewed = false,
-            drainedWeight = drainedWeight,
             origin = IngredientOrigin.CLAUDE,
             storeSectionUndecided = storeSectionUndecided,
             plantPointsUndecided = plantPointsUndecided,
@@ -237,8 +233,6 @@ object ProposalPrompt {
               food just because it is similar.
             - name: see the name rule below.
             - storeSection, plantPoints: see the rules below.
-            - netWeightGrams, drainedWeightGrams: see the drained weight rule below; 0 for both if
-              it does not apply.
             - pieceUnit, pieceGrams: see the piece weight rule below; NONE and 0 if it does not
               apply.
             """.trimIndent(),
@@ -249,7 +243,6 @@ object ProposalPrompt {
         appendRule("Name", MatchingRules.NAME)
         appendRule("storeSection", MatchingRules.STORE_SECTION)
         appendRule("plantPoints", MatchingRules.PLANT_POINTS)
-        appendRule("Drained weight", MatchingRules.DRAINED_WEIGHT)
         append("Piece weight: ${MatchingRules.PIECE_WEIGHT}")
     }
 
@@ -292,8 +285,6 @@ object ProposalPrompt {
                 "name" to mapOf("type" to "string"),
                 "storeSection" to enumSchema(StoreSection.entries),
                 "plantPoints" to enumSchema(PlantPoints.entries),
-                "netWeightGrams" to mapOf("type" to "number"),
-                "drainedWeightGrams" to mapOf("type" to "number"),
                 "pieceUnit" to mapOf("type" to "string", "enum" to listOf(NO_PIECE_UNIT) + MatchingRules.PIECE_UNITS.map { it.name }),
                 "pieceGrams" to mapOf("type" to "number"),
             ),
@@ -340,8 +331,6 @@ object ProposalParser {
         val name: String = "",
         val storeSection: String = "",
         val plantPoints: String = "",
-        val netWeightGrams: Double = 0.0,
-        val drainedWeightGrams: Double = 0.0,
         val pieceUnit: String = "",
         val pieceGrams: Double = 0.0,
     )
@@ -358,9 +347,8 @@ object ProposalParser {
     /**
      * One proposal per food. Invalid or missing fields fall back to neutral values the user reviews
      * later: a USDA entry that was not a candidate counts as none and unknown enums become
-     * OTHER / ZERO, marked undecided so they can't be reviewed unseen, and weights other than 0 < drained ≤ net mean not drained; a piece unit Claude may
-     * not propose or grams ≤ 0 mean no piece weight. A food Claude left
-     * out gets only defaults.
+     * OTHER / ZERO, marked undecided so they can't be reviewed unseen; a piece unit Claude may not
+     * propose or grams ≤ 0 mean no piece weight. A food Claude left out gets only defaults.
      */
     fun proposals(text: String?, foods: List<FoodCandidates>): ClaudeResult<Map<Long, IngredientProposal>> {
         val parsed = decode<ProposalsJson>(text) ?: return ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE)
@@ -384,7 +372,6 @@ object ProposalParser {
             searchTerms = food.searchTerms,
             storeSection = storeSection ?: StoreSection.OTHER,
             plantPoints = plantPoints ?: PlantPoints.ZERO,
-            drainedWeight = DrainedWeight.of(answer.netWeightGrams, answer.drainedWeightGrams),
             pieceWeight = MatchingRules.PIECE_UNITS.firstOrNull { it.name == answer.pieceUnit.trim().uppercase() }
                 ?.let { IngredientUnit.perUnit(it, answer.pieceGrams) },
             storeSectionUndecided = storeSection == null,

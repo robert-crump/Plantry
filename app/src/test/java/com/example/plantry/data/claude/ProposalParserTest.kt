@@ -1,6 +1,5 @@
 package com.example.plantry.data.claude
 
-import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.IngredientUnit
@@ -30,7 +29,7 @@ class ProposalParserTest {
     private fun proposal(key: String, vararg fields: Pair<String, String>): String {
         val all = linkedMapOf(
             "key" to "\"$key\"", "fdcId" to "0", "name" to "\"\"", "storeSection" to "\"OTHER\"",
-            "plantPoints" to "\"ZERO\"", "netWeightGrams" to "0", "drainedWeightGrams" to "0",
+            "plantPoints" to "\"ZERO\"",
             "pieceUnit" to "\"NONE\"", "pieceGrams" to "0",
         )
         all.putAll(fields)
@@ -126,25 +125,6 @@ class ProposalParserTest {
     }
 
     @Test
-    fun drainedWeights_areKeptAndPassedToTheIngredient() {
-        val chickpeas = FoodCandidates(NewFood(-1, "Kichererbsen (Dose)", "1 Dose Kichererbsen", emptyList()), listOf(firmTofu))
-
-        val result = parse(answer(proposal("N1", "netWeightGrams" to "400", "drainedWeightGrams" to "240")), chickpeas)
-
-        assertEquals(DrainedWeight(400.0, 240.0), result.getValue(-1).drainedWeight)
-        assertEquals(DrainedWeight(400.0, 240.0), result.getValue(-1).copy(source = NutritionSource.Usda(firmTofu)).toIngredient().drainedWeight)
-    }
-
-    @Test
-    fun zeroOrInconsistentWeights_meanNotDrained() {
-        listOf("0" to "0", "240" to "400", "400" to "0", "0" to "240").forEach { (net, drained) ->
-            val result = parse(answer(proposal("N1", "netWeightGrams" to net, "drainedWeightGrams" to drained)), tofu)
-            assertNull("$net/$drained", result.getValue(-1).drainedWeight)
-        }
-        assertNull(parse("""{"ingredients":[{"key":"N1"}]}""", tofu).getValue(-1).drainedWeight)
-    }
-
-    @Test
     fun pieceWeight_isKeptForOnePieceAndBecomesAUnit() {
         val egg = FoodCandidates(NewFood(-1, "Ei", "2 Eier", emptyList()), listOf(firmTofu))
 
@@ -162,9 +142,18 @@ class ProposalParserTest {
     }
 
     @Test
+    fun can_isKeptWithItsDrainedGrams() {
+        val chickpeas = FoodCandidates(NewFood(-1, "Kichererbsen (Dose)", "1 Dose Kichererbsen", emptyList()), listOf(firmTofu))
+
+        val result = parse(answer(proposal("N1", "pieceUnit" to "\"CAN\"", "pieceGrams" to "240")), chickpeas).getValue(-1)
+
+        assertEquals(listOf(IngredientUnit(-1, PieceUnit.CAN, 240.0)), result.units(-1))
+    }
+
+    @Test
     fun noneUnknownOrPackageUnitsAndNonPositiveGrams_meanNoPieceWeight() {
         listOf(
-            "NONE" to "60", "PIECE" to "0", "PIECE" to "-5", "EGG" to "60", "SLICE" to "37.5", "CAN" to "400",
+            "NONE" to "60", "PIECE" to "0", "PIECE" to "-5", "EGG" to "60", "SLICE" to "37.5", "CAN" to "0",
             "PACKET" to "500", "TBSP" to "15", "HEAD" to "500", "" to "60",
         ).forEach { (unit, grams) ->
             val result = parse(answer(proposal("N1", "pieceUnit" to "\"$unit\"", "pieceGrams" to grams)), tofu)

@@ -18,8 +18,6 @@ data class Ingredient(
     val storeSection: StoreSection,
     val plantPoints: PlantPoints,
     val reviewed: Boolean,
-    /** Set for canned or jarred goods that are drained; [nutrition] is then per 100 g drained. */
-    @Embedded val drainedWeight: DrainedWeight? = null,
     /** The scanned package the nutrition was taken from, instead of USDA; see [LabelSource]. */
     @Embedded val labelSource: LabelSource? = null,
     /** How the ingredient got into the app; the default is what the seed import and old rows are. */
@@ -44,24 +42,6 @@ enum class IngredientOrigin { SEED, CLAUDE, BARCODE, MANUAL }
  * source; the barcode is no lookup key, since one ingredient stands for many brands.
  */
 data class LabelSource(val labelProduct: String, val labelBarcode: String)
-
-/**
- * The weights printed on a can or jar of a drained product, e.g. 400 g net, 240 g drained. Recipe
- * lines hold the net weight; only the drained solids count for nutrition, the liquid is negligible.
- */
-data class DrainedWeight(val netWeightGrams: Double, val drainedWeightGrams: Double) {
-    /** The share of a line's grams that counts for nutrition. */
-    val share: Double get() = drainedWeightGrams / netWeightGrams
-
-    companion object {
-        /** Null unless 0 < [drained] ≤ [net]. */
-        fun of(net: Double?, drained: Double?): DrainedWeight? =
-            if (net != null && drained != null && drained > 0 && drained <= net) DrainedWeight(net, drained) else null
-    }
-}
-
-/** The share of a recipe line's grams that counts for nutrition: 1 unless the ingredient is drained. */
-val Ingredient.drainedShare: Double get() = drainedWeight?.share ?: 1.0
 
 /** The units an ingredient can be counted in, with their German words for one and for several. */
 enum class PieceUnit(val singular: String, val plural: String) {
@@ -113,7 +93,6 @@ data class IngredientDraft(
     val nutrition: Nutrition,
     val storeSection: StoreSection,
     val plantPoints: PlantPoints,
-    val drainedWeight: DrainedWeight? = null,
     /** At most one row per unit; their ingredient id is ignored. */
     val units: List<IngredientUnit> = emptyList(),
     /** Set after nutrition was taken from a scanned package: replaces the USDA reference on save. */

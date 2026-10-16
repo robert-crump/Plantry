@@ -56,24 +56,32 @@ class ProposalPromptTest {
     }
 
     @Test
-    fun `propose prompt and schema ask for drained weights of canned goods`() {
-        assertTrue(ProposalPrompt.PROPOSE_SYSTEM.contains("Drained weight: " + MatchingRules.DRAINED_WEIGHT))
-        assertTrue(MatchingRules.DRAINED_WEIGHT.contains("about 60 %"))
-        val schema = ProposalPrompt.proposeSchema().toString()
-        assertTrue(schema.contains("netWeightGrams"))
-        assertTrue(schema.contains("drainedWeightGrams"))
+    fun `propose prompt and schema no longer ask for net or drained weights`() {
+        val asked = ProposalPrompt.PROPOSE_SYSTEM + ProposalPrompt.proposeSchema().toString()
+
+        listOf("netWeight", "drainedWeight", "Drained weight").forEach { assertFalse(it, asked.contains(it)) }
     }
 
     @Test
-    fun `propose prompt and schema ask for piece weights of naturally counted foods only`() {
+    fun `a can of a drained product weighs its drained grams`() {
+        val rule = MatchingRules.PIECE_WEIGHT
+
+        assertTrue(rule.contains("the drained weight"))
+        assertTrue(rule.contains("Kichererbsen (Dose) CAN 240"))
+        assertTrue(rule.contains("Kokosmilch CAN 400"))
+    }
+
+    @Test
+    fun `propose prompt and schema ask for piece weights of naturally counted foods and cans only`() {
         assertTrue(ProposalPrompt.PROPOSE_SYSTEM.endsWith("Piece weight: " + MatchingRules.PIECE_WEIGHT))
         val rule = MatchingRules.PIECE_WEIGHT
         assertTrue(rule.contains("Ei PIECE 55, Knoblauch CLOVE 4"))
-        assertTrue(rule.contains("packaged goods whose piece size depends on the package (Toast"))
+        assertTrue(rule.contains("on the package (Toast, sliced cheese, jars)"))
         val schema = ProposalPrompt.proposeSchema().toString()
         assertTrue(schema.contains("pieceUnit"))
         assertTrue(schema.contains("pieceGrams"))
-        listOf("SLICE", "CAN", "PACKET", "TSP", "TBSP", "CUP").forEach { assertFalse(it, schema.contains(it)) }
+        assertTrue(schema.contains("CAN"))
+        listOf("SLICE", "PACKET", "TSP", "TBSP", "CUP").forEach { assertFalse(it, schema.contains(it)) }
     }
 
     @Test

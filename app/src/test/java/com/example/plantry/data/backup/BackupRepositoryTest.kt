@@ -2,7 +2,6 @@ package com.example.plantry.data.backup
 
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Dish
-import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientOrigin
 import com.example.plantry.data.IngredientAlias
@@ -271,7 +270,6 @@ class BackupRepositoryTest {
                     reviewed = false,
                 ),
                 ingredient(id = 6, name = "Kichererbsen (Dose)").copy(
-                    drainedWeight = DrainedWeight(400.0, 240.0),
                     labelSource = LabelSource("Bio Kichererbsen (Alnatura)", "4104420208117"),
                 ),
             ),

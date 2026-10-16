@@ -60,21 +60,11 @@ object MatchingRules {
         Tomatenmark, Sojasauce ZERO.
     """.trimIndent()
 
-    /** Recipe lines hold the full container; the nutrition counts only the drained solids. */
-    val DRAINED_WEIGHT = """
-        Only for canned or jarred goods that are drained before use ("(Dose)" or "(Glas)": beans,
-        chickpeas, corn, artichokes, olives and the like): netWeightGrams is the net weight printed
-        on a typical German container, drainedWeightGrams its drained weight, e.g. 400 and 240.
-        Typical drained shares: beans and chickpeas about 60 %, corn about 50 %. The nutrition
-        stays per 100 g drained ("canned, drained solids"). 0 for both for everything else,
-        including canned goods used with their liquid (Kokosmilch, stückige Tomaten).
-    """.trimIndent()
-
     /**
-     * Units a food is naturally counted in. Slices and containers depend on the user's package,
-     * so Claude never proposes them. App-only: the seed has no piece weights.
+     * Units a food is naturally counted in, plus the can of a "(Dose)" ingredient. Slices and
+     * packets depend on the user's package, so Claude never proposes them.
      */
-    val PIECE_UNITS = listOf(PieceUnit.PIECE, PieceUnit.CLOVE, PieceUnit.BUNCH)
+    val PIECE_UNITS = listOf(PieceUnit.PIECE, PieceUnit.CLOVE, PieceUnit.BUNCH, PieceUnit.CAN)
 
     /** Lets recipes give the amount in pieces ("2 Eier", "3 Zehen Knoblauch"). */
     val PIECE_WEIGHT = """
@@ -82,9 +72,13 @@ object MatchingRules {
         an egg, onion, apple, carrot, lemon, leek, fennel, lettuce or cauliflower; CLOVE for
         garlic; BUNCH for parsley, chives or radishes), pieceGrams the edible weight of one typical
         medium piece in grams, without shell, peel or core, since the nutrition is per 100 g
-        edible, e.g. Ei PIECE 55, Knoblauch CLOVE 4, Zwiebel PIECE 100. NONE
-        and 0 for everything else: packaged goods whose piece size depends on the package (Toast,
-        sliced cheese, cans, jars) and foods measured by weight or volume (Mehl, Reis, Öl, Linsen,
-        Milch, spices).
+        edible, e.g. Ei PIECE 55, Knoblauch CLOVE 4, Zwiebel PIECE 100. CAN for canned goods
+        ("(Dose)"), pieceGrams what one typical German can yields in the recipe: for goods drained
+        before use (beans, chickpeas, corn) the drained weight, since the nutrition is per 100 g
+        drained ("canned, drained solids"), e.g. Kichererbsen (Dose) CAN 240, Mais (Dose) CAN 140;
+        for goods used with their liquid the full content, e.g. Kokosmilch CAN 400, stückige
+        Tomaten CAN 400. NONE and 0 for everything else: packaged goods whose piece size depends
+        on the package (Toast, sliced cheese, jars) and foods measured by weight or volume (Mehl,
+        Reis, Öl, Linsen, Milch, spices).
     """.trimIndent()
 }

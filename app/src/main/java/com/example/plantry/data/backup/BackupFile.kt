@@ -2,7 +2,6 @@ package com.example.plantry.data.backup
 
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Dish
-import com.example.plantry.data.DrainedWeight
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.IngredientOrigin
@@ -123,9 +122,6 @@ data class BackupIngredient(
     val storeSection: StoreSection,
     val plantPoints: PlantPoints,
     val reviewed: Boolean,
-    /** Both null for ingredients that are not drained. */
-    val netWeightGrams: Double?,
-    val drainedWeightGrams: Double?,
     /** Both null unless the nutrition came from a scanned package. */
     val labelProduct: String?,
     val labelBarcode: String?,
@@ -281,8 +277,6 @@ private fun Ingredient.toBackup(units: List<IngredientUnit>) = BackupIngredient(
     storeSection = storeSection,
     plantPoints = plantPoints,
     reviewed = reviewed,
-    netWeightGrams = drainedWeight?.netWeightGrams,
-    drainedWeightGrams = drainedWeight?.drainedWeightGrams,
     labelProduct = labelSource?.labelProduct,
     labelBarcode = labelSource?.labelBarcode,
     origin = origin,
@@ -300,7 +294,6 @@ private fun BackupIngredient.toEntity() = Ingredient(
     storeSection = storeSection,
     plantPoints = plantPoints,
     reviewed = reviewed,
-    drainedWeight = DrainedWeight.of(netWeightGrams, drainedWeightGrams),
     labelSource = if (labelProduct != null && labelBarcode != null) LabelSource(labelProduct, labelBarcode) else null,
     origin = origin,
     storeSectionUndecided = storeSectionUndecided,
