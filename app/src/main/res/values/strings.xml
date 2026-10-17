@@ -164,7 +164,6 @@
     <string name="highlight_low_calorie">Kalorienarm</string>
     <string name="highlight_high_fibre">Ballaststoffreich</string>
     <string name="plan_action">Planen</string>
-    <string name="planned_state">Geplant: %1$s</string>
     <string name="planned_title">Geplant</string>
     <string name="planned_history_title">Verlauf</string>
     <string name="cook_week_this">Diese Woche</string>
