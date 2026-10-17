@@ -155,8 +155,12 @@ fun BackupSection(viewModel: BackupViewModel, snackbarHostState: SnackbarHostSta
     val message = state.message
     LaunchedEffect(message) {
         if (message != null) {
-            snackbarHostState.showSnackbar(resources.getString(message))
-            viewModel.messageShown()
+            // Also consumed when leaving Settings cancels the snackbar, so it isn't shown again on return.
+            try {
+                snackbarHostState.showSnackbar(resources.getString(message))
+            } finally {
+                viewModel.messageShown()
+            }
         }
     }
 }
