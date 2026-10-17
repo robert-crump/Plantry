@@ -7,8 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearWavyProgressIndicator
@@ -950,28 +948,6 @@ private fun ProposalStatus(proposals: ProposalState, onRetry: () -> Unit) {
             TextButton(onClick = onRetry) { Text(stringResource(R.string.scan_retry)) }
         }
         ProposalState.Idle -> Unit
-    }
-}
-
-/** Camera or gallery for the page photo a new recipe is read from. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PhotoSourceSheet(onTakePhoto: () -> Unit, onPickPhoto: () -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(bottom = 16.dp)) {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.photo_take)) },
-                leadingContent = { Icon(Icons.Filled.PhotoCamera, contentDescription = null) },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.clickable(onClick = onTakePhoto),
-            )
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.photo_pick)) },
-                leadingContent = { Icon(Icons.Filled.PhotoLibrary, contentDescription = null) },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.clickable(onClick = onPickPhoto),
-            )
-        }
     }
 }
 

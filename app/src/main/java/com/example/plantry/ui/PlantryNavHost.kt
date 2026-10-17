@@ -392,6 +392,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                                 ingredientRepository,
                                 app.plannedRepository,
                                 app.recipePhotoRepository,
+                                app.photoCompressor::compress,
                             )
                         },
                         onBack = { navController.popBackStack() },

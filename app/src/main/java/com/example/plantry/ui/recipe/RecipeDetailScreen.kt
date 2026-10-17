@@ -1,5 +1,6 @@
 package com.example.plantry.ui.recipe
 
+import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -39,6 +41,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -64,30 +69,31 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.LineUnit
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeHighlight
-import com.example.plantry.data.LineUnit
-import com.example.plantry.data.ResolvedAmount
-import com.example.plantry.data.resolve
 import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeStats
+import com.example.plantry.data.ResolvedAmount
 import com.example.plantry.data.nutritionLines
+import com.example.plantry.data.resolve
 import com.example.plantry.ui.HideOnScrollFab
 import com.example.plantry.ui.cooklog.PlanDatePickerDialog
 import com.example.plantry.ui.cooklog.icon
 import com.example.plantry.ui.cooklog.label
 import com.example.plantry.ui.rememberFabVisibility
 import com.example.plantry.ui.theme.highlightGreen
+import java.time.LocalDate
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 data class RecipeDetailUiState(
     val recipe: Recipe,
@@ -108,11 +114,12 @@ class RecipeDetailViewModel(
     ingredientRepository: IngredientRepository,
     private val plannedRepository: PlannedRepository,
     private val photoRepository: RecipePhotoRepository,
+    private val compressPhoto: suspend (Uri) -> ByteArray?,
     private val clock: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
-    /** The photos of the cookbook pages, in order. */
-    val photos: StateFlow<List<ByteArray>> = photoRepository.observe(recipeId)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /** The photos of the cookbook pages, in order; null until read. */
+    val photos: StateFlow<List<ByteArray>?> = photoRepository.observe(recipeId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Null until loaded, and after the recipe was deleted. */
     val state: StateFlow<RecipeDetailUiState?> = combine(
@@ -149,6 +156,20 @@ class RecipeDetailViewModel(
         viewModelScope.launch { plannedRepository.plan(recipeId, date) }
     }
 
+    /**
+     * Keeps the photo at [uri] as the last page; [onDone] is called once [photos] shows it, or with
+     * false when it could not be read.
+     */
+    fun addPhoto(uri: Uri, onDone: (added: Boolean) -> Unit) {
+        viewModelScope.launch {
+            val bytes = compressPhoto(uri) ?: return@launch onDone(false)
+            val before = photos.value?.size ?: 0
+            photoRepository.add(recipeId, bytes)
+            photos.first { it != null && it.size > before }
+            onDone(true)
+        }
+    }
+
     fun delete(onDeleted: () -> Unit) {
         viewModelScope.launch {
             repository.delete(recipeId)
@@ -176,6 +197,20 @@ fun RecipeDetailScreen(
     var pickPlanDate by rememberSaveable { mutableStateOf(false) }
     // The photo open over the whole screen, by its index in the roll.
     var openPhoto by rememberSaveable { mutableStateOf<Int?>(null) }
+    var choosingPhotoSource by rememberSaveable { mutableStateOf(false) }
+    val photoRoll = rememberLazyListState()
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val unreadable = stringResource(R.string.photo_unreadable)
+    val photoSource = rememberPhotoSource { uri ->
+        viewModel.addPhoto(uri) { added ->
+            scope.launch {
+                // The tile follows the new photo; scrolling to it shows the photo next to it.
+                if (added) photoRoll.animateScrollToItem(viewModel.photos.value.orEmpty().size)
+                else snackbar.showSnackbar(unreadable)
+            }
+        }
+    }
     // Opening state of the Nährwerte rows; closed whenever the screen opens.
     var openNutrients by remember { mutableStateOf(emptySet<Nutrient>()) }
     val fab = rememberFabVisibility()
@@ -194,6 +229,7 @@ fun RecipeDetailScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             if (state != null) {
                 HideOnScrollFab(fab) {
@@ -218,8 +254,14 @@ fun RecipeDetailScreen(
             if (detail.highlights.isNotEmpty()) {
                 HighlightTags(detail.highlights, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
             }
-            if (photos.isNotEmpty()) {
-                PhotoRoll(photos, onOpen = { openPhoto = it }, Modifier.padding(top = 16.dp))
+            photos?.let {
+                PhotoRoll(
+                    it,
+                    onOpen = { index -> openPhoto = index },
+                    modifier = Modifier.padding(top = 16.dp),
+                    state = photoRoll,
+                    onAdd = { choosingPhotoSource = true },
+                )
             }
             // Without lines a 0 would say nothing.
             MetadataCard(current, plantPoints = detail.stats.roundedPlantPoints.takeIf { detail.lines.isNotEmpty() })
@@ -250,9 +292,23 @@ fun RecipeDetailScreen(
             Spacer(Modifier.height(16.dp))
         }
 
-        val openBytes = openPhoto?.let { photos.getOrNull(it) }
-        if (openBytes != null) {
-            PhotoViewer(openBytes, onClose = { openPhoto = null })
+        val shown = photos.orEmpty()
+        openPhoto?.takeIf { it in shown.indices }?.let { page ->
+            PhotoViewer(shown, page, onPageChange = { openPhoto = it }, onClose = { openPhoto = null })
+        }
+
+        if (choosingPhotoSource) {
+            PhotoSourceSheet(
+                onTakePhoto = {
+                    choosingPhotoSource = false
+                    photoSource.takePhoto()
+                },
+                onPickPhoto = {
+                    choosingPhotoSource = false
+                    photoSource.pickPhoto()
+                },
+                onDismiss = { choosingPhotoSource = false },
+            )
         }
 
         if (pickPlanDate) {
