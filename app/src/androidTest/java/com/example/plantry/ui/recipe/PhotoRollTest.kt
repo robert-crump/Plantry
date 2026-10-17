@@ -41,6 +41,16 @@ class PhotoRollTest {
     }
 
     @Test
+    fun deleteMark_namesItsPhoto() {
+        var deleted: Int? = null
+        compose.setContent { PhotoRoll(listOf(jpeg(Color.RED), jpeg(Color.BLUE)), onOpen = {}, onDelete = { deleted = it }) }
+
+        compose.onAllNodesWithContentDescription(resources.getString(R.string.photo_delete))[1].performClick()
+
+        assertEquals(1, deleted)
+    }
+
+    @Test
     fun viewer_swipesToTheNextPage_withDots() {
         var page by mutableIntStateOf(0)
         compose.setContent {

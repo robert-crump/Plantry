@@ -130,10 +130,16 @@ data class RecipeEditUiState(
     val saved: Boolean = false,
     /** Closed without saving. */
     val closed: Boolean = false,
-    /** The photo of the cookbook page as compressed JPEG, stored or just taken. */
+    /** The photo of the cookbook page a new recipe is read from, as compressed JPEG. */
     val photo: ByteArray? = null,
     /** True once [photo] was taken or picked here, so saving stores it. */
     val photoChanged: Boolean = false,
+    /** The stored page photos of a saved recipe, in order. */
+    val pages: List<ByteArray> = emptyList(),
+    /** Indexes of [pages] removed here; saving deletes them, discarding keeps them. */
+    val deletedPages: Set<Int> = emptySet(),
+    /** The index of [pages] waiting for "Löschen", if any. */
+    val confirmDeletePage: Int? = null,
     /** The last photo could not be read from the camera or gallery. */
     val photoUnreadable: Boolean = false,
     val scan: ScanState = ScanState.Done,
@@ -158,9 +164,16 @@ data class RecipeEditUiState(
     /** Closing waits for "Verwerfen", because [hasChanges]. */
     val confirmDiscard: Boolean = false,
 ) {
-    /** Closing would lose something: the form differs from [loadedForm], or a photo was taken for a scan. */
+    /**
+     * Closing would lose something: the form differs from [loadedForm], a photo was taken for a
+     * scan, or a page photo was removed.
+     */
     val hasChanges: Boolean
-        get() = scanning || photoChanged || form != loadedForm
+        get() = scanning || photoChanged || deletedPages.isNotEmpty() || form != loadedForm
+
+    /** The indexes of [pages] still shown, in order. */
+    val shownPages: List<Int>
+        get() = pages.indices.filterNot { it in deletedPages }
 }
 
 /** What uses Claude here; each waits until Claude is set up, see [RecipeEditViewModel.useClaude]. */
@@ -297,9 +310,9 @@ class RecipeEditViewModel(
             viewModelScope.launch {
                 val recipe = repository.getRecipe(recipeId) ?: return@launch
                 val lines = repository.getLines(recipeId)
-                val photo = photos.get(recipeId).firstOrNull()
+                val pages = photos.get(recipeId)
                 val form = RecipeForm.from(recipe, lines)
-                _state.update { it.copy(form = form, loadedForm = form, photo = it.photo ?: photo) }
+                _state.update { it.copy(form = form, loadedForm = form, pages = pages) }
             }
         }
     }
@@ -508,6 +521,23 @@ class RecipeEditViewModel(
         }
     }
 
+    /** Asks before removing the page photo at [index] of [RecipeEditUiState.pages]. */
+    fun requestDeletePage(index: Int) {
+        _state.update { it.copy(confirmDeletePage = index) }
+    }
+
+    /** Removes the page asked about; the file goes only when saving. */
+    fun deletePage() {
+        _state.update { state ->
+            val index = state.confirmDeletePage ?: return@update state
+            state.copy(deletedPages = state.deletedPages + index, confirmDeletePage = null)
+        }
+    }
+
+    fun dismissDeletePage() {
+        _state.update { it.copy(confirmDeletePage = null) }
+    }
+
     fun dismissPhotoSource() {
         _state.update { it.copy(choosingPhotoSource = false) }
     }
@@ -625,6 +655,7 @@ class RecipeEditViewModel(
             ingredientRepository.learnAliases(state.form.aliasesToLearn(newIds))
             val id = recipeId?.also { repository.update(it, saved) } ?: repository.create(saved)
             if (state.photoChanged && state.photo != null) photos.add(id, state.photo)
+            if (state.deletedPages.isNotEmpty()) photos.delete(id, state.deletedPages)
             if (state.scanning) bookSession.remember(saved.source, saved.page)
             _state.update { it.copy(saved = true) }
         }
@@ -650,6 +681,8 @@ fun RecipeEditScreen(
     val sourceSuggestions by viewModel.sourceSuggestions.collectAsStateWithLifecycle()
     val photoSource = rememberPhotoSource(viewModel::onPhoto)
     var showingScanInfo by rememberSaveable { mutableStateOf(false) }
+    // The page photo open over the whole screen, by its index among the shown ones.
+    var openPage by rememberSaveable { mutableStateOf<Int?>(null) }
     LaunchedEffect(state.saved, state.closed) { if (state.saved || state.closed) onBack() }
     LaunchedEffect(leaveRequested) { if (leaveRequested) viewModel.close() }
 
@@ -723,6 +756,17 @@ fun RecipeEditScreen(
                         Icon(Icons.Filled.Info, contentDescription = stringResource(R.string.recipe_scan_info_description))
                     }
                 }
+            }
+            val shownPages = state.shownPages
+            if (shownPages.isNotEmpty()) {
+                // Fixed above the form like a scan's photo; "x" removes a page when saved.
+                PhotoRoll(
+                    shownPages.map { state.pages[it] },
+                    onOpen = { openPage = it },
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    onDelete = { viewModel.requestDeletePage(shownPages[it]) },
+                )
+                HorizontalDivider()
             }
             // A scan shows the photo only until it is read; the review works from the fields alone.
             if (!isScan || !showForm) {
@@ -820,6 +864,22 @@ fun RecipeEditScreen(
                     photoSource.pickPhoto()
                 },
                 onDismiss = viewModel::dismissPhotoSource,
+            )
+        }
+
+        val shownPhotos = state.shownPages.map { state.pages[it] }
+        openPage?.takeIf { it in shownPhotos.indices }?.let { page ->
+            PhotoViewer(shownPhotos, page, onPageChange = { openPage = it }, onClose = { openPage = null })
+        }
+
+        if (state.confirmDeletePage != null) {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissDeletePage,
+                text = { Text(stringResource(R.string.photo_delete_confirm)) },
+                confirmButton = {
+                    TextButton(onClick = viewModel::deletePage) { Text(stringResource(R.string.action_delete)) }
+                },
+                dismissButton = { TextButton(onClick = viewModel::dismissDeletePage) { Text(stringResource(R.string.action_cancel)) } },
             )
         }
 

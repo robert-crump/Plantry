@@ -1,5 +1,6 @@
 package com.example.plantry.ui.recipe
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -43,4 +44,19 @@ class RecipeEditUiStateTest {
     fun skippedScan_withItsPhoto_hasChanges() {
         assertTrue(RecipeEditUiState(photo = ByteArray(1), photoChanged = true).hasChanges)
     }
+
+    @Test
+    fun savedRecipe_withItsPages_hasNoChanges() {
+        assertFalse(RecipeEditUiState(form = loaded, loadedForm = loaded, pages = pages).hasChanges)
+    }
+
+    @Test
+    fun removedPage_hasChanges_andIsNoLongerShown() {
+        val state = RecipeEditUiState(form = loaded, loadedForm = loaded, pages = pages, deletedPages = setOf(1))
+
+        assertTrue(state.hasChanges)
+        assertEquals(listOf(0, 2), state.shownPages)
+    }
+
+    private val pages = List(3) { ByteArray(1) { _ -> it.toByte() } }
 }

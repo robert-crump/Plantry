@@ -144,7 +144,7 @@ private const val DOUBLE_TAP_ZOOM = 2.5f
  * The recipe's photos side by side, each [PHOTO_CARD_HEIGHT] tall and as wide as its own shape, so
  * neither a portrait nor a landscape page leaves empty bars; a panorama wider than the screen is
  * cropped at the sides. A tap opens [onOpen] with the photo's index. With [onAdd], a "Foto
- * hinzufügen" tile ends the roll.
+ * hinzufügen" tile ends the roll; with [onDelete], each photo has an "x" at its top right.
  */
 @Composable
 fun PhotoRoll(
@@ -153,6 +153,7 @@ fun PhotoRoll(
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
     onAdd: (() -> Unit)? = null,
+    onDelete: ((Int) -> Unit)? = null,
 ) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val maxCardWidth = maxWidth - 32.dp
@@ -161,25 +162,42 @@ fun PhotoRoll(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            itemsIndexed(photos) { index, bytes -> PhotoCard(bytes, maxCardWidth) { onOpen(index) } }
+            itemsIndexed(photos) { index, bytes ->
+                PhotoCard(bytes, maxCardWidth, onClick = { onOpen(index) }, onDelete = onDelete?.let { { it(index) } })
+            }
             if (onAdd != null) item { AddPhotoTile(onAdd) }
         }
     }
 }
 
 @Composable
-private fun PhotoCard(bytes: ByteArray, maxWidth: Dp, onClick: () -> Unit) {
+private fun PhotoCard(bytes: ByteArray, maxWidth: Dp, onClick: () -> Unit, onDelete: (() -> Unit)?) {
     val bitmap = remember(bytes) { BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() } ?: return
     val width = (PHOTO_CARD_HEIGHT * bitmap.width.toFloat() / bitmap.height).coerceAtMost(maxWidth)
-    Image(
-        bitmap = bitmap,
-        contentDescription = stringResource(R.string.recipe_photo),
-        contentScale = ContentScale.Crop,
-        modifier = Modifier
-            .size(width, PHOTO_CARD_HEIGHT)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClickLabel = stringResource(R.string.photo_enlarge), onClick = onClick),
-    )
+    Box(Modifier.size(width, PHOTO_CARD_HEIGHT).clip(RoundedCornerShape(16.dp))) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = stringResource(R.string.recipe_photo),
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(onClickLabel = stringResource(R.string.photo_enlarge), onClick = onClick),
+        )
+        if (onDelete != null) {
+            // A small mark on a scrim, with the usual 48dp to tap.
+            IconButton(onClick = onDelete, modifier = Modifier.align(Alignment.TopEnd)) {
+                Box(
+                    Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Close, stringResource(R.string.photo_delete), Modifier.size(16.dp), tint = Color.White)
+                }
+            }
+        }
+    }
 }
 
 /** A bordered empty card, about the shape of a portrait page, to take or pick another photo. */
