@@ -84,10 +84,15 @@ data class RecipeFilter(
     val dish: Dish? = null,
     /** Recipes must have all of these. */
     val highlights: Set<RecipeHighlight> = emptySet(),
+    /** Words the title must all contain, see [RecipeQuery.titleMatches]; blank for any title. */
+    val title: String = "",
 ) {
     companion object {
-        /** The filter the [chips] stand for; the ingredients keep the chips' order. */
-        fun of(chips: List<RecipeChip>) = RecipeFilter(
+        /**
+         * The filter the [chips] stand for; the ingredients keep the chips' order. A [search], even a
+         * blank one, sets the chips aside: it looks through every recipe by title.
+         */
+        fun of(chips: List<RecipeChip>, search: String? = null) = if (search != null) RecipeFilter(title = search) else RecipeFilter(
             ingredientIds = chips.filterIsInstance<RecipeChip.WithIngredient>().mapTo(LinkedHashSet()) { it.ingredientId },
             maxTotalMinutes = chips.filterIsInstance<RecipeChip.MaxTotalTime>().firstOrNull()?.minutes,
             maxActiveMinutes = chips.filterIsInstance<RecipeChip.MaxActiveTime>().firstOrNull()?.minutes,
@@ -138,6 +143,7 @@ object RecipeQuery {
             .filter { recipe -> atMost(recipe.totalTimeMinutes, filter.maxTotalMinutes) }
             .filter { recipe -> atMost(recipe.activeTimeMinutes, filter.maxActiveMinutes) }
             .filter { recipe -> filter.dish == null || recipe.dish == filter.dish }
+            .filter { recipe -> titleMatches(recipe.title, filter.title) }
             .map { recipe -> item(recipe, linesByRecipe[recipe.id].orEmpty(), ingredients, contents, lastCooked, wanted) }
             .filter { wanted.isEmpty() || it.matchedIngredients > 0 }
             .filter { it.highlights.containsAll(filter.highlights) }
@@ -150,11 +156,18 @@ object RecipeQuery {
 
     private fun atMost(minutes: Int?, max: Int?) = max == null || minutes == null || minutes <= max
 
-    /** The recipes whose title contains [query] (ignoring case and surrounding blanks), A–Z; for "Kocheintrag". */
-    fun byTitle(recipes: List<Recipe>, query: String): List<Recipe> {
-        val wanted = query.trim()
-        return recipes.filter { it.title.contains(wanted, ignoreCase = true) }.sortedWith(compareBy(titleCollator) { it.title })
-    }
+    /** The recipes whose title [titleMatches] [query], A–Z; for "Kocheintrag" and "Planen". */
+    fun byTitle(recipes: List<Recipe>, query: String): List<Recipe> =
+        recipes.filter { titleMatches(it.title, query) }.sortedWith(compareBy(titleCollator) { it.title })
+
+    /**
+     * Whether [title] contains every word of [query], in any order and ignoring case, so
+     * "linsen curry" finds "Curry mit roten Linsen" and "Linsen-Curry"; a blank query matches all.
+     */
+    fun titleMatches(title: String, query: String): Boolean =
+        query.split(whitespace).all { word -> title.contains(word, ignoreCase = true) }
+
+    private val whitespace = Regex("""\s+""")
 
     /** How many recipes use each ingredient, keyed by id; ingredients no recipe uses are left out. */
     fun recipeCounts(lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>): Map<Long, Int> =

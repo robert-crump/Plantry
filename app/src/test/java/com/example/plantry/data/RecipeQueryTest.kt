@@ -362,4 +362,30 @@ class RecipeQueryTest {
 
         assertEquals(listOf("Linsen-Dal", "Rote Linsensuppe"), result.map { it.title })
     }
+
+    @Test
+    fun byTitle_matchesEveryWordInAnyOrder() {
+        val recipes = listOf(recipe(1, "Curry mit roten Linsen"), recipe(2, "Linsen-Curry"), recipe(3, "Linsensuppe"), recipe(4, "Gemüse-Curry"))
+
+        assertEquals(listOf("Curry mit roten Linsen", "Linsen-Curry"), RecipeQuery.byTitle(recipes, "  linsen  CURRY ").map { it.title })
+    }
+
+    @Test
+    fun search_setsTheChipsAside() {
+        val chips = listOf(RecipeChip.OfDish(Dish.MAIN), RecipeChip.QUICK)
+
+        assertEquals(RecipeFilter(title = "porridge"), RecipeFilter.of(chips, search = "porridge"))
+        assertEquals(RecipeFilter(), RecipeFilter.of(chips, search = ""))
+        assertEquals(RecipeFilter(maxTotalMinutes = 30, dish = Dish.MAIN), RecipeFilter.of(chips))
+    }
+
+    @Test
+    fun titleFilter_keepsTheSort() {
+        val recipes = listOf(recipe(1, "Linsen-Curry", minutes = 45), recipe(2, "Curry mit Tofu", minutes = 20), recipe(3, "Dal", minutes = 10))
+
+        assertEquals(
+            listOf("Curry mit Tofu", "Linsen-Curry"),
+            run(recipes, filter = RecipeFilter(title = "curry"), sort = RecipeSort.TOTAL_TIME).titles(),
+        )
+    }
 }

@@ -3,13 +3,10 @@ package com.example.plantry.ui.cooklog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -21,8 +18,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,15 +28,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,7 +40,9 @@ import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
+import com.example.plantry.ui.AppBarSearchField
 import com.example.plantry.ui.currentLocale
+import com.example.plantry.ui.rememberHideKeyboardOnScroll
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -102,36 +93,12 @@ fun RecipeSearchScreen(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
-    // Dragging the list hides the keyboard, so browsing gets the whole screen.
-    val hideKeyboard = remember(focusManager) {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.UserInput) focusManager.clearFocus()
-                return Offset.Zero
-            }
-        }
-    }
+    val hideKeyboard = rememberHideKeyboardOnScroll()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    TextField(
-                        query,
-                        onValueChange = { query = it },
-                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                        placeholder = { Text(stringResource(R.string.recipe_search)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                        ),
-                    )
-                },
+                title = { AppBarSearchField(query, { query = it }, stringResource(R.string.recipe_search), focusRequester) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
