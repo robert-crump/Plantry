@@ -1,30 +1,26 @@
 package com.example.plantry.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 
-/** One labelled row of filter chips, e.g. "Viel:" with its nutrient chips. */
-class FilterRow(val label: String, val chips: @Composable FlowRowScope.() -> Unit)
+/** One row of filter chips, e.g. the nutrient chips. */
+typealias FilterRow = @Composable RowScope.() -> Unit
 
 /**
  * A chip is 32dp tall inside a 48dp touch target; overlapping the targets by this much leaves
@@ -33,31 +29,18 @@ class FilterRow(val label: String, val chips: @Composable FlowRowScope.() -> Uni
 private val ChipRowSpacing = (-8).dp
 
 /**
- * [rows] under each other, their labels in a column as wide as the widest, so every row's first
- * chip lines up; chips that don't fit wrap within their own column.
+ * [rows] under each other, each on one line that scrolls sideways when its chips don't fit; the
+ * chips start at the margin and scroll out to the screen edge.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FilterRows(rows: List<FilterRow>, modifier: Modifier = Modifier) {
-    val style = MaterialTheme.typography.bodyMedium
-    val measurer = rememberTextMeasurer()
-    val labelWidth = with(LocalDensity.current) { rows.maxOf { measurer.measure(it.label, style).size.width }.toDp() }
-    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(ChipRowSpacing)) {
-        rows.forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    row.label,
-                    style = style,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.width(labelWidth).alignByBaseline(),
-                )
-                FlowRow(
-                    Modifier.weight(1f).alignByBaseline(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(ChipRowSpacing),
-                    content = row.chips,
-                )
-            }
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ChipRowSpacing)) {
+        rows.forEach { chips ->
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                content = chips,
+            )
         }
     }
 }

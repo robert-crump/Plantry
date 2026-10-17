@@ -44,7 +44,7 @@ sealed interface RecipeChip : FilterChoice {
         override val group: Any get() = MaxActiveTime::class
     }
 
-    /** Only recipes with this highlight, e.g. "Viel: Protein"; with "Snack" the high-protein snacks. */
+    /** Only recipes with this highlight, e.g. "Protein-Power"; with "Snack" the high-protein snacks. */
     data class WithHighlight(val highlight: RecipeHighlight) : RecipeChip {
         override val group: Any? get() = null
     }
@@ -54,17 +54,17 @@ sealed interface RecipeChip : FilterChoice {
     }
 
     companion object {
-        /** "Schnell: Fertig". */
+        /** "Schnell fertig". */
         val QUICK = MaxTotalTime(30)
 
-        /** "Schnell: Zubereitung". */
+        /** "Schnell zubereitet". */
         val EASY = MaxActiveTime(20)
 
-        /** "Viel:" protein, carbs and fibre per portion, in this order. */
+        /** Protein, carbs and fibre per portion, in this order. */
         val HIGHLIGHTS = listOf(RecipeHighlight.HIGH_PROTEIN, RecipeHighlight.HIGH_CARB, RecipeHighlight.HIGH_FIBRE)
             .map(::WithHighlight)
 
-        /** "Typ:" Hauptgericht and Snack. */
+        /** Hauptgericht, Frühstück and Snack. */
         val DISHES = Dish.entries.map(::OfDish)
 
         /**

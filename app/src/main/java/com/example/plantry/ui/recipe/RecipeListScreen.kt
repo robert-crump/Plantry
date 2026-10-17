@@ -283,34 +283,53 @@ private fun SortMenu(sort: RecipeSort, onSort: (RecipeSort) -> Unit) {
     }
 }
 
-/** "Typ:", "Schnell:" and "Viel:", each chip in a fixed place, then "Mit:" while ingredients are chosen. */
+/**
+ * Dishes, the two times and the nutrients, each chip in a fixed place, then the chosen
+ * ingredients; under them "256 Rezepte" or "54/256 Rezepte".
+ */
 @Composable
 private fun FilterBar(state: RecipeListUiState, onToggle: (RecipeChip) -> Unit) {
     val active = state.activeChips
     val ingredients = active.filterIsInstance<RecipeChip.WithIngredient>()
-    val rows = listOfNotNull(
-        FilterRow(stringResource(R.string.filter_row_type)) {
+    val rows = listOfNotNull<FilterRow>(
+        {
             RecipeChip.DISHES.forEach { chip -> ToggleChip(stringResource(chip.dish.label), chip in active) { onToggle(chip) } }
         },
-        FilterRow(stringResource(R.string.filter_row_quick)) {
+        {
             ToggleChip(stringResource(R.string.recipe_filter_easy), RecipeChip.EASY in active) { onToggle(RecipeChip.EASY) }
             ToggleChip(stringResource(R.string.recipe_filter_quick), RecipeChip.QUICK in active) { onToggle(RecipeChip.QUICK) }
         },
-        FilterRow(stringResource(R.string.filter_row_much)) {
+        {
             RecipeChip.HIGHLIGHTS.forEach { chip ->
                 ToggleChip(stringResource(chip.highlight.chipLabel), chip in active) { onToggle(chip) }
             }
         },
-        if (ingredients.isEmpty()) null else FilterRow(stringResource(R.string.filter_row_with)) {
-            ingredients.forEach { chip ->
-                ToggleChip(state.ingredientNames[chip.ingredientId].orEmpty(), selected = true) { onToggle(chip) }
+        if (ingredients.isEmpty()) {
+            null
+        } else {
+            {
+                ingredients.forEach { chip ->
+                    ToggleChip(state.ingredientNames[chip.ingredientId].orEmpty(), selected = true) { onToggle(chip) }
+                }
             }
         },
     )
-    FilterRows(rows, Modifier.padding(top = 4.dp, bottom = 8.dp))
+    Column(Modifier.padding(top = 4.dp)) {
+        FilterRows(rows)
+        Text(
+            if (active.isNotEmpty()) {
+                pluralStringResource(R.plurals.recipes_count_filtered, state.recipeCount, state.items.size, state.recipeCount)
+            } else {
+                pluralStringResource(R.plurals.recipes_count, state.recipeCount, state.recipeCount)
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+        )
+    }
 }
 
-/** The "Viel:" chip's short name for the nutrient. */
+/** The nutrient chip's name. */
 private val RecipeHighlight.chipLabel: Int
     get() = when (this) {
         RecipeHighlight.HIGH_PROTEIN -> R.string.filter_protein

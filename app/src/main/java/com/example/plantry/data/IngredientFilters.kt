@@ -1,6 +1,6 @@
 package com.example.plantry.data
 
-/** The ingredient list's "Viel:" chips, per 100 g; they combine, none on shows every ingredient. */
+/** The ingredient list's nutrient chips, per 100 g; they combine, none on shows every ingredient. */
 enum class IngredientChip : FilterChoice {
     /** At least [IngredientFilters.PROTEIN_MIN] g protein. */
     HIGH_PROTEIN,

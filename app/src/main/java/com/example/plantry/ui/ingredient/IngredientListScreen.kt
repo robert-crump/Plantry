@@ -46,7 +46,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.ui.FastScrollbar
-import com.example.plantry.ui.FilterRow
 import com.example.plantry.ui.FilterRows
 import com.example.plantry.ui.HideOnScrollFab
 import com.example.plantry.ui.rememberFabVisibility
@@ -151,7 +150,6 @@ fun IngredientListScreen(
         val scrollLabels = remember(current.ingredients, locale) {
             listOf(null) + current.ingredients.map { IngredientSorting.indexLetter(it.name, locale) }
         }
-        val muchLabel = stringResource(R.string.filter_row_much)
         Box(Modifier.fillMaxSize().padding(padding).nestedScroll(fab.connection)) {
             LazyColumn(
                 Modifier.fillMaxSize(),
@@ -163,15 +161,13 @@ fun IngredientListScreen(
                 item(key = "filters") {
                     Column {
                         FilterRows(
-                            listOf(
-                                FilterRow(muchLabel) {
-                                    IngredientChip.entries.forEach { chip ->
-                                        ToggleChip(stringResource(chip.label), selected = chip in current.chips.active) {
-                                            viewModel.toggleChip(chip)
-                                        }
+                            listOf {
+                                IngredientChip.entries.forEach { chip ->
+                                    ToggleChip(stringResource(chip.label), selected = chip in current.chips.active) {
+                                        viewModel.toggleChip(chip)
                                     }
-                                },
-                            ),
+                                }
+                            },
                         )
                         CountRow(current)
                     }
