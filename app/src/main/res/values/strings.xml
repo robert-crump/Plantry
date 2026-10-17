@@ -314,6 +314,7 @@
     <string name="piece_unit_slice">Scheibe</string>
     <string name="piece_unit_clove">Zehe</string>
     <string name="piece_unit_bunch">Bund</string>
+    <string name="piece_unit_stalk">Stange</string>
     <string name="piece_unit_can">Dose</string>
     <string name="piece_unit_packet">Packung</string>
     <string name="piece_unit_tsp">TL</string>

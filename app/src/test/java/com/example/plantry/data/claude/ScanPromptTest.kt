@@ -24,7 +24,7 @@ class ScanPromptTest {
     fun `lines come as amount and one of the units, with unit grams for a missing unit`() {
         val system = ScanPrompt.system(emptyList())
 
-        assertTrue(system.contains("in one of the units g, ml, Stück, Scheibe, Zehe, Bund, Dose, Packung, TL, EL, Tasse."))
+        assertTrue(system.contains("in one of the units g, ml, Stück, Scheibe, Zehe, Bund, Stange, Dose, Packung, TL, EL, Tasse."))
         assertTrue(system.contains("- unitGrams: only when unit is neither g nor ml and the matched ingredient below"))
         assertTrue(system.contains("best estimate in g, with the printed line as wording."))
         assertFalse(system.contains("- grams:"))

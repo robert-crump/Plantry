@@ -48,7 +48,7 @@ input/
 
 **Ingredient**: German name, then the nutrition source — an exact USDA SR Legacy description, or
 label values (kcal, protein, carbs, sugar, fat, fibre per 100 g) — plant points, store section and
-units. Units come from the app's fixed list (Stück, Scheibe, Zehe, Bund, Dose, Packung, TL, EL,
+units. Units come from the app's fixed list (Stück, Scheibe, Zehe, Bund, Stange, Dose, Packung, TL, EL,
 Tasse), each either per unit (`("Zehe", 3)`) or from a package (`("Scheibe", 750, 20)`, a count
 read from the photo's file name). g and ml exist for every ingredient and are never listed. A
 photographed product records its product name and barcode, which the app shows as the nutrition

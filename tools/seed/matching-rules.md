@@ -36,9 +36,9 @@ together. Refined during the calibration round.
     so "1 Dose Kidneybohnen" = 240 g and "200 g" means 200 g drained. Goods used with their liquid
     (Kokosmilch, stückige Tomaten) have Dose = the full content, e.g. 400 g.
 13. **Units**: besides g and ml, an ingredient gets every unit recipes commonly use for it, each
-    with the grams of one unit. Stück (egg, onion, apple, lemon …), Zehe (garlic) and Bund
-    (parsley, chives, radishes) are the edible weight of one typical medium piece without shell,
-    peel or core (Ei 55 g, Zwiebel 100 g, Knoblauch: Zehe = 3 g). TL and EL for spices, dried
+    with the grams of one unit. Stück (egg, onion, apple, lemon …), Zehe (garlic), Bund
+    (parsley, chives, radishes) and Stange (celery, rhubarb) are the edible weight of one typical medium piece without shell,
+    peel or core (Ei 55 g, Zwiebel 100 g, Knoblauch: Zehe = 3 g, Staudensellerie: Stange = 40 g). TL and EL for spices, dried
     herbs, seeds, salt, sugar, oils, pastes and sauces used by the spoon, Tasse for grains, flakes,
     nuts and seeds measured in cups: the grams of one level spoon or cup of that food
     (Kreuzkümmel: TL = 2 g, EL = 6 g; Olivenöl: TL = 4 g, EL = 12 g; Haferflocken: Tasse = 90 g).

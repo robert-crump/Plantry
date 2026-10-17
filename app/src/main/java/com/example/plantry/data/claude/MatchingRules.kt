@@ -65,7 +65,7 @@ object MatchingRules {
      * ingredient. Slices and packets depend on the user's package, so Claude never proposes them.
      */
     val PROPOSED_UNITS = listOf(
-        PieceUnit.PIECE, PieceUnit.CLOVE, PieceUnit.BUNCH, PieceUnit.CAN, PieceUnit.TSP, PieceUnit.TBSP, PieceUnit.CUP,
+        PieceUnit.PIECE, PieceUnit.CLOVE, PieceUnit.BUNCH, PieceUnit.STALK, PieceUnit.CAN, PieceUnit.TSP, PieceUnit.TBSP, PieceUnit.CUP,
     )
 
     /** Lets recipes give the amount the way they count it ("2 Eier", "3 Zehen Knoblauch", "1 TL Kreuzkümmel"). */
@@ -73,9 +73,10 @@ object MatchingRules {
         Every unit a recipe commonly uses for the food besides g and ml, each with the grams of one
         unit; an empty list if recipes only weigh or measure it (Mehl, Reis, Öl, Milch, Linsen,
         Tofu). PIECE for foods counted whole (egg, onion, apple, carrot, lemon, leek, fennel,
-        lettuce, cauliflower), CLOVE for garlic, BUNCH for parsley, chives or radishes: the edible
+        lettuce, cauliflower), CLOVE for garlic, BUNCH for parsley, chives or radishes, STALK for
+        celery and rhubarb: the edible
         weight of one typical medium piece, without shell, peel or core, since the nutrition is per
-        100 g edible, e.g. Ei PIECE 55, Knoblauch CLOVE 3, Zwiebel PIECE 100. TSP and TBSP for
+        100 g edible, e.g. Ei PIECE 55, Knoblauch CLOVE 3, Zwiebel PIECE 100, Staudensellerie STALK 40. TSP and TBSP for
         spices, dried herbs, seeds, salt, sugar, oils, pastes and sauces used by the spoon, CUP for
         grains, flakes, nuts and seeds a recipe may measure in cups: the grams of one level spoon or
         cup of that food, e.g. Kreuzkümmel TSP 2 and TBSP 6, Olivenöl TSP 4 and TBSP 12, Haferflocken

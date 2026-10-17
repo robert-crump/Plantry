@@ -35,6 +35,7 @@ enum class PieceUnit(val singular: String, val plural: String) {
     SLICE("Scheibe", "Scheiben"),
     CLOVE("Zehe", "Zehen"),
     BUNCH("Bund", "Bund"),
+    STALK("Stange", "Stangen"),
     CAN("Dose", "Dosen"),
     PACKET("Packung", "Packungen"),
     TSP("TL", "TL"),

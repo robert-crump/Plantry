@@ -247,13 +247,13 @@ class IngredientFormTest {
     }
 
     @Test
-    fun unitWords_areTheNineUnitsInGerman() {
+    fun unitWords_areTheTenUnitsInGerman() {
         assertEquals(
-            listOf("Stück", "Scheibe", "Zehe", "Bund", "Dose", "Packung", "TL", "EL", "Tasse"),
+            listOf("Stück", "Scheibe", "Zehe", "Bund", "Stange", "Dose", "Packung", "TL", "EL", "Tasse"),
             PieceUnit.entries.map { it.singular },
         )
         assertEquals(
-            listOf("Stück", "Scheiben", "Zehen", "Bund", "Dosen", "Packungen", "TL", "EL", "Tassen"),
+            listOf("Stück", "Scheiben", "Zehen", "Bund", "Stangen", "Dosen", "Packungen", "TL", "EL", "Tassen"),
             PieceUnit.entries.map { it.plural },
         )
     }

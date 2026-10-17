@@ -1044,6 +1044,7 @@ internal val PieceUnit.label: Int
         PieceUnit.SLICE -> R.string.piece_unit_slice
         PieceUnit.CLOVE -> R.string.piece_unit_clove
         PieceUnit.BUNCH -> R.string.piece_unit_bunch
+        PieceUnit.STALK -> R.string.piece_unit_stalk
         PieceUnit.CAN -> R.string.piece_unit_can
         PieceUnit.PACKET -> R.string.piece_unit_packet
         PieceUnit.TSP -> R.string.piece_unit_tsp
