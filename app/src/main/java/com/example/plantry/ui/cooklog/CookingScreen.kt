@@ -1,7 +1,6 @@
 package com.example.plantry.ui.cooklog
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,8 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -21,17 +18,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -42,7 +39,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
@@ -94,7 +90,11 @@ import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.settings.SettingsRepository
+import com.example.plantry.ui.FabMenu
+import com.example.plantry.ui.FabMenuAction
+import com.example.plantry.ui.FabScrim
 import com.example.plantry.ui.FastScrollbar
+import com.example.plantry.ui.SnackbarBelowFab
 import com.example.plantry.ui.currentLocale
 import com.example.plantry.ui.theme.highlightGreen
 import kotlinx.coroutines.flow.SharingStarted
@@ -200,7 +200,7 @@ data class JustLogged(val recipeId: Long, val date: LocalDate)
  * The Kochen tab: Geplant on top as cards (hidden when empty), then the cooking history under
  * "Verlauf", newest first, in Monday–Sunday weeks with sticky headers showing the week's plant
  * points, each row with its own date badge. History rows show the recipe as it was when logged. A "+" FAB, hidden while scrolling
- * down, opens "Vorschlag", "Planen" ([onPlan], pick a recipe, then a day from today) and
+ * down, opens "Planen" ([onPlan], pick a recipe, then a day from today), "Vorschlag" and
  * "Kocheintrag" ([onLog], pick a recipe, then a day up to today). [justPlanned] is planned once with
  * an undo snackbar, then [onJustPlannedShown] clears it; [justLogged] is logged once, then
  * [onJustLoggedShown] clears it.
@@ -255,15 +255,6 @@ fun CookingScreen(
         }
     }
 
-    // The snackbar sits at the bottom with the FAB lifted above it (the Scaffold would put it
-    // above the FAB), so it is laid over the Scaffold instead of using its snackbarHost slot.
-    var snackbarHeight by remember { mutableIntStateOf(0) }
-    val density = LocalDensity.current
-    // Less the snackbar's own 12dp margin, so the FAB keeps its usual 16dp gap.
-    val fabLift by animateDpAsState(
-        with(density) { (snackbarHeight.toDp() - 12.dp).coerceAtLeast(0.dp) },
-        label = "fab lift",
-    )
     var fabVisible by rememberSaveable { mutableStateOf(true) }
     var fabMenuOpen by rememberSaveable { mutableStateOf(false) }
     // Only actual scrolling counts, so dragging a list too short to scroll leaves the FAB alone.
@@ -277,17 +268,19 @@ fun CookingScreen(
             }
         }
     }
-    Box(Modifier.fillMaxSize()) {
+    SnackbarBelowFab(snackbar) { fabLift ->
         Scaffold(
             topBar = { TopAppBar(title = { Text(stringResource(R.string.cooking_title)) }) },
             floatingActionButton = {
-                CookingFabMenu(
+                FabMenu(
                     expanded = fabMenuOpen,
                     onExpandedChange = { fabMenuOpen = it },
                     visible = fabVisible,
-                    onSuggest = onSuggest,
-                    onPlan = onPlan,
-                    onLog = onLog,
+                    actions = listOf(
+                        FabMenuAction(R.string.plan_action, Icons.Filled.CalendarMonth, onPlan),
+                        FabMenuAction(R.string.suggest_action, Icons.Filled.AutoAwesome, onSuggest),
+                        FabMenuAction(R.string.cook_log_action, Icons.Filled.EditNote, onLog),
+                    ),
                     modifier = Modifier.padding(bottom = fabLift),
                 )
             },
@@ -395,13 +388,6 @@ fun CookingScreen(
                 }
             }
         }
-        SnackbarHost(
-            snackbar,
-            Modifier
-                .align(Alignment.BottomCenter)
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
-                .onSizeChanged { snackbarHeight = it.height },
-        )
     }
 }
 

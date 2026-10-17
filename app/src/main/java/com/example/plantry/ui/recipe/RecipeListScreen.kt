@@ -15,9 +15,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.NoteAdd
 import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Search
@@ -29,13 +30,15 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -45,11 +48,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -67,6 +74,8 @@ import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientSuggestions
+import com.example.plantry.data.PlannedRecipe
+import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeChip
 import com.example.plantry.data.RecipeFilter
@@ -75,13 +84,17 @@ import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeSort
 import com.example.plantry.ui.AppBarSearchField
+import com.example.plantry.ui.FabMenu
+import com.example.plantry.ui.FabMenuAction
+import com.example.plantry.ui.FabScrim
 import com.example.plantry.ui.FilterRow
 import com.example.plantry.ui.FilterRows
-import com.example.plantry.ui.HideOnScrollFab
 import com.example.plantry.ui.ScrollToTopOnChange
+import com.example.plantry.ui.SnackbarBelowFab
 import com.example.plantry.ui.rememberFabVisibility
 import com.example.plantry.ui.rememberHideKeyboardOnScroll
 import com.example.plantry.ui.ToggleChip
+import com.example.plantry.ui.cooklog.JustPlanned
 import com.example.plantry.ui.cooklog.RecipeStatsRow
 import com.example.plantry.ui.cooklog.label
 import com.example.plantry.ui.cooklog.lastCookedLabel
@@ -119,6 +132,7 @@ class RecipeListViewModel(
     recipeRepository: RecipeRepository,
     ingredientRepository: IngredientRepository,
     cookLogRepository: CookLogRepository,
+    private val plannedRepository: PlannedRepository,
     initialIngredientId: Long? = null,
 ) : ViewModel() {
 
@@ -179,18 +193,60 @@ class RecipeListViewModel(
     fun closeSearch() {
         search.value = null
     }
+
+    /** "Planen": puts the recipe on Geplant for [date], or moves it there; [onDone] gets the entry it replaced, for [undoPlan]. */
+    fun plan(recipeId: Long, date: LocalDate, onDone: (PlannedRecipe?) -> Unit) {
+        viewModelScope.launch { onDone(plannedRepository.plan(recipeId, date)) }
+    }
+
+    fun undoPlan(recipeId: Long, previous: PlannedRecipe?) {
+        viewModelScope.launch { plannedRepository.undoPlan(recipeId, previous) }
+    }
 }
 
+/**
+ * The Rezepte tab, also a sub-screen filtered by one ingredient. A "+" FAB, hidden while scrolling
+ * down, opens "Planen" ([onPlan], pick a recipe, then a day from today) and "Rezept" ([onAddRecipe]).
+ * [justPlanned] is planned once with an undo snackbar, then [onJustPlannedShown] clears it.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeListScreen(
     viewModel: RecipeListViewModel,
     onRecipeClick: (Long) -> Unit,
     onAddRecipe: () -> Unit,
+    onPlan: () -> Unit,
+    justPlanned: JustPlanned?,
+    onJustPlannedShown: () -> Unit,
     /** Set when opened as a sub-screen (filtered from the ingredient list); shows a back arrow. */
     onBack: (() -> Unit)? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val undoLabel = stringResource(R.string.action_undo)
+    val plannedMessage = stringResource(R.string.suggest_planned, justPlanned?.title.orEmpty())
+    LaunchedEffect(justPlanned) {
+        val planned = justPlanned ?: return@LaunchedEffect
+        onJustPlannedShown()
+        viewModel.plan(planned.recipeId, planned.date) { previous ->
+            scope.launch {
+                snackbar.currentSnackbarData?.dismiss()
+                val result = snackbar.showSnackbar(plannedMessage, actionLabel = undoLabel, duration = SnackbarDuration.Short)
+                if (result == SnackbarResult.ActionPerformed) viewModel.undoPlan(planned.recipeId, previous)
+            }
+        }
+    }
+    var fabMenuOpen by rememberSaveable { mutableStateOf(false) }
+    // Any scrolling closes the menu.
+    val closeFabMenu = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (consumed.y != 0f) fabMenuOpen = false
+                return Offset.Zero
+            }
+        }
+    }
     val listState = rememberLazyListState()
     // Picking a sort, even the current one, jumps to the top; keyed on the sort too so it
     // runs after the list has been reordered (the keyed rows would otherwise keep their place).
@@ -205,98 +261,106 @@ fun RecipeListScreen(
     var focusSearch by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = search != null) { viewModel.closeSearch() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    if (search != null) {
-                        AppBarSearchField(search, viewModel::setSearch, stringResource(R.string.recipe_search), searchFocus)
-                        LaunchedEffect(Unit) {
-                            if (focusSearch) searchFocus.requestFocus()
-                            focusSearch = false
+    SnackbarBelowFab(snackbar) { fabLift ->
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        if (search != null) {
+                            AppBarSearchField(search, viewModel::setSearch, stringResource(R.string.recipe_search), searchFocus)
+                            LaunchedEffect(Unit) {
+                                if (focusSearch) searchFocus.requestFocus()
+                                focusSearch = false
+                            }
+                        } else {
+                            Text(stringResource(R.string.recipes_title))
                         }
-                    } else {
-                        Text(stringResource(R.string.recipes_title))
-                    }
-                },
-                navigationIcon = {
-                    if (search != null) {
-                        IconButton(onClick = viewModel::closeSearch) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                    },
+                    navigationIcon = {
+                        if (search != null) {
+                            IconButton(onClick = viewModel::closeSearch) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                            }
+                        } else if (onBack != null) {
+                            IconButton(onClick = onBack) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                            }
                         }
-                    } else if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                        }
-                    }
-                },
-                actions = {
-                    state?.takeIf { it.recipeCount > 0 }?.let {
-                        if (search == null) {
-                            // Not on the list for one ingredient: searching would set that ingredient aside.
-                            if (onBack == null) {
-                                IconButton(onClick = { focusSearch = true; viewModel.openSearch() }) {
-                                    Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.recipe_search))
+                    },
+                    actions = {
+                        state?.takeIf { it.recipeCount > 0 }?.let {
+                            if (search == null) {
+                                // Not on the list for one ingredient: searching would set that ingredient aside.
+                                if (onBack == null) {
+                                    IconButton(onClick = { focusSearch = true; viewModel.openSearch() }) {
+                                        Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.recipe_search))
+                                    }
+                                }
+                                IngredientFilterButton(it.filter.ingredientIds.size) { pickIngredients = true }
+                            } else if (search.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.setSearch(""); searchFocus.requestFocus() }) {
+                                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.recipe_search_clear))
                                 }
                             }
-                            IngredientFilterButton(it.filter.ingredientIds.size) { pickIngredients = true }
-                        } else if (search.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.setSearch(""); searchFocus.requestFocus() }) {
-                                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.recipe_search_clear))
-                            }
+                            SortMenu(it.sort) { option -> viewModel.setSort(option); sortPicks++ }
                         }
-                        SortMenu(it.sort) { option -> viewModel.setSort(option); sortPicks++ }
-                    }
-                },
-            )
-        },
-        floatingActionButton = {
-            HideOnScrollFab(fab) {
-                ExtendedFloatingActionButton(
-                    onClick = onAddRecipe,
-                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                    text = { Text(stringResource(R.string.recipe_fab)) },
+                    },
                 )
+            },
+            floatingActionButton = {
+                FabMenu(
+                    expanded = fabMenuOpen,
+                    onExpandedChange = { fabMenuOpen = it },
+                    visible = fab.visible,
+                    actions = listOf(
+                        FabMenuAction(R.string.plan_action, Icons.Filled.CalendarMonth, onPlan),
+                        FabMenuAction(R.string.recipe_fab, Icons.AutoMirrored.Filled.NoteAdd, onAddRecipe),
+                    ),
+                    modifier = Modifier.padding(bottom = fabLift),
+                )
+            },
+        ) { padding ->
+            val current = state ?: return@Scaffold
+            if (current.recipeCount == 0) {
+                CenteredMessage(stringResource(R.string.recipes_empty), Modifier.padding(padding))
+                FabScrim(fabMenuOpen, onDismiss = { fabMenuOpen = false }, Modifier.padding(padding))
+                return@Scaffold
             }
-        },
-    ) { padding ->
-        val current = state ?: return@Scaffold
-        if (current.recipeCount == 0) {
-            CenteredMessage(stringResource(R.string.recipes_empty), Modifier.padding(padding))
-            return@Scaffold
-        }
-        val today = remember { LocalDate.now() }
-        val ingredientCount = current.filter.ingredientIds.size
-        val hideKeyboard = rememberHideKeyboardOnScroll()
-        LazyColumn(
-            Modifier.fillMaxSize().padding(padding).nestedScroll(fab.connection).nestedScroll(hideKeyboard),
-            state = listState,
-        ) {
-            // The filters scroll away with the list.
-            item(key = "filters") { FilterBar(current, viewModel::toggleChip) }
-            if (current.items.isEmpty()) {
-                item(key = "empty") {
-                    Text(
-                        stringResource(if (current.search != null) R.string.recipe_search_none else R.string.recipe_filter_no_match),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
-                    )
+            val today = remember { LocalDate.now() }
+            val ingredientCount = current.filter.ingredientIds.size
+            val hideKeyboard = rememberHideKeyboardOnScroll()
+            LazyColumn(
+                Modifier.fillMaxSize().padding(padding)
+                    .nestedScroll(fab.connection).nestedScroll(closeFabMenu).nestedScroll(hideKeyboard),
+                state = listState,
+            ) {
+                // The filters scroll away with the list.
+                item(key = "filters") { FilterBar(current, viewModel::toggleChip) }
+                if (current.items.isEmpty()) {
+                    item(key = "empty") {
+                        Text(
+                            stringResource(if (current.search != null) R.string.recipe_search_none else R.string.recipe_filter_no_match),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        )
+                    }
+                }
+                items(current.items, key = { it.recipe.id }) { item ->
+                    RecipeRow(item, current.sort, ingredientCount, today, onClick = { onRecipeClick(item.recipe.id) })
+                    HorizontalDivider()
                 }
             }
-            items(current.items, key = { it.recipe.id }) { item ->
-                RecipeRow(item, current.sort, ingredientCount, today, onClick = { onRecipeClick(item.recipe.id) })
-                HorizontalDivider()
+            FabScrim(fabMenuOpen, onDismiss = { fabMenuOpen = false }, Modifier.padding(padding))
+            if (pickIngredients) {
+                IngredientFilterDialog(
+                    ingredients = current.choosableIngredients,
+                    selected = current.filter.ingredientIds,
+                    onToggle = { viewModel.toggleChip(RecipeChip.WithIngredient(it)) },
+                    onDismiss = { pickIngredients = false },
+                )
             }
-        }
-        if (pickIngredients) {
-            IngredientFilterDialog(
-                ingredients = current.choosableIngredients,
-                selected = current.filter.ingredientIds,
-                onToggle = { viewModel.toggleChip(RecipeChip.WithIngredient(it)) },
-                onDismiss = { pickIngredients = false },
-            )
         }
     }
 }

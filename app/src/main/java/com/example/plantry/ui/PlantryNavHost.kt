@@ -93,7 +93,10 @@ object CookingRoute
 @Serializable
 object SuggestionsRoute
 
-/** Saved-state keys with which "Vorschlag" and "Planen" hand the recipe and day (epoch day) to plan back to Kochen. */
+/**
+ * Saved-state keys with which "Vorschlag" and "Planen" hand the recipe and day (epoch day) to plan
+ * back to the screen they were opened from, Kochen or Rezepte.
+ */
 private const val JUST_PLANNED_ID = "justPlannedId"
 private const val JUST_PLANNED_TITLE = "justPlannedTitle"
 private const val JUST_PLANNED_DAY = "justPlannedDay"
@@ -373,12 +376,23 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                 }
                 composable<RecipeListRoute> { entry ->
                     val ingredientId = entry.toRoute<RecipeListRoute>().ingredientId
+                    val handle = entry.savedStateHandle
+                    val justPlannedId by handle.getStateFlow<Long?>(JUST_PLANNED_ID, null).collectAsStateWithLifecycle()
+                    val justPlannedTitle by handle.getStateFlow(JUST_PLANNED_TITLE, "").collectAsStateWithLifecycle()
+                    val justPlannedDay by handle.getStateFlow(JUST_PLANNED_DAY, 0L).collectAsStateWithLifecycle()
                     RecipeListScreen(
                         viewModel = viewModel {
-                            RecipeListViewModel(recipeRepository, ingredientRepository, cookLogRepository, ingredientId)
+                            RecipeListViewModel(recipeRepository, ingredientRepository, cookLogRepository, app.plannedRepository, ingredientId)
                         },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                         onAddRecipe = { navController.navigate(RecipeEditRoute()) },
+                        onPlan = { navController.navigate(RecipeSearchRoute(RecipeSearchMode.Plan)) },
+                        justPlanned = justPlannedId?.let { JustPlanned(it, justPlannedTitle, LocalDate.ofEpochDay(justPlannedDay)) },
+                        onJustPlannedShown = {
+                            handle[JUST_PLANNED_ID] = null
+                            handle[JUST_PLANNED_TITLE] = ""
+                            handle[JUST_PLANNED_DAY] = 0L
+                        },
                         onBack = if (ingredientId != null) ({ navController.popBackStack() }) else null,
                     )
                 }
@@ -503,9 +517,9 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
 }
 
 /** The tab this entry is the first screen of; the recipe list filtered by an ingredient is a sub-screen. */
-/** Hands a recipe and day to plan back to Kochen, which plans it with an undo snackbar. */
+/** Hands a recipe and day to plan back to Kochen or Rezepte, which plans it with an undo snackbar. */
 private fun NavBackStackEntry.handOverPlan(recipeId: Long, title: String, date: LocalDate) {
-    // Title and day first: Kochen reacts to the id.
+    // Title and day first: the screen reacts to the id.
     savedStateHandle[JUST_PLANNED_TITLE] = title
     savedStateHandle[JUST_PLANNED_DAY] = date.toEpochDay()
     savedStateHandle[JUST_PLANNED_ID] = recipeId
