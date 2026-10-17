@@ -2,6 +2,29 @@
 
 Android app (Jetpack Compose) for planning a weekly menu of home-cooked recipes.
 
+<table>
+  <tr>
+    <td><img src="docs/screenshots/cooking.png" width="200" alt="Kochen: this week's planned recipes and the cooking history with plant points per week"></td>
+    <td><img src="docs/screenshots/suggestions.png" width="200" alt="Zufallsrezept: suggested main dishes and a plant-points boost"></td>
+    <td><img src="docs/screenshots/recipes.png" width="200" alt="Rezepte: the recipe list with filter chips and nutrition per recipe"></td>
+    <td><img src="docs/screenshots/recipe.png" width="200" alt="Rezept: a recipe's times, servings, source and ingredients"></td>
+    <td><img src="docs/screenshots/ingredient.png" width="200" alt="Zutat: an ingredient with its USDA match, plant points, units and nutrition"></td>
+  </tr>
+</table>
+
+- **Plan** the week's cooking on Geplant; an evening reminder asks whether you cooked it
+- **Suggestions** weighted by cooldown, protein and the plant points a recipe adds, plus a weekend boost
+  from breakfasts and snacks
+- **Plant points**: every distinct plant counts toward 30 a week
+- **Scan recipes** from a cookbook photo with Claude (your own API key)
+- **Ingredients** with nutrition from the bundled USDA SR Legacy data, a package barcode (Open Food Facts)
+  or the label on the pack
+- **Cooking log** with search, and filters for what you want to cook with
+- **Backup** of all recipes, ingredients and history to a file
+
+<sub>The app is in German. Screenshots show the invented emulator test data (see below). Regenerate with
+`./gradlew readmeScreenshots` (needs a running emulator; wipes the app's data on it).</sub>
+
 ## Nutrition data
 
 Ingredient nutrition values and portion weights come from the
