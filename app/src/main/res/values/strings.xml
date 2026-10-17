@@ -78,6 +78,7 @@
     <string name="recipe_new">Neues Rezept</string>
     <string name="recipe_edit">Rezept bearbeiten</string>
     <string name="recipe_discard_title">Änderungen verwerfen?</string>
+    <string name="recipe_discard_message">Deine Änderungen an diesem Rezept gehen verloren.</string>
     <string name="error_title_required">Bitte einen Titel eingeben</string>
     <string name="error_positive_number">Bitte eine ganze Zahl größer 0 eingeben</string>
     <string name="error_active_time_exceeds_total">Höchstens die Gesamtzeit</string>

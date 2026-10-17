@@ -111,6 +111,8 @@ data class IngredientDetailUiState(
     val editing: Boolean = false,
     /** Set while the dialog asking whether to drop unsaved edits is open. */
     val confirmDiscard: Boolean = false,
+    /** Set when dropping the edits also leaves the screen, see [IngredientDetailViewModel.leave]. */
+    val leaving: Boolean = false,
     /** Set while the delete dialog is open: the recipes that still use the ingredient, if any. */
     val deleteCheck: DeleteCheck? = null,
     /** Set once the screen is done, after a delete or when a new ingredient is dropped. */
@@ -199,20 +201,29 @@ class IngredientDetailViewModel(
         _state.update { it.copy(editing = true) }
     }
 
+    private fun hasUnsavedEdits(): Boolean {
+        val current = _state.value
+        return current.editing &&
+            current.ingredient?.let { IngredientForm.from(it, current.units, current.components) != current.form } == true
+    }
+
     /** Leaves edit mode; with unsaved edits it asks first, see [discard]. */
     fun cancelEdit() {
-        val current = _state.value
-        val unchanged = current.ingredient?.let { IngredientForm.from(it, current.units, current.components) == current.form } ?: true
-        if (unchanged) discard() else _state.update { it.copy(confirmDiscard = true) }
+        if (hasUnsavedEdits()) _state.update { it.copy(confirmDiscard = true) } else discard()
+    }
+
+    /** Leaves the screen, as when its tab is tapped again; with unsaved edits it asks first, see [discard]. */
+    fun leave() {
+        _state.update { if (hasUnsavedEdits()) it.copy(confirmDiscard = true, leaving = true) else it.copy(closed = true) }
     }
 
     fun dismissDiscard() {
-        _state.update { it.copy(confirmDiscard = false) }
+        _state.update { it.copy(confirmDiscard = false, leaving = false) }
     }
 
-    /** Drops the edits and returns to view mode. */
+    /** Drops the edits and returns to view mode, or leaves the screen for a new ingredient or after [leave]. */
     fun discard() {
-        if (_state.value.isNew) {
+        if (_state.value.isNew || _state.value.leaving) {
             _state.update { it.copy(closed = true) }
             return
         }
@@ -344,10 +355,15 @@ fun IngredientDetailScreen(
     onBack: () -> Unit,
     /** Called with the id once a new ingredient is saved. */
     onCreated: (Long) -> Unit = {},
+    /** Set when the tab was tapped again: the screen closes, unsaved edits asking first. */
+    leaveRequested: Boolean = false,
+    /** Called when "Abbrechen" keeps the edits. */
+    onLeaveCancelled: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val catalog by viewModel.catalog.collectAsStateWithLifecycle()
     LaunchedEffect(state.closed) { if (state.closed) onBack() }
+    LaunchedEffect(leaveRequested) { if (leaveRequested) viewModel.leave() }
     LaunchedEffect(state.createdId) { state.createdId?.let(onCreated) }
     BackHandler(enabled = state.editing, onBack = viewModel::cancelEdit)
     val snackbar = remember { SnackbarHostState() }
@@ -425,12 +441,16 @@ fun IngredientDetailScreen(
             null -> Unit
         }
         if (state.confirmDiscard) {
+            val keepEditing = {
+                viewModel.dismissDiscard()
+                onLeaveCancelled()
+            }
             AlertDialog(
-                onDismissRequest = viewModel::dismissDiscard,
+                onDismissRequest = keepEditing,
                 title = { Text(stringResource(R.string.ingredient_discard_title)) },
                 text = { Text(stringResource(R.string.ingredient_discard_message)) },
                 confirmButton = { TextButton(onClick = viewModel::discard) { Text(stringResource(R.string.action_discard)) } },
-                dismissButton = { TextButton(onClick = viewModel::dismissDiscard) { Text(stringResource(R.string.action_cancel)) } },
+                dismissButton = { TextButton(onClick = keepEditing) { Text(stringResource(R.string.action_cancel)) } },
             )
         }
         state.unitInUse?.let { usedIn ->

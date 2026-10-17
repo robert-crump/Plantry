@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -203,20 +204,30 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
 
     val currentEntry = navController.currentBackStackEntryAsState().value
     val currentDestination = currentEntry?.destination
-    // The recipe list filtered from the ingredient list is a sub-screen: back arrow, no bottom bar.
-    val filteredRecipeList = currentDestination?.hasRoute(RecipeListRoute::class) == true &&
-        currentEntry.toRoute<RecipeListRoute>().ingredientId != null
-    val currentTopLevel = TopLevelDestination.entries.firstOrNull { top ->
-        currentDestination?.hasRoute(top.route::class) == true
-    }?.takeUnless { filteredRecipeList }
-    // A recipe's detail and edit screens keep the bottom bar, with the tab they were opened from selected.
+    val currentTopLevel = currentEntry?.topLevel()
+    // Every screen keeps the bottom bar, with the tab it was opened from selected.
     val backStack by navController.currentBackStack.collectAsStateWithLifecycle()
-    val keepsBottomBar = currentDestination?.hasRoute(RecipeDetailRoute::class) == true ||
-        currentDestination?.hasRoute(RecipeEditRoute::class) == true
-    val selectedTab = currentTopLevel ?: backStack.takeIf { keepsBottomBar }?.asReversed()?.firstNotNullOfOrNull { entry ->
-        TopLevelDestination.entries.firstOrNull { entry.destination.hasRoute(it.route::class) }
-            ?.takeUnless { entry.destination.hasRoute(RecipeListRoute::class) && entry.toRoute<RecipeListRoute>().ingredientId != null }
+    val selectedTab = currentTopLevel ?: backStack.asReversed().firstNotNullOfOrNull { it.topLevel() }
+
+    // Tapping the selected tab steps back to its first screen, closing each screen as its X or back
+    // arrow would: an editor with unsaved changes asks first, and "Abbrechen" stops there.
+    var returningToTab by rememberSaveable { mutableStateOf(false) }
+    val leavesItself = currentDestination?.let { destination ->
+        destination.hasRoute(RecipeEditRoute::class) ||
+            destination.hasRoute(IngredientDetailRoute::class) ||
+            destination.hasRoute(IngredientCreateRoute::class)
+    } == true
+    LaunchedEffect(returningToTab, currentEntry?.id) {
+        when {
+            !returningToTab -> Unit
+            currentTopLevel != null -> returningToTab = false
+            // Asked through leaveRequested; the screen pops itself.
+            leavesItself -> Unit
+            else -> navController.popBackStack()
+        }
     }
+    val leaveRequested = returningToTab && leavesItself
+    val stopReturning = { returningToTab = false }
 
     // Checked on every resume; "Später" hides it until the app is restarted.
     val backupReminder by app.backupRepository.reminder.collectAsStateWithLifecycle()
@@ -245,13 +256,17 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         NavigationBarItem(
                             selected = top == selectedTab,
                             onClick = {
+                                if (top == selectedTab) {
+                                    if (currentTopLevel == null) returningToTab = true
+                                    return@NavigationBarItem
+                                }
+                                returningToTab = false
                                 navController.navigate(top.route) {
                                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
-                                // Not on a detail round trip, which doesn't go through the tab.
-                                if (top == TopLevelDestination.INGREDIENTS && selectedTab != top) {
+                                if (top == TopLevelDestination.INGREDIENTS) {
                                     navController.getBackStackEntry<IngredientListRoute>()
                                         .savedStateHandle[RESET_INGREDIENT_FILTERS] = true
                                 }
@@ -405,6 +420,8 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         viewModel = viewModel,
                         onBack = { navController.popBackStack() },
                         onCreateIngredient = { name -> navController.navigate(NewIngredientRoute(recipeLineName = name)) },
+                        leaveRequested = leaveRequested,
+                        onLeaveCancelled = stopReturning,
                     )
                 }
                 composable<IngredientListRoute> { entry ->
@@ -451,6 +468,8 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                                 }
                             }
                         },
+                        leaveRequested = leaveRequested,
+                        onLeaveCancelled = stopReturning,
                     )
                 }
                 composable<IngredientDetailRoute> { entry ->
@@ -458,6 +477,8 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                     IngredientDetailScreen(
                         viewModel = viewModel { IngredientDetailViewModel(ingredientId, ingredientRepository, app.productLookup) },
                         onBack = { navController.popBackStack() },
+                        leaveRequested = leaveRequested,
+                        onLeaveCancelled = stopReturning,
                     )
                 }
                 composable<SettingsRoute> {
@@ -470,6 +491,11 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
         }
     }
 }
+
+/** The tab this entry is the first screen of; the recipe list filtered by an ingredient is a sub-screen. */
+private fun NavBackStackEntry.topLevel(): TopLevelDestination? =
+    TopLevelDestination.entries.firstOrNull { destination.hasRoute(it.route::class) }
+        ?.takeUnless { destination.hasRoute(RecipeListRoute::class) && toRoute<RecipeListRoute>().ingredientId != null }
 
 @Composable
 private fun BackupReminderBanner(onExport: () -> Unit, onDismiss: () -> Unit) {

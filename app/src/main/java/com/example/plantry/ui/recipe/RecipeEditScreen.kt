@@ -639,6 +639,10 @@ fun RecipeEditScreen(
     onBack: () -> Unit,
     /** Opens the ways to a new ingredient, named as typed into the line editor. */
     onCreateIngredient: (String) -> Unit,
+    /** Set when the tab was tapped again: the editor closes as with X. */
+    leaveRequested: Boolean = false,
+    /** Called when "Abbrechen" keeps the editor open. */
+    onLeaveCancelled: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
@@ -648,6 +652,7 @@ fun RecipeEditScreen(
     val photoSource = rememberPhotoSource(viewModel::onPhoto)
     var showingScanInfo by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(state.saved, state.closed) { if (state.saved || state.closed) onBack() }
+    LaunchedEffect(leaveRequested) { if (leaveRequested) viewModel.close() }
 
     val form = state.form
     val errors = if (state.showErrors) form.errors() else null
@@ -843,11 +848,16 @@ fun RecipeEditScreen(
         }
 
         if (state.confirmDiscard) {
+            val keepEditing = {
+                viewModel.dismissDiscard()
+                onLeaveCancelled()
+            }
             AlertDialog(
-                onDismissRequest = viewModel::dismissDiscard,
+                onDismissRequest = keepEditing,
                 title = { Text(stringResource(R.string.recipe_discard_title)) },
+                text = { Text(stringResource(R.string.recipe_discard_message)) },
                 confirmButton = { TextButton(onClick = viewModel::discard) { Text(stringResource(R.string.action_discard)) } },
-                dismissButton = { TextButton(onClick = viewModel::dismissDiscard) { Text(stringResource(R.string.action_cancel)) } },
+                dismissButton = { TextButton(onClick = keepEditing) { Text(stringResource(R.string.action_cancel)) } },
             )
         }
 
