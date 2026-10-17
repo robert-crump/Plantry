@@ -26,7 +26,7 @@ input/
   A recipe spread over two pages: one photo per page (`p123.jpg`, `p124.jpg`).
 - Product photos show the Nährwerte table, the package size and the barcode; one photo or several
   of the same package. Products eaten by the slice or piece (toast, sliced cheese, wraps, falafel)
-  need the count, e.g. `Toast_20-Scheiben.jpg` or `Gouda_9 Scheiben.jpg`. A missing count is
+  need the count, e.g. `Gouda_9 Scheiben.jpg`. A missing count is
   flagged in the review table and the unit left out, never guessed.
 - Sharp, flat, well lit; no need to crop.
 
@@ -53,7 +53,7 @@ read from the photo's file name). g and ml exist for every ingredient and are ne
 photographed product records its product name and barcode, which the app shows as the nutrition
 source; values read from Open Food Facts because the photo shows only the barcode are flagged.
 
-**Recipe**: title, Art (Hauptgericht or Snack), Portionen, source (empty for snacks) and lines as
+**Recipe**: title, Art (Hauptgericht, Frühstück or Snack), Portionen, source (empty for snacks) and lines as
 `(amount, unit, ingredient name[, wording])`. Grams are never written: the app computes them from
 the ingredient's units, so changing a unit's grams changes every recipe using it. The wording keeps
 a book phrasing ("1 daumengroßes Stück Ingwer"); a line with no fitting unit ("eine Handvoll") is
