@@ -11,7 +11,7 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -932,11 +933,12 @@ fun RecipeEditScreen(
 }
 
 /** Progress or failure of proposing new ingredients for the scanned lines. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ProposalStatus(proposals: ProposalState, onRetry: () -> Unit) {
     when (proposals) {
         ProposalState.Loading -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            LinearProgressIndicator(Modifier.fillMaxWidth())
+            LinearWavyProgressIndicator(Modifier.fillMaxWidth())
             Text(stringResource(R.string.new_ingredient_proposing), style = MaterialTheme.typography.bodyMedium)
         }
         is ProposalState.Failed -> Column {
@@ -974,6 +976,7 @@ private fun PhotoSourceSheet(onTakePhoto: () -> Unit, onPickPhoto: () -> Unit, o
 }
 
 /** The page photo, and the progress or error of reading it. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun PhotoSection(
     state: RecipeEditUiState,
@@ -995,7 +998,7 @@ private fun PhotoSection(
 
         when (scan) {
             ScanState.Reading -> Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                LinearProgressIndicator(Modifier.fillMaxWidth())
+                LinearWavyProgressIndicator(Modifier.fillMaxWidth())
                 Text(stringResource(R.string.scan_reading), style = MaterialTheme.typography.bodyMedium)
             }
             is ScanState.Failed -> Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -1224,6 +1227,7 @@ private fun LineItem(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun LineEditorDialog(
     editor: LineEditorState,
@@ -1307,7 +1311,7 @@ private fun LineEditorDialog(
                 }
                 if (ingredientId == null) {
                     if (editor.proposing) {
-                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                        LinearWavyProgressIndicator(Modifier.fillMaxWidth())
                         Text(stringResource(R.string.new_ingredient_proposing_one), style = MaterialTheme.typography.bodySmall)
                     } else if (form.ingredientQuery.isNotBlank()) {
                         TextButton(onClick = onCreateIngredient) {
