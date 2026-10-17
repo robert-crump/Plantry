@@ -5,7 +5,7 @@ import kotlin.math.roundToInt
 
 /** The numbers a recipe is judged by at a glance. */
 data class RecipeStats(
-    /** Sum of [PlantPoints] over the recipe's distinct ingredients. */
+    /** Sum of [PlantPoints] over the recipe's distinct plants, mixes resolved to their components. */
     val plantPoints: Double,
     val proteinPerPortion: Double,
     val carbsPerPortion: Double,
@@ -23,14 +23,13 @@ data class RecipeStats(
 
     companion object {
         /** Lines whose ingredient is missing from [ingredients] are skipped. */
-        fun of(recipe: Recipe, lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>): RecipeStats {
-            val used = lines.mapNotNullTo(mutableSetOf()) { ingredients[it.ingredientId] }
+        fun of(recipe: Recipe, lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>, contents: MixContents = emptyMap()): RecipeStats {
             val nutrition = RecipeNutrition.calculate(
                 nutritionLines(lines.sortedBy { it.position }, ingredients),
                 recipe.servings,
             ).perPortion
             return RecipeStats(
-                plantPoints = used.sumOf { it.plantPoints.value },
+                plantPoints = Mixes.plantPoints(lines.map { it.ingredientId }.filter { it in ingredients }, ingredients, contents),
                 proteinPerPortion = nutrition.protein,
                 carbsPerPortion = nutrition.carbs,
                 kcalPerPortion = nutrition.kcal,
@@ -44,13 +43,18 @@ data class RecipeStats(
 data class RecipeSnapshot(val title: String, val stats: RecipeStats) {
     companion object {
         /** Lines are matched to [recipe] by id. */
-        fun of(recipe: Recipe, lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>) =
-            RecipeSnapshot(recipe.title, RecipeStats.of(recipe, lines.filter { it.recipeId == recipe.id }, ingredients))
+        fun of(recipe: Recipe, lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>, contents: MixContents = emptyMap()) =
+            RecipeSnapshot(recipe.title, RecipeStats.of(recipe, lines.filter { it.recipeId == recipe.id }, ingredients, contents))
 
         /** The current snapshot of a stored recipe; null if it doesn't exist. */
         suspend fun load(recipeId: Long, recipes: RecipeDao, ingredients: IngredientDao): RecipeSnapshot? {
             val recipe = recipes.getById(recipeId) ?: return null
-            return of(recipe, recipes.getLines(recipeId), ingredients.observeAll().first().associateBy { it.id })
+            return of(
+                recipe,
+                recipes.getLines(recipeId),
+                ingredients.observeAll().first().associateBy { it.id },
+                Mixes.contents(ingredients.getMixComponents()),
+            )
         }
     }
 }

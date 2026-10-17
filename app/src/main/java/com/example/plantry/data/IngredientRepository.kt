@@ -18,6 +18,9 @@ class IngredientRepository(private val dao: IngredientDao) {
 
     suspend fun getUnits(id: Long): List<IngredientUnit> = dao.getUnits(id)
 
+    /** The components of every mix, see [Mixes]. */
+    fun observeContents(): Flow<MixContents> = dao.observeMixComponents().map(Mixes::contents)
+
     /** Learned aliases: ingredient id by normalized wording, see [IngredientAliases]. */
     fun observeAliases(): Flow<Map<String, Long>> =
         dao.observeAliases().map { aliases -> aliases.associate { it.wording to it.ingredientId } }
@@ -36,7 +39,7 @@ class IngredientRepository(private val dao: IngredientDao) {
     suspend fun create(seed: NewIngredientSeed, draft: IngredientDraft): Long {
         val label = draft.scannedLabel ?: seed.labelSource
         val scanned = draft.scannedLabel != null
-        return dao.insertWithUnits(
+        val id = dao.insertWithUnits(
             Ingredient(
                 name = draft.name.trim(),
                 fdcId = if (scanned) null else seed.fdcId,
@@ -48,6 +51,8 @@ class IngredientRepository(private val dao: IngredientDao) {
             ),
             draft.units,
         )
+        saveComponents(id, draft)
+        return id
     }
 
     /**
@@ -80,7 +85,7 @@ class IngredientRepository(private val dao: IngredientDao) {
     suspend fun update(id: Long, draft: IngredientDraft): List<String> {
         val existing = dao.getById(id) ?: return emptyList()
         val sourced = draft.scannedLabel?.let { existing.copy(fdcId = null, usdaDescription = null, labelSource = it) } ?: existing
-        return dao.updateUnlessUnitInUse(
+        val usedIn = dao.updateUnlessUnitInUse(
             sourced.copy(
                 name = draft.name.trim(),
                 nutrition = draft.nutrition,
@@ -89,7 +94,35 @@ class IngredientRepository(private val dao: IngredientDao) {
             ),
             draft.units,
         )
+        if (usedIn.isEmpty()) saveComponents(id, draft)
+        return usedIn
     }
+
+    /**
+     * Replaces the components of [mixId] with the draft's, creating those given by name only (in the
+     * mix's store section, as one plant point, without nutrition). Components that are mixes, or
+     * the mix itself, are dropped; an ingredient contained in another mix gets none.
+     */
+    private suspend fun saveComponents(mixId: Long, draft: IngredientDraft) {
+        val contents = Mixes.contents(dao.getMixComponents())
+        val ids = if (Mixes.canBeMix(mixId, contents)) {
+            draft.components
+                .mapNotNull { part -> part.id ?: part.name.trim().takeIf { it.isNotEmpty() }?.let { dao.insert(byName(it, draft.storeSection)) } }
+                .filter { Mixes.canContain(mixId, it, contents) }
+        } else {
+            emptyList()
+        }
+        dao.replaceComponents(mixId, ids)
+    }
+
+    private fun byName(name: String, storeSection: StoreSection) = Ingredient(
+        name = name,
+        fdcId = null,
+        usdaDescription = null,
+        nutrition = Nutrition(),
+        storeSection = storeSection,
+        plantPoints = PlantPoints.ONE,
+    )
 
     /** Adds [unit] to its ingredient, or replaces the row with the same unit; recipes in that unit follow. */
     suspend fun addUnit(unit: IngredientUnit) = dao.upsertUnit(unit)

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class IngredientRepositoryTest {
@@ -134,6 +135,91 @@ class IngredientRepositoryTest {
         val updated = repository.getIngredient(id)!!
         assertEquals(168878L, updated.fdcId)
         assertNull(updated.labelSource)
+    }
+
+    @Test
+    fun update_storesComponents_andCreatesThoseGivenByName() = runTest {
+        val berries = repository.createFromLabel("Himbeeren", Nutrition())
+        val mix = repository.createFromLabel("Beerenmischung", Nutrition())
+
+        repository.update(
+            mix,
+            draft(repository.getIngredient(mix)!!).copy(components = listOf(MixPart(berries, "Himbeeren"), MixPart(null, " Johannisbeeren "))),
+        )
+
+        val created = repository.observeIngredients().first().single { it.name == "Johannisbeeren" }
+        assertEquals(mapOf(mix to listOf(berries, created.id)), repository.observeContents().first())
+        // In the mix's store section, as one plant.
+        assertEquals(StoreSection.DRY_GOODS, created.storeSection)
+        assertEquals(PlantPoints.ONE, created.plantPoints)
+        assertNull(created.fdcId)
+    }
+
+    @Test
+    fun update_replacesComponents() = runTest {
+        val berries = repository.createFromLabel("Himbeeren", Nutrition())
+        val currants = repository.createFromLabel("Johannisbeeren", Nutrition())
+        val mix = repository.createFromLabel("Beerenmischung", Nutrition())
+        repository.update(mix, draft(repository.getIngredient(mix)!!).copy(components = listOf(MixPart(berries, ""), MixPart(currants, ""))))
+
+        repository.update(mix, draft(repository.getIngredient(mix)!!).copy(components = listOf(MixPart(currants, ""))))
+
+        assertEquals(mapOf(mix to listOf(currants)), repository.observeContents().first())
+    }
+
+    @Test
+    fun update_dropsAMixAndTheIngredientItselfAsComponents() = runTest {
+        val berries = repository.createFromLabel("Himbeeren", Nutrition())
+        val mix = repository.createFromLabel("Beerenmischung", Nutrition())
+        val muesli = repository.createFromLabel("Müsli", Nutrition())
+        repository.update(mix, draft(repository.getIngredient(mix)!!).copy(components = listOf(MixPart(berries, ""))))
+
+        repository.update(
+            muesli,
+            draft(repository.getIngredient(muesli)!!).copy(components = listOf(MixPart(mix, ""), MixPart(muesli, ""), MixPart(berries, ""))),
+        )
+
+        assertEquals(mapOf(mix to listOf(berries), muesli to listOf(berries)), repository.observeContents().first())
+    }
+
+    @Test
+    fun update_aComponentGetsNoComponentsItself() = runTest {
+        val berries = repository.createFromLabel("Himbeeren", Nutrition())
+        val other = repository.createFromLabel("Erdbeeren", Nutrition())
+        val mix = repository.createFromLabel("Beerenmischung", Nutrition())
+        repository.update(mix, draft(repository.getIngredient(mix)!!).copy(components = listOf(MixPart(berries, ""))))
+
+        repository.update(berries, draft(repository.getIngredient(berries)!!).copy(components = listOf(MixPart(other, ""), MixPart(null, "Neu"))))
+
+        assertEquals(mapOf(mix to listOf(berries)), repository.observeContents().first())
+        assertTrue(repository.observeIngredients().first().none { it.name == "Neu" })
+    }
+
+    @Test
+    fun update_refusedForAUnitInUse_keepsTheComponents() = runTest {
+        val berries = repository.createFromLabel("Himbeeren", Nutrition())
+        val mix = repository.create(
+            NewIngredientSeed("Beerenmischung", Nutrition(), units = listOf(slice(4))),
+            decided.copy(name = "Beerenmischung", units = listOf(slice(4))),
+        )
+        dao.unitTitles[mix to PieceUnit.SLICE] = listOf("Porridge")
+
+        repository.update(mix, draft(repository.getIngredient(mix)!!).copy(components = listOf(MixPart(berries, ""), MixPart(null, "Neu"))))
+
+        assertEquals(emptyMap<Long, List<Long>>(), repository.observeContents().first())
+        assertTrue(repository.observeIngredients().first().none { it.name == "Neu" })
+    }
+
+    @Test
+    fun create_storesComponents() = runTest {
+        val berries = repository.createFromLabel("Himbeeren", Nutrition())
+
+        val mix = repository.create(
+            NewIngredientSeed("Beerenmischung", Nutrition()),
+            decided.copy(name = "Beerenmischung", components = listOf(MixPart(berries, "Himbeeren"))),
+        )
+
+        assertEquals(mapOf(mix to listOf(berries)), repository.observeContents().first())
     }
 
     @Test
@@ -348,6 +434,21 @@ private class FakeIngredientDao : IngredientDao {
 
     override suspend fun deleteById(id: Long) {
         ingredients.value -= id
+        components.value = components.value.filter { it.mixId != id && it.componentId != id }
+    }
+
+    private val components = MutableStateFlow<List<MixComponent>>(emptyList())
+
+    override fun observeMixComponents(): Flow<List<MixComponent>> = components
+
+    override suspend fun getMixComponents(): List<MixComponent> = components.value
+
+    override suspend fun deleteComponents(mixId: Long) {
+        components.value = components.value.filter { it.mixId != mixId }
+    }
+
+    override suspend fun insertComponents(components: List<MixComponent>) {
+        this.components.value += components
     }
 
     override fun observeAliases(): Flow<List<IngredientAlias>> =

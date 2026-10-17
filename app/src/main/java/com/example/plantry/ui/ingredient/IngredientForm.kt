@@ -3,7 +3,11 @@ package com.example.plantry.ui.ingredient
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientDraft
 import com.example.plantry.data.IngredientUnit
+import com.example.plantry.data.IngredientSuggestions
 import com.example.plantry.data.LabelSource
+import com.example.plantry.data.MixContents
+import com.example.plantry.data.MixPart
+import com.example.plantry.data.Mixes
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
@@ -24,7 +28,18 @@ data class IngredientForm(
     val units: List<IngredientUnit> = emptyList(),
     /** The package applied from a barcode scan; replaces the USDA reference on save. */
     val scannedLabel: LabelSource? = null,
+    /** What the ingredient contains ("Enthält"): stored ones by id, then those added; while there are any, it is a mix. */
+    val components: List<MixPart> = emptyList(),
 ) {
+    val isMix: Boolean get() = components.isNotEmpty()
+
+    /**
+     * The plant points of the mix: its components' own points, a component that is only
+     * a name yet as one point (as it is created). Replaces [plantPoints] while [isMix].
+     */
+    fun componentPlantPoints(ingredients: Map<Long, Ingredient>): Double =
+        components.sumOf { part -> part.id?.let { ingredients[it]?.plantPoints?.value ?: 0.0 } ?: PlantPoints.ONE.value }
+
     /** The units a row can still be given: those without a row, plus [editing]'s own. */
     fun availableUnits(editing: PieceUnit? = null): List<PieceUnit> =
         PieceUnit.entries.filter { unit -> unit == editing || units.none { it.unit == unit } }
@@ -63,18 +78,54 @@ data class IngredientForm(
             plantPoints = plantPoints,
             units = units,
             scannedLabel = scannedLabel,
+            components = components,
         )
     }
 
     companion object {
-        fun from(ingredient: Ingredient, units: List<IngredientUnit> = emptyList()) = IngredientForm(
+        fun from(ingredient: Ingredient, units: List<IngredientUnit> = emptyList(), components: List<MixPart> = emptyList()) = IngredientForm(
             name = ingredient.name,
             nutrition = Nutrient.entries.associateWith { formatDecimal(ingredient.nutrition[it]) },
             storeSection = ingredient.storeSection,
             plantPoints = ingredient.plantPoints,
             units = units.sortedBy { it.unit },
+            components = components,
         )
     }
+}
+
+/**
+ * The components being chosen in the Enthält dialog of the ingredient [mixId] (null while it is
+ * new), with the ingredient field's [query].
+ */
+data class ComponentsForm(
+    val mixId: Long?,
+    val components: List<MixPart>,
+    val query: String = "",
+) {
+    /** Ingredients matching [query] that can be added: not chosen yet, not a mix, not the mix itself. */
+    fun suggestions(ingredients: List<Ingredient>, contents: MixContents): List<Ingredient> {
+        val chosen = components.mapNotNullTo(mutableSetOf()) { it.id }
+        val candidates = ingredients.filter { it.id !in chosen && Mixes.canContain(mixId, it.id, contents) }
+        return IngredientSuggestions.match(query, candidates)
+    }
+
+    /** The name a new component would be created with; null when blank or already an ingredient or component. */
+    fun newName(ingredients: List<Ingredient>): String? {
+        val name = query.trim().takeIf { it.isNotEmpty() } ?: return null
+        val taken = ingredients.map { it.name } + components.map { it.name }
+        return name.takeIf { taken.none { it.trim().equals(name, ignoreCase = true) } }
+    }
+
+    fun withQuery(query: String) = copy(query = query)
+
+    /** Adds [ingredient] and clears the field. */
+    fun with(ingredient: Ingredient) = copy(components = components + MixPart(ingredient.id, ingredient.name), query = "")
+
+    /** Adds a component to be created by [name] and clears the field. */
+    fun withNew(name: String) = copy(components = components + MixPart(null, name), query = "")
+
+    fun without(part: MixPart) = copy(components = components - part)
 }
 
 /**

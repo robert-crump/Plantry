@@ -124,15 +124,15 @@ class RecipeListViewModel(
     val state: StateFlow<RecipeListUiState?> = combine(
         recipeRepository.observeRecipes(),
         recipeRepository.observeAllLines(),
-        ingredientRepository.observeIngredients(),
+        combine(ingredientRepository.observeIngredients(), ingredientRepository.observeContents(), ::Pair),
         cookLogRepository.observeLastCooked(),
         combine(chips.filterNotNull(), sort, ::Pair),
-    ) { recipes, lines, ingredients, lastCooked, (chips, sort) ->
+    ) { recipes, lines, (ingredients, contents), lastCooked, (chips, sort) ->
         val byId = ingredients.associateBy { it.id }
         val active = chips.active.filter { it !is RecipeChip.WithIngredient || it.ingredientId in byId }
         val filter = RecipeFilter.of(active)
         RecipeListUiState(
-            items = RecipeQuery.run(recipes, lines, byId, lastCooked, filter, sort),
+            items = RecipeQuery.run(recipes, lines, byId, lastCooked, filter, sort, contents),
             recipeCount = recipes.size,
             filter = filter,
             activeChips = active,

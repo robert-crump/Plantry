@@ -8,6 +8,7 @@ import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.IngredientUnit
+import com.example.plantry.data.MixComponent
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
@@ -27,6 +28,9 @@ abstract class BackupDao : BackupStore {
 
     @Query("SELECT * FROM ingredient_units ORDER BY ingredientId, unit")
     abstract suspend fun getUnits(): List<IngredientUnit>
+
+    @Query("SELECT * FROM mix_components ORDER BY mixId, componentId")
+    abstract suspend fun getComponents(): List<MixComponent>
 
     @Query("SELECT * FROM recipes ORDER BY id")
     abstract suspend fun getRecipes(): List<Recipe>
@@ -52,6 +56,7 @@ abstract class BackupDao : BackupStore {
         aliases = getAliases(),
         planned = getPlanned(),
         units = getUnits(),
+        components = getComponents(),
     )
 
     /** All or nothing: a file with broken references (e.g. an alias pointing nowhere) changes nothing. */
@@ -63,9 +68,11 @@ abstract class BackupDao : BackupStore {
         deleteLines()
         deleteRecipes()
         deleteUnits()
+        deleteComponents()
         deleteIngredients()
         insertIngredients(snapshot.ingredients)
         insertUnits(snapshot.units)
+        insertComponents(snapshot.components)
         insertAliases(snapshot.aliases)
         insertRecipes(snapshot.recipes)
         insertLines(snapshot.lines)
@@ -91,6 +98,9 @@ abstract class BackupDao : BackupStore {
     @Query("DELETE FROM ingredient_units")
     protected abstract suspend fun deleteUnits()
 
+    @Query("DELETE FROM mix_components")
+    protected abstract suspend fun deleteComponents()
+
     @Query("DELETE FROM ingredients")
     protected abstract suspend fun deleteIngredients()
 
@@ -99,6 +109,9 @@ abstract class BackupDao : BackupStore {
 
     @Insert
     protected abstract suspend fun insertUnits(units: List<IngredientUnit>)
+
+    @Insert
+    protected abstract suspend fun insertComponents(components: List<MixComponent>)
 
     @Insert
     protected abstract suspend fun insertAliases(aliases: List<IngredientAlias>)

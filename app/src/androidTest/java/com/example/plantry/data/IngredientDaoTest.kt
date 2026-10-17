@@ -198,6 +198,33 @@ class IngredientDaoTest {
     }
 
     @Test
+    fun replaceComponents_replacesTheMixesComponents() = runTest {
+        val mix = dao.insert(ingredient("Beerenmischung"))
+        val berries = dao.insert(ingredient("Himbeeren"))
+        val currants = dao.insert(ingredient("Johannisbeeren"))
+        dao.replaceComponents(mix, listOf(berries, currants))
+
+        dao.replaceComponents(mix, listOf(currants, currants))
+
+        assertEquals(listOf(MixComponent(mix, currants)), dao.observeMixComponents().first())
+    }
+
+    @Test
+    fun deleteById_removesTheIngredientFromItsMixes_andAMixsComponents() = runTest {
+        val mix = dao.insert(ingredient("Beerenmischung"))
+        val berries = dao.insert(ingredient("Himbeeren"))
+        val currants = dao.insert(ingredient("Johannisbeeren"))
+        val other = dao.insert(ingredient("Rote Grütze"))
+        dao.replaceComponents(mix, listOf(berries, currants))
+        dao.replaceComponents(other, listOf(currants))
+
+        dao.deleteById(berries)
+        dao.deleteById(other)
+
+        assertEquals(listOf(MixComponent(mix, currants)), dao.getMixComponents())
+    }
+
+    @Test
     fun deleteById_takesTheUnitsAlong() = runTest {
         val id = dao.insertWithUnits(ingredient("Toast"), listOf(IngredientUnit(0, PieceUnit.SLICE, 37.5)))
 

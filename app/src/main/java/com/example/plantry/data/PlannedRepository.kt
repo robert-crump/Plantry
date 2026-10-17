@@ -90,12 +90,13 @@ data class PlannedItem(val planned: PlannedRecipe, val snapshot: RecipeSnapshot)
             recipes: List<Recipe>,
             lines: List<RecipeLine>,
             ingredients: Map<Long, Ingredient>,
+            contents: MixContents = emptyMap(),
         ): List<PlannedItem> {
             val recipesById = recipes.associateBy { it.id }
             val linesByRecipe = lines.groupBy { it.recipeId }
             return planned.mapNotNull { entry ->
                 val recipe = recipesById[entry.recipeId] ?: return@mapNotNull null
-                PlannedItem(entry, RecipeSnapshot.of(recipe, linesByRecipe[recipe.id].orEmpty(), ingredients))
+                PlannedItem(entry, RecipeSnapshot.of(recipe, linesByRecipe[recipe.id].orEmpty(), ingredients, contents))
             }
         }
     }

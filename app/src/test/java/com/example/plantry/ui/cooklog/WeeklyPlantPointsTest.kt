@@ -2,6 +2,8 @@ package com.example.plantry.ui.cooklog
 
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.MixComponent
+import com.example.plantry.data.Mixes
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.LineUnit
@@ -46,6 +48,17 @@ class WeeklyPlantPointsTest {
         val entries = listOf(entry(10, monday), entry(null, monday), entry(null, monday.minusWeeks(1)))
 
         assertEquals(mapOf(monday to 1.0, monday.minusWeeks(1) to 0.0), weeklyPlantPoints(entries, lines, ingredients))
+    }
+
+    @Test
+    fun mixes_countEachOfTheirPlantsOnceWithTheWeeksOtherIngredients() {
+        // 5 is a mix of 1 and 2 (its own point is ignored), 6 a mix of 2 and 3.
+        val withMixes = ingredients + listOf(ingredient(5, PlantPoints.ONE), ingredient(6, PlantPoints.ZERO)).associateBy { it.id }
+        val contents = Mixes.contents(listOf(MixComponent(5, 1), MixComponent(5, 2), MixComponent(6, 2), MixComponent(6, 3)))
+        val lines = lines(10, 1, 5) + lines(11, 6)
+        val entries = listOf(entry(10, monday), entry(11, monday.plusDays(1)))
+
+        assertEquals(mapOf(monday to 2.25), weeklyPlantPoints(entries, lines, withMixes, contents))
     }
 
     @Test

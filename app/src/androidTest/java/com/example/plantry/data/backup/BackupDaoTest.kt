@@ -10,6 +10,7 @@ import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.LineUnit
 import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.IngredientAlias
+import com.example.plantry.data.MixComponent
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.PlantPoints
@@ -57,7 +58,7 @@ class BackupDaoTest {
     )
 
     private val snapshot = BackupSnapshot(
-        ingredients = listOf(ingredient(1, "Reis, gekocht"), ingredient(5, "Reis, trocken")),
+        ingredients = listOf(ingredient(1, "Reis, gekocht"), ingredient(5, "Reis, trocken"), ingredient(7, "Reismischung")),
         recipes = listOf(Recipe(3, "Curry", "Buch", 12, 2, 30, modified = true)),
         lines = listOf(
             RecipeIngredient(8, 3, 0, 180.0, LineUnit.Grams, 1, wording = "1 Tasse Reis"),
@@ -71,6 +72,7 @@ class BackupDaoTest {
         aliases = listOf(IngredientAlias("basmati", 5), IngredientAlias("reis gegart", 1)),
         planned = listOf(PlannedRecipe(3, LocalDate.of(2026, 10, 1))),
         units = listOf(IngredientUnit(5, PieceUnit.CUP, 250.0, 1000.0, 4), IngredientUnit(5, PieceUnit.PACKET, 500.0)),
+        components = listOf(MixComponent(7, 1), MixComponent(7, 5)),
     )
 
     @Test

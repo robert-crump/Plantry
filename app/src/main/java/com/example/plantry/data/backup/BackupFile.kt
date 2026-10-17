@@ -7,6 +7,8 @@ import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.LabelSource
 import com.example.plantry.data.LineUnit
+import com.example.plantry.data.MixComponent
+import com.example.plantry.data.Mixes
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PlantPoints
@@ -15,6 +17,7 @@ import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.StoreSection
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -48,9 +51,13 @@ data class BackupFile(
     companion object {
         /**
          * Restarted at 1 with structured recipe lines and ingredient units; files of the format
-         * before (versions 2 to 15, without units) are no longer read.
+         * before (versions 2 to 15, without units) are no longer read. 2 adds the mix components
+         * ([BackupIngredient.contains]); a format-1 file reads as one without mixes.
          */
-        const val FORMAT_VERSION = 1
+        const val FORMAT_VERSION = 2
+
+        /** The oldest format since the restart; still read. */
+        private const val FIRST_FORMAT_VERSION = 1
 
         private val json = Json {
             prettyPrint = true
@@ -69,7 +76,7 @@ data class BackupFile(
                     val reason = if (isOldFormat(root)) InvalidBackupException.Reason.OLD_FORMAT else InvalidBackupException.Reason.NEWER_VERSION
                     throw InvalidBackupException(reason)
                 }
-                if (version < FORMAT_VERSION) throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP)
+                if (version < FIRST_FORMAT_VERSION) throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP)
                 return json.decodeFromString<BackupFile>(text)
             } catch (e: SerializationException) {
                 throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP, e)
@@ -113,6 +120,7 @@ data class BackupNutrition(
     val fibre: Double,
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class BackupIngredient(
     val id: Long,
@@ -127,6 +135,8 @@ data class BackupIngredient(
     val labelBarcode: String?,
     /** Besides g and ml, which every ingredient has. */
     val units: List<BackupUnit>,
+    /** The ids of the ingredients a mix contains ("Enthält"); empty for anything else and in format 1. */
+    @EncodeDefault val contains: List<Long> = emptyList(),
 )
 
 /** [packageGrams] and [packageCount] are both null unless the unit was entered as a package. */
@@ -190,6 +200,7 @@ data class BackupSnapshot(
     val aliases: List<IngredientAlias> = emptyList(),
     val planned: List<PlannedRecipe> = emptyList(),
     val units: List<IngredientUnit> = emptyList(),
+    val components: List<MixComponent> = emptyList(),
 )
 
 /** Recipe photos by recipe id. */
@@ -198,10 +209,13 @@ typealias Photos = Map<Long, ByteArray>
 fun BackupSnapshot.toFile(photos: Photos, settings: BackupSettings): BackupFile {
     val linesByRecipe = lines.groupBy { it.recipeId }
     val unitsByIngredient = units.groupBy { it.ingredientId }
+    val contents = Mixes.contents(components)
     return BackupFile(
         formatVersion = BackupFile.FORMAT_VERSION,
         settings = settings,
-        ingredients = ingredients.map { it.toBackup(unitsByIngredient[it.id].orEmpty().sortedBy { unit -> unit.unit }) },
+        ingredients = ingredients.map {
+            it.toBackup(unitsByIngredient[it.id].orEmpty().sortedBy { unit -> unit.unit }, contents[it.id].orEmpty().sorted())
+        },
         recipes = recipes.map { recipe ->
             recipe.toBackup(
                 photo = photos[recipe.id]?.let(Base64.getEncoder()::encodeToString),
@@ -227,8 +241,9 @@ fun BackupSnapshot.toFile(photos: Photos, settings: BackupSettings): BackupFile 
 }
 
 /**
- * Throws [InvalidBackupException] for malformed dates or units, and for a line whose ingredient,
- * or whose unit of that ingredient, the file doesn't have.
+ * Throws [InvalidBackupException] for malformed dates or units, for a line whose ingredient, or
+ * whose unit of that ingredient, the file doesn't have, and for a mix component that is missing,
+ * a mix itself or the mix.
  */
 fun BackupFile.toSnapshot(): BackupSnapshot = try {
     val unitsByIngredient = ingredients.associate { ingredient -> ingredient.id to ingredient.units.mapTo(mutableSetOf()) { it.unit } }
@@ -239,6 +254,11 @@ fun BackupFile.toSnapshot(): BackupSnapshot = try {
             if (unit is LineUnit.Of && unit.unit !in units) throw InvalidBackupException(InvalidBackupException.Reason.BROKEN_REFERENCE)
             RecipeIngredient(line.id, recipe.id, position, line.amount, unit, line.ingredientId, line.wording)
         }
+    }
+    val components = ingredients.flatMap { mix -> mix.contains.distinct().map { MixComponent(mix.id, it) } }
+    val contents = Mixes.contents(components)
+    if (components.any { it.componentId !in unitsByIngredient || !Mixes.canContain(it.mixId, it.componentId, contents) }) {
+        throw InvalidBackupException(InvalidBackupException.Reason.BROKEN_REFERENCE)
     }
     BackupSnapshot(
         ingredients = ingredients.map { it.toEntity() },
@@ -253,6 +273,7 @@ fun BackupFile.toSnapshot(): BackupSnapshot = try {
         units = ingredients.flatMap { ingredient ->
             ingredient.units.map { IngredientUnit(ingredient.id, it.unit, it.gramsPerUnit, it.packageGrams, it.packageCount) }
         },
+        components = components,
     )
 } catch (e: DateTimeParseException) {
     throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP, e)
@@ -264,7 +285,7 @@ fun BackupFile.photos(): Photos = try {
     throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP, e)
 }
 
-private fun Ingredient.toBackup(units: List<IngredientUnit>) = BackupIngredient(
+private fun Ingredient.toBackup(units: List<IngredientUnit>, contains: List<Long>) = BackupIngredient(
     id = id,
     name = name,
     fdcId = fdcId,
@@ -275,6 +296,7 @@ private fun Ingredient.toBackup(units: List<IngredientUnit>) = BackupIngredient(
     labelProduct = labelSource?.labelProduct,
     labelBarcode = labelSource?.labelBarcode,
     units = units.map { BackupUnit(it.unit, it.gramsPerUnit, it.packageGrams, it.packageCount) },
+    contains = contains,
 )
 
 private fun BackupIngredient.toEntity() = Ingredient(

@@ -117,4 +117,9 @@ data class IngredientDraft(
     val units: List<IngredientUnit> = emptyList(),
     /** Set after nutrition was taken from a scanned package: replaces the USDA reference on save. */
     val scannedLabel: LabelSource? = null,
+    /** What the ingredient contains ("Enthält"); replaces the stored components on save. */
+    val components: List<MixPart> = emptyList(),
 )
+
+/** A component of a mix: an existing ingredient, or (with [id] null) one created by [name] when the mix is saved. */
+data class MixPart(val id: Long?, val name: String)

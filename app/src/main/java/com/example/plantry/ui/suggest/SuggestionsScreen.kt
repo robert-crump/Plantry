@@ -39,6 +39,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.MixContents
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeLine
@@ -68,11 +69,11 @@ data class SuggestionCard(
 ) {
     companion object {
         /** Lines are matched to [recipe] by id. */
-        fun of(recipe: Recipe, lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>): SuggestionCard {
+        fun of(recipe: Recipe, lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>, contents: MixContents = emptyMap()): SuggestionCard {
             val recipeLines = lines.filter { it.recipeId == recipe.id }
             return SuggestionCard(
                 recipeId = recipe.id,
-                snapshot = RecipeSnapshot.of(recipe, recipeLines, ingredients),
+                snapshot = RecipeSnapshot.of(recipe, recipeLines, ingredients, contents),
                 totalTimeMinutes = recipe.totalTimeMinutes,
                 ingredients = recipeLines.sortedBy { it.position }
                     .joinToString(", ") { it.resolve(ingredients[it.ingredientId]?.name.orEmpty()).text },
@@ -110,7 +111,8 @@ class SuggestionsViewModel(
             val recipes = recipeRepository.observeRecipes().first().associateBy { it.id }
             val lines = recipeRepository.observeAllLines().first()
             val ingredients = ingredientRepository.observeIngredients().first().associateBy { it.id }
-            _cards.value = ids.mapNotNull { id -> recipes[id]?.let { SuggestionCard.of(it, lines, ingredients) } }
+            val contents = ingredientRepository.observeContents().first()
+            _cards.value = ids.mapNotNull { id -> recipes[id]?.let { SuggestionCard.of(it, lines, ingredients, contents) } }
         }
     }
 

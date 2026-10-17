@@ -110,7 +110,7 @@ data class RecipeListItem(
     val proteinPerPortion: Double get() = stats.proteinPerPortion
     val carbsPerPortion: Double get() = stats.carbsPerPortion
 
-    /** Sum of [PlantPoints] over the recipe's distinct ingredients. */
+    /** See [RecipeStats.plantPoints]. */
     val plantPoints: Double get() = stats.plantPoints
 }
 
@@ -121,7 +121,7 @@ object RecipeQuery {
     /**
      * The recipes passing [filter], sorted by [sort]. With an ingredient filter, recipes using more
      * of the chosen ingredients come first and [sort] only breaks ties; the title breaks the rest.
-     * Lines whose ingredient is missing are skipped.
+     * Lines whose ingredient is missing are skipped; plant points resolve mixes by [contents].
      */
     fun run(
         recipes: List<Recipe>,
@@ -130,6 +130,7 @@ object RecipeQuery {
         lastCooked: Map<Long, LocalDate>,
         filter: RecipeFilter,
         sort: RecipeSort,
+        contents: MixContents = emptyMap(),
     ): List<RecipeListItem> {
         val linesByRecipe = lines.groupBy { it.recipeId }
         val wanted = filter.ingredientIds.filter { it in ingredients }
@@ -138,7 +139,7 @@ object RecipeQuery {
             .filter { recipe -> atMost(recipe.totalTimeMinutes, filter.maxTotalMinutes) }
             .filter { recipe -> atMost(recipe.activeTimeMinutes, filter.maxActiveMinutes) }
             .filter { recipe -> filter.dish == null || recipe.dish == filter.dish }
-            .map { recipe -> item(recipe, linesByRecipe[recipe.id].orEmpty(), ingredients, lastCooked, wanted) }
+            .map { recipe -> item(recipe, linesByRecipe[recipe.id].orEmpty(), ingredients, contents, lastCooked, wanted) }
             .filter { wanted.isEmpty() || it.matchedIngredients > 0 }
             .filter { it.highlights.containsAll(filter.highlights) }
             .sortedWith(
@@ -166,11 +167,12 @@ object RecipeQuery {
         recipe: Recipe,
         recipeLines: List<RecipeLine>,
         ingredients: Map<Long, Ingredient>,
+        contents: MixContents,
         lastCooked: Map<Long, LocalDate>,
         wanted: List<Long>,
     ): RecipeListItem {
         val used = recipeLines.mapTo(mutableSetOf()) { it.ingredientId }
-        val stats = RecipeStats.of(recipe, recipeLines, ingredients)
+        val stats = RecipeStats.of(recipe, recipeLines, ingredients, contents)
         return RecipeListItem(
             recipe = recipe,
             stats = stats,

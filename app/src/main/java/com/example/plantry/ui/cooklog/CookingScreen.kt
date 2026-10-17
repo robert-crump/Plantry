@@ -125,8 +125,9 @@ class CookingViewModel(
         repository.observeHistory(),
         recipeRepository.observeAllLines(),
         ingredientRepository.observeIngredients(),
-    ) { entries, lines, ingredients ->
-        weeklyPlantPoints(entries, lines, ingredients.associateBy { it.id })
+        ingredientRepository.observeContents(),
+    ) { entries, lines, ingredients, contents ->
+        weeklyPlantPoints(entries, lines, ingredients.associateBy { it.id }, contents)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** Geplant, with each recipe's current stats; null until loaded. */
@@ -134,9 +135,9 @@ class CookingViewModel(
         plannedRepository.observe(),
         recipeRepository.observeRecipes(),
         recipeRepository.observeAllLines(),
-        ingredientRepository.observeIngredients(),
-    ) { planned, recipes, lines, ingredients ->
-        PlannedItem.of(planned, recipes, lines, ingredients.associateBy { it.id })
+        combine(ingredientRepository.observeIngredients(), ingredientRepository.observeContents(), ::Pair),
+    ) { planned, recipes, lines, (ingredients, contents) ->
+        PlannedItem.of(planned, recipes, lines, ingredients.associateBy { it.id }, contents)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Whether to explain swiping Geplant cards, until the first swipe. */

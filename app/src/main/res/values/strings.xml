@@ -283,6 +283,17 @@
     <string name="ingredient_section_properties">Eigenschaften</string>
     <string name="ingredient_section_store_section">Abteilung</string>
     <string name="ingredient_section_plant_points">Pflanzenpunkte</string>
+    <string name="ingredient_plant_points_from_components">%1$s · aus Enthält</string>
+    <string name="ingredient_components">Enthält</string>
+    <string name="ingredient_components_none">—</string>
+    <plurals name="ingredient_components_summary">
+        <item quantity="one">%1$d Zutat: %2$s</item>
+        <item quantity="other">%1$d Zutaten: %2$s</item>
+    </plurals>
+    <string name="ingredient_components_hint">Die Pflanzen in dieser Zutat. Sie zählen statt ihrer eigenen Pflanzenpunkte, jede Pflanze einmal pro Woche.</string>
+    <string name="ingredient_component_remove">%1$s entfernen</string>
+    <string name="ingredient_component_create">„%1$s“ neu anlegen</string>
+    <string name="ingredient_contained_in">Enthalten in</string>
     <string name="ingredient_section_units">Einheiten</string>
     <string name="ingredient_units_hint">Damit Rezepte die Menge auch in Einheiten angeben können, z. B. „4 Scheiben“ oder „2 EL“. g und ml gehen immer. Bei Dosen, die abgegossen werden, zählt das Abtropfgewicht.</string>
     <string name="ingredient_no_units">Keine</string>

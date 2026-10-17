@@ -1,6 +1,7 @@
 package com.example.plantry.data
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -14,9 +15,13 @@ import com.example.plantry.data.backup.BackupDao
 @Database(
     entities = [
         Recipe::class, Ingredient::class, IngredientUnit::class, RecipeIngredient::class, CookLog::class,
-        IngredientAlias::class, PlannedRecipe::class,
+        IngredientAlias::class, PlannedRecipe::class, MixComponent::class,
     ],
-    version = 1,
+    version = 2,
+    autoMigrations = [
+        // Adds the mix components ("Enthält").
+        AutoMigration(from = 1, to = 2),
+    ],
 )
 @TypeConverters(Converters::class)
 abstract class PlantryDatabase : RoomDatabase() {

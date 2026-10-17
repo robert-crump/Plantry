@@ -9,6 +9,7 @@ import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.LineUnit
+import com.example.plantry.data.MixComponent
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.Recipe
@@ -73,7 +74,7 @@ class BackupRepositoryTest {
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
         assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 1"))
+        assertTrue(json.contains("\"formatVersion\": 2"))
         assertTrue(json.contains("\"dish\": \"MAIN\""))
         assertFalse(json.contains("\"reviewed\""))
         assertFalse(json.contains("\"origin\""))
@@ -112,7 +113,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 1,", "\"formatVersion\": 2,")
+        val newer = source.export().replace("\"formatVersion\": 2,", "\"formatVersion\": 3,")
 
         val error = readError(newer)
 
@@ -126,6 +127,27 @@ class BackupRepositoryTest {
         val old = JsonObject(file + ("formatVersion" to JsonPrimitive(15)) + ("ingredients" to oldIngredients)).toString()
 
         assertEquals(InvalidBackupException.Reason.OLD_FORMAT, readError(old).reason)
+    }
+
+    @Test
+    fun components_areWrittenWithTheMix() = runTest {
+        val ingredients = Json.parseToJsonElement(source.export()).jsonObject.getValue("ingredients").jsonArray.map { it.jsonObject }
+
+        val contains = ingredients.associate { it.getValue("id").toString() to it.getValue("contains").jsonArray.map(Any::toString) }
+        assertEquals(listOf("14", "15"), contains["13"])
+        assertEquals(emptyList<String>(), contains["14"])
+    }
+
+    @Test
+    fun read_importsAFormat1FileWithoutComponents() = runTest {
+        val file = Json.parseToJsonElement(source.export()).jsonObject
+        val ingredients = JsonArray(file.getValue("ingredients").jsonArray.map { JsonObject(it.jsonObject - "contains") })
+        val format1 = JsonObject(file + ("formatVersion" to JsonPrimitive(1)) + ("ingredients" to ingredients)).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(format1))
+
+        assertEquals(source.store.data.copy(components = emptyList()), target.store.data)
     }
 
     @Test
@@ -151,6 +173,10 @@ class BackupRepositoryTest {
             json.replace("\"ingredientId\": 3,", "\"ingredientId\": 42,"),
             // A line in a unit its ingredient lacks: Süßkartoffel has no package.
             json.replace("\"unit\": \"PIECE\",\n                    \"ingredientId\": 3", "\"unit\": \"PACKET\",\n                    \"ingredientId\": 3"),
+            // A component the file doesn't have.
+            json.replace("\n                14,", "\n                42,"),
+            // A mix as a component: Himbeeren would contain the Beerenmischung.
+            json.replace("\"contains\": []", "\"contains\": [13]"),
         )
 
         broken.forEach { text ->
@@ -270,6 +296,9 @@ class BackupRepositoryTest {
                 ingredient(id = 6, name = "Kichererbsen (Dose)").copy(
                     labelSource = LabelSource("Bio Kichererbsen (Alnatura)", "4104420208117"),
                 ),
+                ingredient(id = 13, name = "Beerenmischung"),
+                ingredient(id = 14, name = "Himbeeren").copy(plantPoints = PlantPoints.ONE),
+                ingredient(id = 15, name = "Erdbeeren").copy(plantPoints = PlantPoints.ONE),
             ),
             recipes = listOf(
                 Recipe(2, "Curry", "Kochbuch", 42, 2, 30, modified = true, activeTimeMinutes = 15),
@@ -296,6 +325,7 @@ class BackupRepositoryTest {
                 IngredientUnit(5, PieceUnit.PACKET, 125.0, packageGrams = 500.0, packageCount = 4),
                 IngredientUnit(6, PieceUnit.CAN, 240.0),
             ),
+            components = listOf(MixComponent(13, 14), MixComponent(13, 15)),
         )
     }
 

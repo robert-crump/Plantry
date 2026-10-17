@@ -1,5 +1,5 @@
 {
-    "formatVersion": 1,
+    "formatVersion": 2,
     "settings": {
         "scanModel": "opus",
         "cooldownDays": 21
@@ -363,7 +363,8 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "contains": [11]
         },
         {
             "id": 17,

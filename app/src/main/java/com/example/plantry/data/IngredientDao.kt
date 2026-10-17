@@ -90,7 +90,26 @@ interface IngredientDao {
         return usedIn
     }
 
-    /** Aliases and units go with the ingredient. */
+    @Query("SELECT * FROM mix_components ORDER BY mixId, componentId")
+    fun observeMixComponents(): Flow<List<MixComponent>>
+
+    @Query("SELECT * FROM mix_components")
+    suspend fun getMixComponents(): List<MixComponent>
+
+    @Query("DELETE FROM mix_components WHERE mixId = :mixId")
+    suspend fun deleteComponents(mixId: Long)
+
+    @Insert
+    suspend fun insertComponents(components: List<MixComponent>)
+
+    /** Replaces the components of [mixId] with [componentIds]. */
+    @Transaction
+    suspend fun replaceComponents(mixId: Long, componentIds: List<Long>) {
+        deleteComponents(mixId)
+        insertComponents(componentIds.distinct().map { MixComponent(mixId, it) })
+    }
+
+    /** Aliases, units and mix components (on either side) go with the ingredient. */
     @Query("DELETE FROM ingredients WHERE id = :id")
     suspend fun deleteById(id: Long)
 

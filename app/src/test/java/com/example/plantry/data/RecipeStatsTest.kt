@@ -40,6 +40,16 @@ class RecipeStatsTest {
     }
 
     @Test
+    fun of_countsAMixByItsComponents_eachPlantOnce() {
+        // 6 contains Linsen and Reis, trocken; its own point is ignored.
+        val withMix = ingredients + (6L to ingredient(6, "Linsen-Reis-Mix", PlantPoints.ONE, Nutrition()))
+        val contents = Mixes.contents(listOf(MixComponent(6, 1), MixComponent(6, 3)))
+        val lines = listOf(line(0, 100.0, ingredientId = 6), line(1, 100.0, ingredientId = 1), line(2, 10.0, ingredientId = 2))
+
+        assertEquals(2.25, RecipeStats.of(recipe, lines, withMix, contents).plantPoints, 0.0)
+    }
+
+    @Test
     fun of_noLines_isZero() {
         assertEquals(RecipeStats(0.0, 0.0, 0.0, 0.0, 0.0), RecipeStats.of(recipe, emptyList(), ingredients))
     }

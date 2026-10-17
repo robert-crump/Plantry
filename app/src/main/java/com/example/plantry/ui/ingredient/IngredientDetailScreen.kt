@@ -2,13 +2,16 @@ package com.example.plantry.ui.ingredient
 
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +33,10 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -50,6 +57,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -66,6 +74,9 @@ import com.example.plantry.R
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientUnit
+import com.example.plantry.data.MixContents
+import com.example.plantry.data.MixPart
+import com.example.plantry.data.Mixes
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PlantPoints
@@ -80,8 +91,12 @@ import com.example.plantry.ui.settings.SettingsGroup
 import com.example.plantry.ui.settings.SettingsRow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -108,11 +123,26 @@ data class IngredientDetailUiState(
     val barcode: BarcodeLookup? = null,
     /** The stored units of [ingredient]; for a new one, those it started with. */
     val units: List<IngredientUnit> = emptyList(),
+    /** The stored components of [ingredient] ("Enthält"); none for a new one. */
+    val components: List<MixPart> = emptyList(),
     /** Set after removing or saving was refused: the recipes still using a unit the edit removed. */
     val unitInUse: List<String>? = null,
 )
 
 data class DeleteCheck(val usedIn: List<String>)
+
+/** All ingredients and what each mix contains: for choosing components and naming the mixes an ingredient is in. */
+data class MixCatalog(val ingredients: List<Ingredient> = emptyList(), val contents: MixContents = emptyMap()) {
+    val byId: Map<Long, Ingredient> by lazy { ingredients.associateBy { it.id } }
+
+    /** The mixes containing [id], A–Z. */
+    fun mixesContaining(id: Long?): List<Ingredient> =
+        contents.filterValues { id != null && id in it }.keys.mapNotNull(byId::get).sortedBy { it.name.lowercase() }
+
+    /** The stored components of [mixId], as the form holds them. */
+    fun partsOf(mixId: Long): List<MixPart> =
+        contents[mixId].orEmpty().mapNotNull(byId::get).map { MixPart(it.id, it.name) }
+}
 
 class IngredientDetailViewModel(
     private val ingredientId: Long,
@@ -126,6 +156,9 @@ class IngredientDetailViewModel(
 
     private val _state = MutableStateFlow(IngredientDetailUiState())
     val state: StateFlow<IngredientDetailUiState> = _state.asStateFlow()
+
+    val catalog: StateFlow<MixCatalog> = combine(repository.observeIngredients(), repository.observeContents(), ::MixCatalog)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MixCatalog())
 
     init {
         if (seed != null) {
@@ -143,9 +176,20 @@ class IngredientDetailViewModel(
         } else viewModelScope.launch {
             val ingredient = repository.getIngredient(ingredientId) ?: return@launch
             val units = repository.getUnits(ingredientId)
-            _state.update { it.copy(ingredient = ingredient, units = units, form = IngredientForm.from(ingredient, units)) }
+            val components = storedComponents()
+            _state.update {
+                it.copy(
+                    ingredient = ingredient,
+                    units = units,
+                    components = components,
+                    form = IngredientForm.from(ingredient, units, components),
+                )
+            }
         }
     }
+
+    private suspend fun storedComponents(): List<MixPart> =
+        MixCatalog(repository.observeIngredients().first(), repository.observeContents().first()).partsOf(ingredientId)
 
     fun onFormChange(transform: IngredientForm.() -> IngredientForm) {
         _state.update { it.copy(form = it.form.transform()) }
@@ -158,7 +202,7 @@ class IngredientDetailViewModel(
     /** Leaves edit mode; with unsaved edits it asks first, see [discard]. */
     fun cancelEdit() {
         val current = _state.value
-        val unchanged = current.ingredient?.let { IngredientForm.from(it, current.units) == current.form } ?: true
+        val unchanged = current.ingredient?.let { IngredientForm.from(it, current.units, current.components) == current.form } ?: true
         if (unchanged) discard() else _state.update { it.copy(confirmDiscard = true) }
     }
 
@@ -174,7 +218,7 @@ class IngredientDetailViewModel(
         }
         _state.update {
             it.copy(
-                form = it.ingredient?.let { ingredient -> IngredientForm.from(ingredient, it.units) } ?: it.form,
+                form = it.ingredient?.let { ingredient -> IngredientForm.from(ingredient, it.units, it.components) } ?: it.form,
                 editing = false,
                 showErrors = false,
                 confirmDiscard = false,
@@ -205,11 +249,13 @@ class IngredientDetailViewModel(
             }
             val saved = repository.getIngredient(ingredientId) ?: return@launch
             val units = repository.getUnits(ingredientId)
+            val components = storedComponents()
             _state.update {
                 it.copy(
                     ingredient = saved,
                     units = units,
-                    form = IngredientForm.from(saved, units),
+                    components = components,
+                    form = IngredientForm.from(saved, units, components),
                     editing = false,
                     showErrors = false,
                 )
@@ -300,6 +346,7 @@ fun IngredientDetailScreen(
     onCreated: (Long) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val catalog by viewModel.catalog.collectAsStateWithLifecycle()
     LaunchedEffect(state.closed) { if (state.closed) onBack() }
     LaunchedEffect(state.createdId) { state.createdId?.let(onCreated) }
     BackHandler(enabled = state.editing, onBack = viewModel::cancelEdit)
@@ -436,8 +483,11 @@ fun IngredientDetailScreen(
             SectionTitle(R.string.ingredient_section_properties)
             PropertiesGroup(
                 form = form,
+                catalog = catalog,
+                ingredientId = ingredient.id.takeUnless { state.isNew },
                 onStoreSection = { onChange { copy(storeSection = it) } },
                 onPlantPoints = { onChange { copy(plantPoints = it) } },
+                onComponents = { onChange { copy(components = it) } },
                 editable = editing,
             )
 
@@ -538,41 +588,83 @@ private fun DeleteDialog(name: String, usedIn: List<String>, onConfirm: () -> Un
     }
 }
 
-private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_INFO }
+private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_INFO, COMPONENTS }
 
-/** One line per property with its current value; when [editable], tapping opens a radio dialog that applies on tap. */
+/**
+ * One line per property with its current value; when [editable], tapping opens a radio dialog that
+ * applies on tap. A mix's plant points follow from its components and can't be chosen. Enthält is
+ * left out for an ingredient contained in a mix (one level only), which shows Enthalten in instead.
+ */
 @Composable
 private fun PropertiesGroup(
     form: IngredientForm,
+    catalog: MixCatalog,
+    /** Null while the ingredient is new. */
+    ingredientId: Long?,
     onStoreSection: (StoreSection) -> Unit,
     onPlantPoints: (PlantPoints) -> Unit,
+    onComponents: (List<MixPart>) -> Unit,
     editable: Boolean,
 ) {
     var dialog by rememberSaveable { mutableStateOf<PropertyDialog?>(null) }
-    SettingsGroup(
-        {
+    val containedIn = catalog.mixesContaining(ingredientId)
+    val rows = buildList<@Composable () -> Unit> {
+        add {
             SettingsRow(
                 icon = null,
                 title = stringResource(R.string.ingredient_section_store_section),
                 summary = stringResource(form.storeSection.label),
                 onClick = if (editable) ({ dialog = PropertyDialog.STORE_SECTION }) else null,
             )
-        },
-        {
+        }
+        add {
             SettingsRow(
                 icon = null,
                 title = stringResource(R.string.ingredient_section_plant_points),
-                summary = plantPointsLabel(form.plantPoints),
-                onClick = if (editable) ({ dialog = PropertyDialog.PLANT_POINTS }) else null,
+                summary = if (form.isMix) {
+                    stringResource(R.string.ingredient_plant_points_from_components, plantPointsLabel(form.componentPlantPoints(catalog.byId)))
+                } else {
+                    plantPointsLabel(form.plantPoints)
+                },
+                onClick = if (editable && !form.isMix) ({ dialog = PropertyDialog.PLANT_POINTS }) else null,
                 trailing = {
                     IconButton(onClick = { dialog = PropertyDialog.PLANT_POINTS_INFO }) {
                         Icon(Icons.Filled.Info, stringResource(R.string.plant_points_info_description))
                     }
                 },
             )
-        },
-        horizontalPadding = 0.dp,
-    )
+        }
+        if (Mixes.canBeMix(ingredientId, catalog.contents)) {
+            add {
+                SettingsRow(
+                    icon = null,
+                    title = stringResource(R.string.ingredient_components),
+                    summary = if (form.isMix) {
+                        pluralStringResource(
+                            R.plurals.ingredient_components_summary,
+                            form.components.size,
+                            form.components.size,
+                            form.components.joinToString(", ") { it.name },
+                        )
+                    } else {
+                        stringResource(R.string.ingredient_components_none)
+                    },
+                    onClick = if (editable) ({ dialog = PropertyDialog.COMPONENTS }) else null,
+                )
+            }
+        }
+        if (containedIn.isNotEmpty()) {
+            add {
+                SettingsRow(
+                    icon = null,
+                    title = stringResource(R.string.ingredient_contained_in),
+                    summary = containedIn.joinToString(", ") { it.name },
+                    onClick = null,
+                )
+            }
+        }
+    }
+    SettingsGroup(*rows.toTypedArray(), horizontalPadding = 0.dp)
 
     val dismiss = { dialog = null }
     when (dialog) {
@@ -593,6 +685,12 @@ private fun PropertiesGroup(
             onDismiss = dismiss,
         )
         PropertyDialog.PLANT_POINTS_INFO -> PlantPointsInfoDialog(onDismiss = dismiss)
+        PropertyDialog.COMPONENTS -> ComponentsDialog(
+            initial = ComponentsForm(ingredientId, form.components),
+            catalog = catalog,
+            onConfirm = { onComponents(it); dismiss() },
+            onDismiss = dismiss,
+        )
         null -> Unit
     }
 }
@@ -769,6 +867,75 @@ private fun UnitDialog(
                 Text(stringResource(R.string.action_ok))
             }
         },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+/**
+ * The components as removable chips, and an ingredient field suggesting what can be added (see
+ * [ComponentsForm.suggestions]); a name that is no ingredient yet can be added to be created on
+ * save. Applies on OK.
+ */
+@Composable
+private fun ComponentsDialog(
+    initial: ComponentsForm,
+    catalog: MixCatalog,
+    onConfirm: (List<MixPart>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var form by remember { mutableStateOf(initial) }
+    val suggestions = form.suggestions(catalog.ingredients, catalog.contents)
+    val newName = form.newName(catalog.ingredients)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ingredient_components)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    stringResource(R.string.ingredient_components_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (form.components.isNotEmpty()) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        form.components.forEach { part ->
+                            InputChip(
+                                selected = false,
+                                onClick = { form = form.without(part) },
+                                label = { Text(part.name) },
+                                trailingIcon = {
+                                    Icon(
+                                        Icons.Filled.Close,
+                                        stringResource(R.string.ingredient_component_remove, part.name),
+                                        Modifier.size(InputChipDefaults.IconSize),
+                                    )
+                                },
+                            )
+                        }
+                    }
+                }
+                FormField(
+                    value = form.query,
+                    onValueChange = { form = form.withQuery(it) },
+                    label = R.string.recipe_line_ingredient,
+                    numeric = false,
+                )
+                suggestions.forEach { ingredient ->
+                    ListItem(
+                        headlineContent = { Text(ingredient.name) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { form = form.with(ingredient) },
+                    )
+                }
+                if (newName != null) {
+                    TextButton(onClick = { form = form.withNew(newName) }) {
+                        Icon(Icons.Filled.Add, contentDescription = null)
+                        Text(stringResource(R.string.ingredient_component_create, newName), Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(form.components) }) { Text(stringResource(R.string.action_ok)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

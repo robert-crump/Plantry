@@ -118,10 +118,11 @@ class RecipeDetailViewModel(
         repository.observeLines(recipeId),
         ingredientRepository.observeIngredients(),
         plannedRepository.observePlanned(recipeId),
-    ) { recipe, lines, ingredients, planned ->
+        ingredientRepository.observeContents(),
+    ) { recipe, lines, ingredients, planned, contents ->
         if (recipe == null) return@combine null
         val byId = ingredients.associateBy { it.id }
-        val stats = RecipeStats.of(recipe, lines, byId)
+        val stats = RecipeStats.of(recipe, lines, byId, contents)
         RecipeDetailUiState(
             recipe = recipe,
             lines = lines.map { line ->

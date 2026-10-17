@@ -3,6 +3,9 @@ package com.example.plantry.ui.ingredient
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientDraft
 import com.example.plantry.data.LabelSource
+import com.example.plantry.data.MixComponent
+import com.example.plantry.data.MixPart
+import com.example.plantry.data.Mixes
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.IngredientUnit
@@ -30,6 +33,61 @@ class IngredientFormTest {
     )
 
     private val valid = IngredientForm.from(ingredient)
+
+    @Test
+    fun components_goIntoTheDraft_andMakeItAMix() {
+        val parts = listOf(MixPart(1, "Himbeeren"), MixPart(null, "Johannisbeeren"))
+        val form = valid.copy(components = parts)
+
+        assertTrue(form.isMix)
+        assertFalse(valid.isMix)
+        assertEquals(parts, form.toDraft()?.components)
+        assertEquals(form, IngredientForm.from(ingredient, components = parts))
+    }
+
+    @Test
+    fun componentPlantPoints_sumTheComponents_aNameOnlyAsOnePoint() {
+        val berries = ingredient.copy(id = 1, plantPoints = PlantPoints.ONE)
+        val garlic = ingredient.copy(id = 2, plantPoints = PlantPoints.QUARTER)
+        val form = valid.copy(components = listOf(MixPart(1, ""), MixPart(2, ""), MixPart(null, "Neu")))
+
+        assertEquals(2.25, form.componentPlantPoints(listOf(berries, garlic).associateBy { it.id }), 0.0)
+    }
+
+    @Test
+    fun componentSuggestions_leaveOutChosenMixesAndTheMixItself() {
+        val all = listOf(
+            ingredient.copy(id = 1, name = "Himbeeren"),
+            ingredient.copy(id = 2, name = "Himbeer-Mix"),
+            ingredient.copy(id = 3, name = "Himbeermark"),
+            ingredient.copy(id = 4, name = "Erdbeeren"),
+        )
+        val contents = Mixes.contents(listOf(MixComponent(2, 4)))
+        val form = ComponentsForm(mixId = 3, components = listOf(MixPart(4, "Erdbeeren")), query = "him")
+
+        assertEquals(listOf("Himbeeren"), form.suggestions(all, contents).map { it.name })
+    }
+
+    @Test
+    fun componentNewName_onlyForANameThatIsNoIngredientOrComponentYet() {
+        val all = listOf(ingredient.copy(id = 1, name = "Himbeeren"))
+        val form = ComponentsForm(mixId = null, components = listOf(MixPart(null, "Johannisbeeren")))
+
+        assertEquals("Erdbeeren", form.withQuery(" Erdbeeren ").newName(all))
+        assertNull(form.withQuery("himbeeren").newName(all))
+        assertNull(form.withQuery("JOHANNISBEEREN").newName(all))
+        assertNull(form.withQuery("  ").newName(all))
+    }
+
+    @Test
+    fun componentsForm_addingClearsTheField_andRemoving() {
+        val berries = ingredient.copy(id = 1, name = "Himbeeren")
+        val form = ComponentsForm(mixId = 3, components = emptyList(), query = "him").with(berries).withQuery("Neu").withNew("Neu")
+
+        assertEquals(listOf(MixPart(1, "Himbeeren"), MixPart(null, "Neu")), form.components)
+        assertEquals("", form.query)
+        assertEquals(listOf(MixPart(null, "Neu")), form.without(MixPart(1, "Himbeeren")).components)
+    }
 
     @Test
     fun newForm_defaultsToOtherAndZeroPoints() {
