@@ -53,13 +53,18 @@ Tasse), each either per unit (`("Zehe", 3)`) or from a package (`("Scheibe", 750
 read from the photo's file name). g and ml exist for every ingredient and are never listed. A
 photographed product records its product name and barcode, which the app shows as the nutrition
 source; values read from Open Food Facts because the photo shows only the barcode are flagged.
+A mix (Beerenmischung, Zitronensaft) also lists its components by ingredient name
+(`contains=["Zitrone"]`), which the app shows as "Enthält". Its plant points are then the sum over
+its distinct components; an unknown name or a component that is itself a mix fails the run.
 
-**Recipe**: title, Art (Hauptgericht, Frühstück or Snack), Portionen, source (empty for snacks) and lines as
+**Recipe**: title, Art (Hauptgericht, Frühstück or Snack), Portionen, source and lines as
 `(amount, unit, ingredient name[, wording])`. Grams are never written: the app computes them from
 the ingredient's units, so changing a unit's grams changes every recipe using it. The wording keeps
 a book phrasing ("1 daumengroßes Stück Ingwer"); a line with no fitting unit ("eine Handvoll") is
-grams with the wording.
+grams with the wording. The source is the book title with its page and Gesamtzeit, "Handschriftlich"
+for a handwritten recipe, or "Eigenes Rezept". Changes the user noted on a book page (added,
+dropped or swapped ingredients) are applied, the changed lines marked "(notiert)" in their wording.
 
-The backup is format 1 (`BackupFile`): ingredients with their unit rows, recipes with structured
-lines. Once the seed is imported, schema v1 and backup format 1 are frozen: every later schema
-change needs a migration.
+The backup is format 2 (`BackupFile`): ingredients with their unit rows and the ids of their
+components (`contains`), recipes with structured lines. Every schema change after the import needs
+a migration.
