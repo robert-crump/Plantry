@@ -16,7 +16,8 @@ input/
     index-01.jpg, index-02.jpg, ...   pages listing the ingredients used in the book
     p123.jpg, p124.jpg, ...           recipe pages, named by page number
   handwritten/
-    <recipe name>.jpg                 handwritten recipes (source "Handschriftlich")
+    Hauptgericht/<recipe name>.jpg    handwritten recipes (source "Handschriftlich"); the folder
+    Frühstück/<recipe name>.jpg       sets the recipe's Art
   Ingredients/
     <name>.jpg                        branded products: nutrition table, package size, barcode
     <name>_<count> Scheiben.jpg       ... with the piece count when the package doesn't print it
@@ -28,7 +29,7 @@ input/
   of the same package. Products eaten by the slice or piece (toast, sliced cheese, wraps, falafel)
   need the count, e.g. `Gouda_9 Scheiben.jpg`. A missing count is
   flagged in the review table and the unit left out, never guessed.
-- Sharp, flat, well lit; no need to crop.
+- Sharp, flat, well lit; no need to crop. A handwritten recipe may also be a PDF scan.
 
 ## 2. Pipeline
 
