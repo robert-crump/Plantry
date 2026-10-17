@@ -58,8 +58,11 @@ import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.IngredientUnit
+import com.example.plantry.ui.cooklog.CookLogSearchScreen
+import com.example.plantry.ui.cooklog.CookLogSearchViewModel
 import com.example.plantry.ui.cooklog.CookingScreen
 import com.example.plantry.ui.cooklog.CookingViewModel
+import com.example.plantry.ui.cooklog.JustLogged
 import com.example.plantry.ui.cooklog.JustPlanned
 import com.example.plantry.ui.ingredient.IngredientDetailScreen
 import com.example.plantry.ui.ingredient.IngredientDetailViewModel
@@ -80,6 +83,7 @@ import com.example.plantry.ui.suggest.SuggestionsScreen
 import com.example.plantry.ui.suggest.SuggestionsViewModel
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import java.time.LocalDate
 
 @Serializable
 object CookingRoute
@@ -90,6 +94,14 @@ object SuggestionsRoute
 /** Saved-state keys with which the suggestions hand a planned recipe back to Kochen. */
 private const val JUST_PLANNED_ID = "justPlannedId"
 private const val JUST_PLANNED_TITLE = "justPlannedTitle"
+
+/** "Kocheintrag": a recipe to find, then the day it was cooked. */
+@Serializable
+object CookLogSearchRoute
+
+/** Saved-state keys with which "Kocheintrag" hands the picked recipe and day (epoch day) back to Kochen. */
+private const val JUST_LOGGED_ID = "justLoggedId"
+private const val JUST_LOGGED_DAY = "justLoggedDay"
 
 /** Saved-state key set on the ingredient list when its tab is opened: back to the default filters. */
 private const val RESET_INGREDIENT_FILTERS = "resetIngredientFilters"
@@ -274,17 +286,39 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                     val handle = entry.savedStateHandle
                     val justPlannedId by handle.getStateFlow<Long?>(JUST_PLANNED_ID, null).collectAsStateWithLifecycle()
                     val justPlannedTitle by handle.getStateFlow(JUST_PLANNED_TITLE, "").collectAsStateWithLifecycle()
+                    val justLoggedId by handle.getStateFlow<Long?>(JUST_LOGGED_ID, null).collectAsStateWithLifecycle()
+                    val justLoggedDay by handle.getStateFlow(JUST_LOGGED_DAY, 0L).collectAsStateWithLifecycle()
                     CookingScreen(
                         viewModel = viewModel {
                             CookingViewModel(cookLogRepository, app.plannedRepository, recipeRepository, ingredientRepository, settingsRepository)
                         },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                         onSuggest = { navController.navigate(SuggestionsRoute) },
+                        onLog = { navController.navigate(CookLogSearchRoute) },
                         justPlanned = justPlannedId?.let { JustPlanned(it, justPlannedTitle) },
                         onJustPlannedShown = {
                             // Reset, not removed: removing would leave the collected flows on the old value.
                             handle[JUST_PLANNED_ID] = null
                             handle[JUST_PLANNED_TITLE] = ""
+                        },
+                        justLogged = justLoggedId?.let { JustLogged(it, LocalDate.ofEpochDay(justLoggedDay)) },
+                        onJustLoggedShown = {
+                            handle[JUST_LOGGED_ID] = null
+                            handle[JUST_LOGGED_DAY] = 0L
+                        },
+                    )
+                }
+                composable<CookLogSearchRoute> {
+                    CookLogSearchScreen(
+                        viewModel = viewModel { CookLogSearchViewModel(recipeRepository) },
+                        onBack = { navController.popBackStack() },
+                        onLogged = { recipeId, date ->
+                            navController.previousBackStackEntry?.savedStateHandle?.let { handle ->
+                                // The day first: Kochen reacts to the id.
+                                handle[JUST_LOGGED_DAY] = date.toEpochDay()
+                                handle[JUST_LOGGED_ID] = recipeId
+                            }
+                            navController.popBackStack()
                         },
                     )
                 }

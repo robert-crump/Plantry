@@ -152,6 +152,7 @@
     <string name="cook_actions_close">Schließen</string>
     <string name="cook_log_search">Rezept suchen</string>
     <string name="cook_log_none">Keine Rezepte gefunden</string>
+    <string name="cook_log_clear">Suche löschen</string>
     <string name="recipe_stats_grams">%1$dg</string>
     <string name="recipe_stats_kcal">%1$dkcal</string>
     <string name="recipe_stats_missing">–</string>

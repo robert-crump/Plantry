@@ -33,7 +33,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Eco
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -41,10 +40,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -71,7 +67,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -99,8 +94,6 @@ import com.example.plantry.data.Cooked
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlannedItem
 import com.example.plantry.data.PlannedRepository
-import com.example.plantry.data.Recipe
-import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.ui.FastScrollbar
@@ -123,10 +116,6 @@ class CookingViewModel(
     ingredientRepository: IngredientRepository,
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
-    /** All recipes, for "Kocheintrag". */
-    val recipes: StateFlow<List<Recipe>> = recipeRepository.observeRecipes()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
     /** Null until the first emission, so the empty state doesn't flash. */
     val entries: StateFlow<List<CookLog>?> = repository.observeHistory()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -190,12 +179,16 @@ class CookingViewModel(
 /** A recipe just put on Geplant from the suggestions, to confirm with an undo snackbar. */
 data class JustPlanned(val recipeId: Long, val title: String)
 
+/** A recipe and day picked on the "Kocheintrag" screen, to log with an undo snackbar. */
+data class JustLogged(val recipeId: Long, val date: LocalDate)
+
 /**
  * The Kochen tab: Geplant on top as cards (hidden when empty), then the cooking history under
  * "Verlauf", newest first, in Monday–Sunday weeks with sticky headers showing the week's plant
  * points, each row with its own date badge. History rows show the recipe as it was when logged. A "+" FAB, hidden while scrolling
- * down, opens "Vorschlag" and "Kocheintrag" (pick a recipe, then a day up to today).
- * [justPlanned] is shown once as a snackbar, then [onJustPlannedShown] clears it.
+ * down, opens "Vorschlag" and "Kocheintrag" ([onLog], pick a recipe, then a day up to today).
+ * [justPlanned] is shown once as a snackbar, then [onJustPlannedShown] clears it; [justLogged] is
+ * logged once, then [onJustLoggedShown] clears it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -203,8 +196,11 @@ fun CookingScreen(
     viewModel: CookingViewModel,
     onRecipeClick: (Long) -> Unit,
     onSuggest: () -> Unit,
+    onLog: () -> Unit,
     justPlanned: JustPlanned?,
     onJustPlannedShown: () -> Unit,
+    justLogged: JustLogged?,
+    onJustLoggedShown: () -> Unit,
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val planned by viewModel.planned.collectAsStateWithLifecycle()
@@ -231,6 +227,14 @@ fun CookingScreen(
         showUndo(plannedMessage) { viewModel.unplan(planned.recipeId) }
     }
 
+    LaunchedEffect(justLogged) {
+        val logged = justLogged ?: return@LaunchedEffect
+        onJustLoggedShown()
+        viewModel.log(logged.recipeId, logged.date) { cooked ->
+            showUndo(loggedMessage) { viewModel.undoCook(cooked) }
+        }
+    }
+
     // The snackbar sits at the bottom with the FAB lifted above it (the Scaffold would put it
     // above the FAB), so it is laid over the Scaffold instead of using its snackbarHost slot.
     var snackbarHeight by remember { mutableIntStateOf(0) }
@@ -254,8 +258,6 @@ fun CookingScreen(
             }
         }
     }
-    var picking by rememberSaveable { mutableStateOf(false) }
-    var loggingRecipeId by rememberSaveable { mutableStateOf<Long?>(null) }
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             topBar = { TopAppBar(title = { Text(stringResource(R.string.cooking_title)) }) },
@@ -265,7 +267,7 @@ fun CookingScreen(
                     onExpandedChange = { fabMenuOpen = it },
                     visible = fabVisible,
                     onSuggest = onSuggest,
-                    onLog = { picking = true },
+                    onLog = onLog,
                     modifier = Modifier.padding(bottom = fabLift),
                 )
             },
@@ -381,74 +383,6 @@ fun CookingScreen(
                 .onSizeChanged { snackbarHeight = it.height },
         )
     }
-    if (picking) {
-        val recipes by viewModel.recipes.collectAsStateWithLifecycle()
-        LogRecipeDialog(
-            recipes,
-            onPick = { recipe ->
-                picking = false
-                loggingRecipeId = recipe.id
-            },
-            onDismiss = { picking = false },
-        )
-    }
-    loggingRecipeId?.let { recipeId ->
-        val today = LocalDate.now()
-        CookDatePickerDialog(
-            date = today,
-            today = today,
-            onPick = { date ->
-                viewModel.log(recipeId, date) { cooked ->
-                    showUndo(loggedMessage) { viewModel.undoCook(cooked) }
-                }
-            },
-            onDismiss = { loggingRecipeId = null },
-        )
-    }
-}
-
-/** "Kocheintrag": a search field over all recipes, A–Z, narrowed as you type. */
-@Composable
-private fun LogRecipeDialog(recipes: List<Recipe>, onPick: (Recipe) -> Unit, onDismiss: () -> Unit) {
-    var query by rememberSaveable { mutableStateOf("") }
-    val shown = remember(recipes, query) { RecipeQuery.byTitle(recipes, query) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.cook_log_action)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    query,
-                    onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(stringResource(R.string.cook_log_search)) },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                    singleLine = true,
-                )
-                if (shown.isEmpty()) {
-                    Text(
-                        stringResource(R.string.cook_log_none),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 16.dp),
-                    )
-                } else {
-                    LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                        items(shown, key = { it.id }) { recipe ->
-                            ListItem(
-                                headlineContent = { Text(recipe.title) },
-                                modifier = Modifier.clickable { onPick(recipe) },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-        },
-    )
 }
 
 @Composable
