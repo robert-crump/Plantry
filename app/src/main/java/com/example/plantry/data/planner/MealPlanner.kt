@@ -10,6 +10,8 @@ data class Candidate(
     val daysSinceLastCooked: Long?,
     /** 0 for recipes without ingredient lines. */
     val proteinPerPortion: Double,
+    /** The plant points the recipe would add to this week, see [WeekPlants.newPoints]. */
+    val newPlantPoints: Double = 0.0,
 )
 
 /**
@@ -41,6 +43,21 @@ class CooldownTerm(private val cooldownDays: Int) : ScoreTerm {
 class ProteinTerm(private val targetGrams: Double = RecipeNutrition.PROTEIN_MIN) : ScoreTerm {
     override fun weight(candidate: Candidate): Double =
         (candidate.proteinPerPortion / targetGrams).coerceIn(ScoreTerm.MIN_WEIGHT, 1.0)
+}
+
+/**
+ * In proportion to the recipe's new plant points, relative to [mostNewPoints], the most any candidate
+ * adds; 1 for every recipe once [goalReached] or when none adds any, so the other terms decide.
+ */
+class PlantPointsTerm(private val mostNewPoints: Double, private val goalReached: Boolean) : ScoreTerm {
+    override fun weight(candidate: Candidate): Double =
+        if (goalReached || mostNewPoints <= 0) 1.0
+        else (candidate.newPlantPoints / mostNewPoints).coerceIn(ScoreTerm.MIN_WEIGHT, 1.0)
+
+    companion object {
+        fun of(candidates: List<Candidate>, goalReached: Boolean) =
+            PlantPointsTerm(candidates.maxOfOrNull { it.newPlantPoints } ?: 0.0, goalReached)
+    }
 }
 
 data class ScoredCandidate(val candidate: Candidate, val score: Double)
@@ -84,5 +101,14 @@ class MealPlanner(
         const val DEFAULT_POOL_SIZE = 10
 
         fun default(cooldownDays: Int) = MealPlanner(listOf(CooldownTerm(cooldownDays), ProteinTerm()))
+
+        /** Main dishes: cooldown, protein and the plant points they add to this week. */
+        fun mainDishes(cooldownDays: Int, candidates: List<Candidate>, goalReached: Boolean) = MealPlanner(
+            listOf(CooldownTerm(cooldownDays), ProteinTerm(), PlantPointsTerm.of(candidates, goalReached)),
+        )
+
+        /** The boost card: cooldown and new plant points only, so a smoothie can beat a protein-rich porridge. */
+        fun boost(cooldownDays: Int, candidates: List<Candidate>) =
+            MealPlanner(listOf(CooldownTerm(cooldownDays), PlantPointsTerm.of(candidates, goalReached = false)))
     }
 }

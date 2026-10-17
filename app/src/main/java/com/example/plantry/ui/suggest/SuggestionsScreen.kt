@@ -82,6 +82,9 @@ data class SuggestionCard(
     }
 }
 
+/** One round of the suggestions screen: the main dishes and, at times, the plant-points boost below them. */
+data class Suggestions(val cards: List<SuggestionCard>, val boost: SuggestionCard? = null)
+
 class SuggestionsViewModel(
     suggester: RecipeSuggester,
     private val plannedRepository: PlannedRepository,
@@ -91,28 +94,31 @@ class SuggestionsViewModel(
 ) : ViewModel() {
     // Lives as long as the screen, so recipes already shown stay excluded until it is left.
     private val rounds = SuggestionRounds { count, exclude -> suggester.suggest(clock(), count, exclude) }
+    private val boostRounds = SuggestionRounds(count = 1) { count, exclude -> suggester.boost(clock(), count, exclude) }
     private var loading: Job? = null
 
-    private val _cards = MutableStateFlow<List<SuggestionCard>?>(null)
+    private val _suggestions = MutableStateFlow<Suggestions?>(null)
 
     /** Null until the first round is loaded, so the empty message doesn't flash. */
-    val cards: StateFlow<List<SuggestionCard>?> = _cards.asStateFlow()
+    val suggestions: StateFlow<Suggestions?> = _suggestions.asStateFlow()
 
     init {
         reroll()
     }
 
-    /** Replaces all cards; ignored while a round is still loading. */
+    /** Replaces all cards, the boost card too; ignored while a round is still loading. */
     fun reroll() {
         if (loading?.isActive == true) return
         loading = viewModelScope.launch {
             val planned = plannedRepository.observe().first().mapTo(mutableSetOf()) { it.recipeId }
             val ids = rounds.next(planned)
+            val boostId = boostRounds.next(planned).firstOrNull()
             val recipes = recipeRepository.observeRecipes().first().associateBy { it.id }
             val lines = recipeRepository.observeAllLines().first()
             val ingredients = ingredientRepository.observeIngredients().first().associateBy { it.id }
             val contents = ingredientRepository.observeContents().first()
-            _cards.value = ids.mapNotNull { id -> recipes[id]?.let { SuggestionCard.of(it, lines, ingredients, contents) } }
+            fun card(id: Long) = recipes[id]?.let { SuggestionCard.of(it, lines, ingredients, contents) }
+            _suggestions.value = Suggestions(ids.mapNotNull(::card), boostId?.let(::card))
         }
     }
 
@@ -128,8 +134,9 @@ class SuggestionsViewModel(
 }
 
 /**
- * Up to three suggested recipes; "Neue Vorschläge" replaces them all. Tapping a card asks for the
- * day to cook it; picking one puts it on Geplant and hands it to [onPlanned].
+ * Up to three suggested recipes, on the weekend while the week is short of its plant points one more
+ * below them to boost those; "Neue Vorschläge" replaces them all. Tapping a card asks for the day to
+ * cook it; picking one puts it on Geplant and hands it to [onPlanned].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,7 +145,7 @@ fun SuggestionsScreen(
     onBack: () -> Unit,
     onPlanned: (recipeId: Long, title: String) -> Unit,
 ) {
-    val cards by viewModel.cards.collectAsStateWithLifecycle()
+    val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     var confirmId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     Scaffold(
@@ -161,8 +168,8 @@ fun SuggestionsScreen(
             )
         },
     ) { padding ->
-        val list = cards ?: return@Scaffold
-        if (list.isEmpty()) {
+        val current = suggestions ?: return@Scaffold
+        if (current.cards.isEmpty() && current.boost == null) {
             Box(Modifier.fillMaxSize().padding(padding).padding(32.dp), contentAlignment = Alignment.Center) {
                 Text(
                     stringResource(R.string.suggest_none),
@@ -177,14 +184,26 @@ fun SuggestionsScreen(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 112.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(list, key = { it.recipeId }) { card ->
+                items(current.cards, key = { it.recipeId }) { card ->
                     SuggestionCardView(card, onClick = { confirmId = card.recipeId })
+                }
+                current.boost?.let { card ->
+                    item(key = "boost") {
+                        Text(
+                            stringResource(R.string.suggest_boost),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(top = 12.dp),
+                        )
+                    }
+                    item(key = card.recipeId) {
+                        SuggestionCardView(card, onClick = { confirmId = card.recipeId })
+                    }
                 }
             }
         }
     }
 
-    val confirming = confirmId?.let { id -> cards?.firstOrNull { it.recipeId == id } }
+    val confirming = confirmId?.let { id -> suggestions?.let { it.cards + listOfNotNull(it.boost) }?.firstOrNull { it.recipeId == id } }
     if (confirming != null) {
         PlanDatePickerDialog(
             date = viewModel.today(),

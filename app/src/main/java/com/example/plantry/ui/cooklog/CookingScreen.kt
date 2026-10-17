@@ -88,6 +88,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
+import com.example.plantry.data.planner.WeeklyPlantPointsGoal
+import com.example.plantry.data.planner.plantPointsGoalReached
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.Cooked

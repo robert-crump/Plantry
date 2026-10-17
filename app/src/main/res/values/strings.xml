@@ -201,6 +201,7 @@
     <string name="suggest_action">Vorschlag</string>
     <string name="suggest_title">Zufallsrezept</string>
     <string name="suggest_reroll">Neue Vorschläge</string>
+    <string name="suggest_boost">Booste Deine Pflanzenpunkte:</string>
     <string name="suggest_none">Keine weiteren Rezepte für Vorschläge.</string>
     <string name="suggest_planned">%1$s geplant</string>
 

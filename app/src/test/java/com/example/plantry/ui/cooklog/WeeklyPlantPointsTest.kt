@@ -1,5 +1,6 @@
 package com.example.plantry.ui.cooklog
 
+import com.example.plantry.data.planner.plantPointsGoalReached
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.MixComponent

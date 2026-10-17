@@ -40,6 +40,50 @@ class MealPlannerTest {
     }
 
     @Test
+    fun plantPoints_inProportionToTheMostNewPoints() {
+        val candidates = listOf(candidate(1).copy(newPlantPoints = 4.0), candidate(2).copy(newPlantPoints = 1.0), candidate(3))
+        val term = PlantPointsTerm.of(candidates, goalReached = false)
+
+        assertEquals(listOf(1.0, 0.25, ScoreTerm.MIN_WEIGHT), candidates.map(term::weight))
+    }
+
+    @Test
+    fun plantPoints_oneForAllOnceTheGoalIsReached() {
+        val candidates = listOf(candidate(1).copy(newPlantPoints = 4.0), candidate(2))
+        val term = PlantPointsTerm.of(candidates, goalReached = true)
+
+        assertEquals(listOf(1.0, 1.0), candidates.map(term::weight))
+    }
+
+    @Test
+    fun plantPoints_oneForAllWhenNoneAddsAny() {
+        val term = PlantPointsTerm.of(listOf(candidate(1), candidate(2)), goalReached = false)
+
+        assertEquals(1.0, term.weight(candidate(1)), 1e-9)
+    }
+
+    @Test
+    fun mainDishes_rankMoreNewPlantPointsHigher() {
+        val candidates = listOf(candidate(1).copy(newPlantPoints = 1.0), candidate(2).copy(newPlantPoints = 5.0))
+
+        val ranked = MealPlanner.mainDishes(21, candidates, goalReached = false).rank(candidates)
+
+        assertEquals(listOf(2L, 1L), ranked.map { it.candidate.recipeId })
+        assertEquals(0.2, ranked.last().score, 1e-9)
+    }
+
+    @Test
+    fun boost_ignoresProtein() {
+        val porridge = candidate(1, protein = 30.0).copy(newPlantPoints = 2.0)
+        val smoothie = candidate(2, protein = 2.0).copy(newPlantPoints = 4.0)
+
+        val ranked = MealPlanner.boost(21, listOf(porridge, smoothie)).rank(listOf(porridge, smoothie))
+
+        assertEquals(listOf(2L, 1L), ranked.map { it.candidate.recipeId })
+        assertEquals(listOf(1.0, 0.5), ranked.map { it.score })
+    }
+
+    @Test
     fun score_isProductOfTerms() {
         val planner = MealPlanner(listOf(CooldownTerm(20), ProteinTerm()))
 
