@@ -30,7 +30,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -48,6 +47,7 @@ import com.example.plantry.R
 import com.example.plantry.ui.FastScrollbar
 import com.example.plantry.ui.FilterRows
 import com.example.plantry.ui.HideOnScrollFab
+import com.example.plantry.ui.ScrollToTopOnChange
 import com.example.plantry.ui.rememberFabVisibility
 import com.example.plantry.ui.ToggleChip
 import com.example.plantry.ui.currentLocale
@@ -125,10 +125,7 @@ fun IngredientListScreen(
     val fab = rememberFabVisibility()
     val listState = rememberLazyListState()
     // A changed filter starts at the top, so a shrunk list isn't scrolled past its end.
-    LaunchedEffect(state?.chips) {
-        listState.scrollToItem(0)
-        fab.visible = true
-    }
+    ScrollToTopOnChange(listState, state?.chips) { fab.visible = true }
 
     Scaffold(
         topBar = {

@@ -37,7 +37,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -73,6 +72,7 @@ import com.example.plantry.data.RecipeSort
 import com.example.plantry.ui.FilterRow
 import com.example.plantry.ui.FilterRows
 import com.example.plantry.ui.HideOnScrollFab
+import com.example.plantry.ui.ScrollToTopOnChange
 import com.example.plantry.ui.rememberFabVisibility
 import com.example.plantry.ui.ToggleChip
 import com.example.plantry.ui.cooklog.RecipeStatsRow
@@ -171,12 +171,9 @@ fun RecipeListScreen(
     // Picking a sort, even the current one, jumps to the top; keyed on the sort too so it
     // runs after the list has been reordered (the keyed rows would otherwise keep their place).
     // A changed filter starts at the top too, so a shrunk list isn't scrolled past its end.
-    var sortPicks by remember { mutableIntStateOf(0) }
+    var sortPicks by rememberSaveable { mutableIntStateOf(0) }
     val fab = rememberFabVisibility()
-    LaunchedEffect(sortPicks, state?.sort, state?.filter) {
-        listState.scrollToItem(0)
-        fab.visible = true
-    }
+    ScrollToTopOnChange(listState, listOf(sortPicks, state?.sort, state?.filter)) { fab.visible = true }
     var pickIngredients by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
