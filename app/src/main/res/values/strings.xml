@@ -212,6 +212,8 @@
     <string name="suggest_boost">Booste Deine Pflanzenpunkte:</string>
     <string name="suggest_none">Keine weiteren Rezepte für Vorschläge.</string>
     <string name="suggest_planned">%1$s geplant</string>
+    <string name="suggest_new_plant_points_one">%1$d neuer Pflanzenpunkt für diese Woche</string>
+    <string name="suggest_new_plant_points_other">%1$d neue Pflanzenpunkte für diese Woche</string>
 
     <!-- Nutrition -->
     <string name="recipe_section_nutrition">Nährwerte je Portion</string>

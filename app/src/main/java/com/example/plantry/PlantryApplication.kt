@@ -65,7 +65,6 @@ class PlantryApplication : Application() {
             database.recipeDao(),
             database.ingredientDao(),
             database.cookLogDao(),
-            database.plannedRecipeDao(),
             cooldownDays = { settingsRepository.settings.value.cooldownDays },
         )
     }

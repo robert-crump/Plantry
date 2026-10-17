@@ -6,7 +6,6 @@ import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientDao
 import com.example.plantry.data.Mixes
-import com.example.plantry.data.PlannedRecipeDao
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeDao
 import com.example.plantry.data.RecipeLine
@@ -26,7 +25,6 @@ class RecipeSuggester(
     private val recipeDao: RecipeDao,
     private val ingredientDao: IngredientDao,
     private val cookLogDao: CookLogDao,
-    private val plannedDao: PlannedRecipeDao,
     /** Read on every suggestion, so a changed setting applies right away. */
     private val cooldownDays: () -> Int,
     private val random: Random = Random.Default,
@@ -50,6 +48,9 @@ class RecipeSuggester(
         return MealPlanner.boost(cooldownDays(), candidates).suggest(candidates, exclude, count, random)
     }
 
+    /** This week's plants so far, as the suggestions weigh them. */
+    suspend fun week(today: LocalDate): WeekPlants = load(today).week
+
     private class State(
         val recipes: List<Recipe>,
         val lines: List<RecipeLine>,
@@ -67,7 +68,6 @@ class RecipeSuggester(
         val week = WeekPlants.of(
             today = today,
             entries = cookLogDao.observeHistory().first(),
-            planned = plannedDao.observeAll().first(),
             lines = lines,
             ingredients = ingredients.associateBy { it.id },
             contents = Mixes.contents(ingredientDao.getMixComponents()),

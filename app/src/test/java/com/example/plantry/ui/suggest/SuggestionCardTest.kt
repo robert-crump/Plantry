@@ -5,7 +5,9 @@ import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeLine
+import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.ingredient
+import com.example.plantry.data.planner.WeekPlants
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -46,6 +48,18 @@ class SuggestionCardTest {
         assertEquals("Rezept 1", card.snapshot.title)
         assertEquals(10.0, card.snapshot.stats.proteinPerPortion, 1e-9)
         assertEquals(25, card.totalTimeMinutes)
+    }
+
+    @Test
+    fun of_newPlantPointsAgainstTheWeek() {
+        val spinach = ingredient(3, "Spinat").copy(plantPoints = PlantPoints.ONE)
+        val chili = ingredient(4, "Chili").copy(plantPoints = PlantPoints.QUARTER)
+        val ingredients = listOf(spinach, chili).associateBy { it.id }
+        val lines = listOf(line(1, 0, spinach.id), line(1, 1, chili.id))
+
+        assertEquals(1.25, SuggestionCard.of(recipe(1), lines, ingredients).newPlantPoints, 1e-9)
+        val week = WeekPlants(setOf(spinach.id), ingredients, emptyMap())
+        assertEquals(0.25, SuggestionCard.of(recipe(1), lines, ingredients, week = week).newPlantPoints, 1e-9)
     }
 
     @Test

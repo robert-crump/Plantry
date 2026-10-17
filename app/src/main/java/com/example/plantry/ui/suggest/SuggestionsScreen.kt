@@ -48,8 +48,12 @@ import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeSnapshot
 import com.example.plantry.data.planner.RecipeSuggester
 import com.example.plantry.data.planner.SuggestionRounds
+import com.example.plantry.data.planner.WeekPlants
+import com.example.plantry.data.planner.plantPointsGoalReachedWith
 import com.example.plantry.ui.cooklog.PlanDatePickerDialog
+import com.example.plantry.ui.cooklog.PlantPointsScore
 import com.example.plantry.ui.cooklog.RecipeStatsRow
+import com.example.plantry.ui.cooklog.WeekPlantPointsScore
 import com.example.plantry.ui.recipe.CompactCookingTimeChip
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,6 +62,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import kotlin.math.roundToInt
 
 /** A suggested recipe as its card shows it. */
 data class SuggestionCard(
@@ -66,10 +71,18 @@ data class SuggestionCard(
     val totalTimeMinutes: Int?,
     /** The lines as shown in recipe order, e.g. "1 Dose Kichererbsen, 200 g Reis". */
     val ingredients: String,
+    /** The plant points the recipe would add to this week, see [WeekPlants.newPoints]. */
+    val newPlantPoints: Double,
 ) {
     companion object {
-        /** Lines are matched to [recipe] by id. */
-        fun of(recipe: Recipe, lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>, contents: MixContents = emptyMap()): SuggestionCard {
+        /** Lines are matched to [recipe] by id; without [week] all of the recipe's plants are new. */
+        fun of(
+            recipe: Recipe,
+            lines: List<RecipeLine>,
+            ingredients: Map<Long, Ingredient>,
+            contents: MixContents = emptyMap(),
+            week: WeekPlants = WeekPlants(emptySet(), ingredients, contents),
+        ): SuggestionCard {
             val recipeLines = lines.filter { it.recipeId == recipe.id }
             return SuggestionCard(
                 recipeId = recipe.id,
@@ -77,16 +90,23 @@ data class SuggestionCard(
                 totalTimeMinutes = recipe.totalTimeMinutes,
                 ingredients = recipeLines.sortedBy { it.position }
                     .joinToString(", ") { it.resolve(ingredients[it.ingredientId]?.name.orEmpty()).text },
+                newPlantPoints = week.newPoints(recipeLines.map { it.ingredientId }),
             )
         }
     }
 }
 
-/** One round of the suggestions screen: the main dishes and, at times, the plant-points boost below them. */
-data class Suggestions(val cards: List<SuggestionCard>, val boost: SuggestionCard? = null)
+/**
+ * One round of the suggestions screen: the main dishes and, at times, the plant-points boost below
+ * them, with this week's plant points as they were when the round was drawn.
+ */
+data class Suggestions(val cards: List<SuggestionCard>, val boost: SuggestionCard? = null, val weekPoints: Double = 0.0) {
+    /** Whether [card] would take this week to the plant-points goal. */
+    fun reachesGoal(card: SuggestionCard): Boolean = plantPointsGoalReachedWith(weekPoints, card.newPlantPoints)
+}
 
 class SuggestionsViewModel(
-    suggester: RecipeSuggester,
+    private val suggester: RecipeSuggester,
     private val plannedRepository: PlannedRepository,
     private val recipeRepository: RecipeRepository,
     private val ingredientRepository: IngredientRepository,
@@ -117,8 +137,9 @@ class SuggestionsViewModel(
             val lines = recipeRepository.observeAllLines().first()
             val ingredients = ingredientRepository.observeIngredients().first().associateBy { it.id }
             val contents = ingredientRepository.observeContents().first()
-            fun card(id: Long) = recipes[id]?.let { SuggestionCard.of(it, lines, ingredients, contents) }
-            _suggestions.value = Suggestions(ids.mapNotNull(::card), boostId?.let(::card))
+            val week = suggester.week(clock())
+            fun card(id: Long) = recipes[id]?.let { SuggestionCard.of(it, lines, ingredients, contents, week) }
+            _suggestions.value = Suggestions(ids.mapNotNull(::card), boostId?.let(::card), week.points)
         }
     }
 
@@ -127,8 +148,10 @@ class SuggestionsViewModel(
 
 /**
  * Up to three suggested recipes, on the weekend while the week is short of its plant points one more
- * below them to boost those; "Neue Vorschläge" replaces them all. Tapping a card asks for the day to
- * cook it; picking one hands it and the day to [onPlanned], which puts it on Geplant.
+ * below them to boost those; "Neue Vorschläge" replaces them all. The top bar shows this week's plant
+ * points, e.g. "22/30", and each card the ones it would add, e.g. "+4", green when they would reach
+ * the goal. Tapping a card asks for the day to cook it; picking one hands it and the day to
+ * [onPlanned], which puts it on Geplant.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -148,6 +171,9 @@ fun SuggestionsScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
                     }
+                },
+                actions = {
+                    suggestions?.let { WeekPlantPointsScore(it.weekPoints, Modifier.padding(end = 16.dp)) }
                 },
             )
         },
@@ -177,7 +203,7 @@ fun SuggestionsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(current.cards, key = { it.recipeId }) { card ->
-                    SuggestionCardView(card, onClick = { confirmId = card.recipeId })
+                    SuggestionCardView(card, current.reachesGoal(card), onClick = { confirmId = card.recipeId })
                 }
                 current.boost?.let { card ->
                     item(key = "boost") {
@@ -188,7 +214,7 @@ fun SuggestionsScreen(
                         )
                     }
                     item(key = card.recipeId) {
-                        SuggestionCardView(card, onClick = { confirmId = card.recipeId })
+                        SuggestionCardView(card, current.reachesGoal(card), onClick = { confirmId = card.recipeId })
                     }
                 }
             }
@@ -206,11 +232,29 @@ fun SuggestionsScreen(
     }
 }
 
+/** The title row ends with the plant points the recipe adds to this week, green when they [reachGoal]. */
 @Composable
-private fun SuggestionCardView(card: SuggestionCard, onClick: () -> Unit) {
+private fun SuggestionCardView(card: SuggestionCard, reachGoal: Boolean, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(card.snapshot.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    card.snapshot.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                val points = card.newPlantPoints.roundToInt()
+                PlantPointsScore(
+                    text = "+$points",
+                    description = stringResource(
+                        if (points == 1) R.string.suggest_new_plant_points_one else R.string.suggest_new_plant_points_other,
+                        points,
+                    ),
+                    reached = reachGoal,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RecipeStatsRow(card.snapshot.stats, Modifier.weight(1f))
                 CompactCookingTimeChip(card.totalTimeMinutes, Modifier.padding(start = 8.dp))

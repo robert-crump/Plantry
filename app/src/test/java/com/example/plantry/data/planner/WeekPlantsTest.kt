@@ -6,7 +6,6 @@ import com.example.plantry.data.LineUnit
 import com.example.plantry.data.MixComponent
 import com.example.plantry.data.Mixes
 import com.example.plantry.data.Nutrition
-import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.RecipeLine
 import com.example.plantry.data.RecipeStats
@@ -25,25 +24,24 @@ class WeekPlantsTest {
         mapOf(9L to ingredient(9, PlantPoints.QUARTER))
 
     @Test
-    fun loggedAndPlannedRecipesOfThisWeekCount() {
-        val lines = lines(10, 1, 2) + lines(11, 3) + lines(12, 4) + lines(13, 5)
+    fun loggedRecipesOfThisWeekCount() {
+        val lines = lines(10, 1, 2) + lines(11, 3) + lines(12, 4)
         val week = WeekPlants.of(
             today = friday,
-            entries = listOf(entry(10, monday), entry(11, monday.minusDays(1))),
-            planned = listOf(PlannedRecipe(12, monday.plusDays(6)), PlannedRecipe(13, monday.plusWeeks(1))),
+            entries = listOf(entry(10, monday), entry(11, monday.minusDays(1)), entry(12, monday.plusDays(6))),
             lines = lines,
             ingredients = ingredients,
             contents = emptyMap(),
         )
 
-        // Last Sunday's entry and next Monday's plan are in other weeks.
+        // Last Sunday's entry is in the week before.
         assertEquals(setOf(1L, 2L, 4L), week.plants)
         assertEquals(3.0, week.points, 1e-9)
     }
 
     @Test
     fun entriesOfDeletedRecipesAreSkipped() {
-        val week = WeekPlants.of(friday, listOf(entry(null, monday)), emptyList(), lines(10, 1), ingredients, emptyMap())
+        val week = WeekPlants.of(friday, listOf(entry(null, monday)), lines(10, 1), ingredients, emptyMap())
 
         assertEquals(emptySet<Long>(), week.plants)
     }
@@ -52,7 +50,7 @@ class WeekPlantsTest {
     fun mixesAreResolvedToTheirPlants() {
         // 6 is a mix of 1 and 2; 7 a mix of 2 and 3.
         val contents = Mixes.contents(listOf(MixComponent(6, 1), MixComponent(6, 2), MixComponent(7, 2), MixComponent(7, 3)))
-        val week = WeekPlants.of(friday, listOf(entry(10, monday)), emptyList(), lines(10, 6), ingredients, contents)
+        val week = WeekPlants.of(friday, listOf(entry(10, monday)), lines(10, 6), ingredients, contents)
 
         assertEquals(setOf(1L, 2L), week.plants)
         // Of the mix 7 only 3 is new, 1 is in already; 9 adds its quarter.
@@ -65,6 +63,16 @@ class WeekPlantsTest {
 
         assertFalse(WeekPlants((1L..29L).toSet(), many, emptyMap()).goalReached)
         assertTrue(WeekPlants((1L..30L).toSet(), many, emptyMap()).goalReached)
+    }
+
+    @Test
+    fun goalReachedWith_onlyWhenTheRecipeTakesTheWeekThere() {
+        assertTrue(plantPointsGoalReachedWith(26.0, 4.0))
+        assertFalse(plantPointsGoalReachedWith(26.0, 3.0))
+        // Rounded as shown: 29.5 is "30/30".
+        assertTrue(plantPointsGoalReachedWith(25.75, 3.75))
+        // Already there, nothing left to reach.
+        assertFalse(plantPointsGoalReachedWith(30.0, 2.0))
     }
 
     private fun lines(recipeId: Long, vararg ingredientIds: Long) = ingredientIds.mapIndexed { position, id ->

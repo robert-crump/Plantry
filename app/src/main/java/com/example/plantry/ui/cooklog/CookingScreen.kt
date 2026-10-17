@@ -32,7 +32,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -78,8 +77,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -88,8 +85,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
-import com.example.plantry.data.planner.WeeklyPlantPointsGoal
-import com.example.plantry.data.planner.plantPointsGoalReached
 import com.example.plantry.data.CookLog
 import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.Cooked
@@ -110,7 +105,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 class CookingViewModel(
     private val repository: CookLogRepository,
@@ -435,25 +429,7 @@ private fun WeekHeader(text: String, plantPoints: Double?) {
         ) {
             val color = MaterialTheme.colorScheme.onSurfaceVariant
             Text(text, style = MaterialTheme.typography.titleSmall, color = color, modifier = Modifier.weight(1f))
-            if (plantPoints != null) {
-                val points = plantPoints.roundToInt()
-                val reached = plantPointsGoalReached(plantPoints)
-                val description = stringResource(R.string.cook_week_plant_points, points, WeeklyPlantPointsGoal)
-                Row(
-                    Modifier.clearAndSetSemantics { contentDescription = description },
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val tint = if (reached) highlightGreen else color
-                    Icon(Icons.Filled.Eco, contentDescription = null, Modifier.size(16.dp), tint = tint)
-                    Text(
-                        "$points/$WeeklyPlantPointsGoal",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = tint,
-                        fontWeight = if (reached) FontWeight.Bold else null,
-                    )
-                }
-            }
+            if (plantPoints != null) WeekPlantPointsScore(plantPoints)
         }
     }
 }
