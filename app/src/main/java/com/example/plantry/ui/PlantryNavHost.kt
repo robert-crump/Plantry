@@ -209,6 +209,14 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
     val currentTopLevel = TopLevelDestination.entries.firstOrNull { top ->
         currentDestination?.hasRoute(top.route::class) == true
     }?.takeUnless { filteredRecipeList }
+    // A recipe's detail and edit screens keep the bottom bar, with the tab they were opened from selected.
+    val backStack by navController.currentBackStack.collectAsStateWithLifecycle()
+    val keepsBottomBar = currentDestination?.hasRoute(RecipeDetailRoute::class) == true ||
+        currentDestination?.hasRoute(RecipeEditRoute::class) == true
+    val selectedTab = currentTopLevel ?: backStack.takeIf { keepsBottomBar }?.asReversed()?.firstNotNullOfOrNull { entry ->
+        TopLevelDestination.entries.firstOrNull { entry.destination.hasRoute(it.route::class) }
+            ?.takeUnless { entry.destination.hasRoute(RecipeListRoute::class) && entry.toRoute<RecipeListRoute>().ingredientId != null }
+    }
 
     // Checked on every resume; "Später" hides it until the app is restarted.
     val backupReminder by app.backupRepository.reminder.collectAsStateWithLifecycle()
@@ -231,11 +239,11 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
         // Each screen handles its own insets; this Scaffold only adds the bottom bar.
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
-            if (currentTopLevel != null) {
+            if (selectedTab != null) {
                 NavigationBar {
                     TopLevelDestination.entries.forEach { top ->
                         NavigationBarItem(
-                            selected = top == currentTopLevel,
+                            selected = top == selectedTab,
                             onClick = {
                                 navController.navigate(top.route) {
                                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -243,7 +251,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                                     restoreState = true
                                 }
                                 // Not on a detail round trip, which doesn't go through the tab.
-                                if (top == TopLevelDestination.INGREDIENTS && currentTopLevel != top) {
+                                if (top == TopLevelDestination.INGREDIENTS && selectedTab != top) {
                                     navController.getBackStackEntry<IngredientListRoute>()
                                         .savedStateHandle[RESET_INGREDIENT_FILTERS] = true
                                 }
