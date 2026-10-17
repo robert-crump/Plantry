@@ -9,24 +9,31 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 
-/** The photo of a recipe's cookbook page, as compressed JPEG bytes. */
+/** The photos of a recipe's cookbook pages, in order, as compressed JPEG bytes. */
 class RecipePhotoRepository(private val store: PhotoStore) {
 
-    /** Bumped on every change, so observers re-read their photo. */
+    /** Bumped on every change, so observers re-read their photos. */
     private val version = MutableStateFlow(0)
 
-    fun observe(recipeId: Long): Flow<ByteArray?> =
-        version.map { store.get(recipeId) }.flowOn(Dispatchers.IO)
+    fun observe(recipeId: Long): Flow<List<ByteArray>> =
+        version.map { store.list(recipeId) }.flowOn(Dispatchers.IO)
 
-    suspend fun get(recipeId: Long): ByteArray? = withContext(Dispatchers.IO) { store.get(recipeId) }
+    suspend fun get(recipeId: Long): List<ByteArray> = withContext(Dispatchers.IO) { store.list(recipeId) }
 
-    suspend fun save(recipeId: Long, bytes: ByteArray) {
-        withContext(Dispatchers.IO) { store.put(recipeId, bytes) }
+    /** Appends [bytes] as the last page. */
+    suspend fun add(recipeId: Long, bytes: ByteArray) {
+        withContext(Dispatchers.IO) { store.add(recipeId, bytes) }
         version.update { it + 1 }
     }
 
-    suspend fun delete(recipeId: Long) {
-        withContext(Dispatchers.IO) { store.delete(recipeId) }
+    /** Removes the pages at [indexes] of [get]. */
+    suspend fun delete(recipeId: Long, indexes: Set<Int>) {
+        withContext(Dispatchers.IO) { indexes.sortedDescending().forEach { store.delete(recipeId, it) } }
+        version.update { it + 1 }
+    }
+
+    suspend fun deleteAll(recipeId: Long) {
+        withContext(Dispatchers.IO) { store.deleteAll(recipeId) }
         version.update { it + 1 }
     }
 }

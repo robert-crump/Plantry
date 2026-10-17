@@ -299,7 +299,7 @@ class RecipeEditViewModel(
             viewModelScope.launch {
                 val recipe = repository.getRecipe(recipeId) ?: return@launch
                 val lines = repository.getLines(recipeId)
-                val photo = photos.get(recipeId)
+                val photo = photos.get(recipeId).firstOrNull()
                 val form = RecipeForm.from(recipe, lines)
                 _state.update { it.copy(form = form, loadedForm = form, photo = it.photo ?: photo) }
             }
@@ -626,7 +626,7 @@ class RecipeEditViewModel(
             val saved = draft.withIngredientIds(newIds)
             ingredientRepository.learnAliases(state.form.aliasesToLearn(newIds))
             val id = recipeId?.also { repository.update(it, saved) } ?: repository.create(saved)
-            if (state.photoChanged && state.photo != null) photos.save(id, state.photo)
+            if (state.photoChanged && state.photo != null) photos.add(id, state.photo)
             if (state.scanning) bookSession.remember(saved.source, saved.page)
             _state.update { it.copy(saved = true) }
         }

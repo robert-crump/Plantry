@@ -1,5 +1,5 @@
 {
-    "formatVersion": 2,
+    "formatVersion": 3,
     "settings": {
         "scanModel": "opus",
         "cooldownDays": 21
@@ -871,7 +871,7 @@
             "page": 12,
             "servings": 2,
             "modified": false,
-            "photo": null,
+            "photos": [],
             "lines": [
                 {
                     "id": 1,
@@ -955,7 +955,7 @@
             "page": 34,
             "servings": 2,
             "modified": false,
-            "photo": null,
+            "photos": [],
             "lines": [
                 {
                     "id": 11,
@@ -1025,7 +1025,7 @@
             "page": 56,
             "servings": 4,
             "modified": false,
-            "photo": null,
+            "photos": [],
             "lines": [
                 {
                     "id": 19,
@@ -1109,7 +1109,7 @@
             "page": 78,
             "servings": 2,
             "modified": false,
-            "photo": null,
+            "photos": [],
             "lines": [
                 {
                     "id": 29,
@@ -1179,7 +1179,7 @@
             "page": 90,
             "servings": 2,
             "modified": false,
-            "photo": null,
+            "photos": [],
             "lines": [
                 {
                     "id": 37,
@@ -1242,7 +1242,7 @@
             "page": 102,
             "servings": 2,
             "modified": false,
-            "photo": null,
+            "photos": [],
             "lines": [
                 {
                     "id": 44,
@@ -1312,7 +1312,7 @@
             "page": 64,
             "servings": 2,
             "modified": false,
-            "photo": null,
+            "photos": [],
             "lines": [
                 {
                     "id": 52,
@@ -1375,7 +1375,7 @@
             "page": null,
             "servings": 2,
             "modified": false,
-            "photo": null,
+            "photos": [],
             "lines": [
                 {
                     "id": 59,
@@ -1445,7 +1445,7 @@
             "page": null,
             "servings": 4,
             "modified": true,
-            "photo": null,
+            "photos": [],
             "lines": [
                 {
                     "id": 67,
@@ -1515,7 +1515,7 @@
             "page": 120,
             "servings": 1,
             "modified": false,
-            "photo": null,
+            "photos": [],
             "lines": [
                 {
                     "id": 75,
@@ -1564,7 +1564,7 @@
             "page": null,
             "servings": 1,
             "modified": false,
-            "photo": null,
+            "photos": [],
             "lines": [
                 {
                     "id": 80,

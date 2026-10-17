@@ -23,6 +23,7 @@ import com.example.plantry.data.settings.SettingsStorage
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
@@ -41,7 +42,7 @@ class BackupRepositoryTest {
 
     private val source = Device().apply {
         store.data = sampleData()
-        photos.photos = mapOf(2L to byteArrayOf(1, 2, 3, -1))
+        photos.photos = mapOf(2L to listOf(byteArrayOf(1, 2, 3, -1), byteArrayOf(4)))
         settings.setApiKey(apiKey)
         settings.setScanModel(ScanModel.SONNET)
         settings.setCooldownDays(14)
@@ -54,27 +55,29 @@ class BackupRepositoryTest {
                 ingredients = listOf(ingredient(id = 99, name = "Alt")),
                 recipes = emptyList(), lines = emptyList(), cookLog = emptyList(),
             )
-            photos.photos = mapOf(99L to byteArrayOf(9))
+            photos.photos = mapOf(99L to listOf(byteArrayOf(9)))
         }
 
         val json = source.export()
         target.repository.import(target.repository.read(json))
 
         assertEquals(source.store.data, target.store.data)
-        assertEquals(source.photos.photos.mapValues { it.value.toList() }, target.photos.photos.mapValues { it.value.toList() })
+        assertEquals(source.photos.contents(), target.photos.contents())
         assertEquals(ScanModel.SONNET, target.settings.settings.value.scanModel)
         assertEquals(14, target.settings.settings.value.cooldownDays)
         assertEquals(json, target.export())
     }
 
     @Test
-    fun export_neverContainsApiKey_andEmbedsPhotoAsBase64() = runTest {
+    fun export_neverContainsApiKey_andEmbedsPhotosAsBase64() = runTest {
         val json = source.export()
 
         assertFalse(json.contains(apiKey))
         assertFalse(json.contains(apiKey.reversed()))
-        assertTrue(json.contains("\"photo\": \"AQID/w==\""))
-        assertTrue(json.contains("\"formatVersion\": 2"))
+        assertTrue(json.replace(Regex("\\s+"), "").contains("\"photos\":[\"AQID/w==\",\"BA==\"]"))
+        assertTrue(json.contains("\"photos\": []"))
+        assertFalse(json.contains("\"photo\":"))
+        assertTrue(json.contains("\"formatVersion\": 3"))
         assertTrue(json.contains("\"dish\": \"MAIN\""))
         assertFalse(json.contains("\"reviewed\""))
         assertFalse(json.contains("\"origin\""))
@@ -113,7 +116,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 2,", "\"formatVersion\": 3,")
+        val newer = source.export().replace("\"formatVersion\": 3,", "\"formatVersion\": 4,")
 
         val error = readError(newer)
 
@@ -148,6 +151,24 @@ class BackupRepositoryTest {
         target.repository.import(target.repository.read(format1))
 
         assertEquals(source.store.data.copy(components = emptyList()), target.store.data)
+    }
+
+    @Test
+    fun read_takesTheOnePhotoOfAFormat2FileAsTheFirstPage() = runTest {
+        val file = Json.parseToJsonElement(source.export()).jsonObject
+        val recipes = JsonArray(
+            file.getValue("recipes").jsonArray.map { recipe ->
+                val pages = recipe.jsonObject.getValue("photos").jsonArray
+                JsonObject(recipe.jsonObject - "photos" + ("photo" to (pages.firstOrNull() ?: JsonNull)))
+            },
+        )
+        val format2 = JsonObject(file + ("formatVersion" to JsonPrimitive(2)) + ("recipes" to recipes)).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(format2))
+
+        assertEquals(source.store.data, target.store.data)
+        assertEquals(mapOf(2L to listOf(listOf<Byte>(1, 2, 3, -1))), target.photos.contents())
     }
 
     @Test
@@ -359,15 +380,22 @@ private class FakePhotoStore : PhotoStore {
         this.photos = photos
     }
 
-    override fun get(recipeId: Long) = photos[recipeId]
+    override fun list(recipeId: Long) = photos[recipeId].orEmpty()
 
-    override fun put(recipeId: Long, bytes: ByteArray) {
-        photos = photos + (recipeId to bytes)
+    override fun add(recipeId: Long, bytes: ByteArray) {
+        photos = photos + (recipeId to list(recipeId) + bytes)
     }
 
-    override fun delete(recipeId: Long) {
+    override fun delete(recipeId: Long, index: Int) {
+        photos = photos + (recipeId to list(recipeId).filterIndexed { i, _ -> i != index })
+    }
+
+    override fun deleteAll(recipeId: Long) {
         photos = photos - recipeId
     }
+
+    /** Comparable by value, unlike the arrays. */
+    fun contents() = photos.mapValues { (_, pages) -> pages.map { it.toList() } }
 }
 
 /** Also used by [EmulatorSeederTest]. */

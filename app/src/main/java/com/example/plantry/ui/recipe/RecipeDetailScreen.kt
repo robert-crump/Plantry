@@ -107,12 +107,12 @@ class RecipeDetailViewModel(
     private val repository: RecipeRepository,
     ingredientRepository: IngredientRepository,
     private val plannedRepository: PlannedRepository,
-    private val photos: RecipePhotoRepository,
+    private val photoRepository: RecipePhotoRepository,
     private val clock: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
-    /** The cookbook page photo, if the recipe has one. */
-    val photo: StateFlow<ByteArray?> = photos.observe(recipeId)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    /** The photos of the cookbook pages, in order. */
+    val photos: StateFlow<List<ByteArray>> = photoRepository.observe(recipeId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Null until loaded, and after the recipe was deleted. */
     val state: StateFlow<RecipeDetailUiState?> = combine(
@@ -152,7 +152,7 @@ class RecipeDetailViewModel(
     fun delete(onDeleted: () -> Unit) {
         viewModelScope.launch {
             repository.delete(recipeId)
-            photos.delete(recipeId)
+            photoRepository.deleteAll(recipeId)
             onDeleted()
         }
     }
@@ -170,7 +170,7 @@ fun RecipeDetailScreen(
     onPlanned: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val photo by viewModel.photo.collectAsStateWithLifecycle()
+    val photos by viewModel.photos.collectAsStateWithLifecycle()
     val recipe = state?.recipe
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var pickPlanDate by rememberSaveable { mutableStateOf(false) }
@@ -218,8 +218,8 @@ fun RecipeDetailScreen(
             if (detail.highlights.isNotEmpty()) {
                 HighlightTags(detail.highlights, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
             }
-            photo?.let { bytes ->
-                PhotoRoll(listOf(bytes), onOpen = { openPhoto = it }, Modifier.padding(top = 16.dp))
+            if (photos.isNotEmpty()) {
+                PhotoRoll(photos, onOpen = { openPhoto = it }, Modifier.padding(top = 16.dp))
             }
             // Without lines a 0 would say nothing.
             MetadataCard(current, plantPoints = detail.stats.roundedPlantPoints.takeIf { detail.lines.isNotEmpty() })
@@ -250,7 +250,7 @@ fun RecipeDetailScreen(
             Spacer(Modifier.height(16.dp))
         }
 
-        val openBytes = openPhoto?.let { listOfNotNull(photo).getOrNull(it) }
+        val openBytes = openPhoto?.let { photos.getOrNull(it) }
         if (openBytes != null) {
             PhotoViewer(openBytes, onClose = { openPhoto = null })
         }

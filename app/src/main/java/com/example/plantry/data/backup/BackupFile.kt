@@ -52,9 +52,10 @@ data class BackupFile(
         /**
          * Restarted at 1 with structured recipe lines and ingredient units; files of the format
          * before (versions 2 to 15, without units) are no longer read. 2 adds the mix components
-         * ([BackupIngredient.contains]); a format-1 file reads as one without mixes.
+         * ([BackupIngredient.contains]); a format-1 file reads as one without mixes. 3 has several
+         * photos per recipe ([BackupRecipe.photos]); an earlier file's one photo is the first page.
          */
-        const val FORMAT_VERSION = 2
+        const val FORMAT_VERSION = 3
 
         /** The oldest format since the restart; still read. */
         private const val FIRST_FORMAT_VERSION = 1
@@ -158,8 +159,10 @@ data class BackupRecipe(
     val activeTimeMinutes: Int?,
     val modified: Boolean,
     val dish: Dish,
-    /** The recipe photo, Base64-encoded; null when the recipe has none. */
-    val photo: String?,
+    /** The photos of the cookbook pages in order, Base64-encoded; empty when the recipe has none. */
+    @EncodeDefault val photos: List<String> = emptyList(),
+    /** The one photo of formats 1 and 2, read into [photos]; never written. */
+    val photo: String? = null,
     /** In recipe order. */
     val lines: List<BackupLine>,
 )
@@ -203,8 +206,8 @@ data class BackupSnapshot(
     val components: List<MixComponent> = emptyList(),
 )
 
-/** Recipe photos by recipe id. */
-typealias Photos = Map<Long, ByteArray>
+/** Recipe photos by recipe id, the pages in order; a recipe without photos may be missing. */
+typealias Photos = Map<Long, List<ByteArray>>
 
 fun BackupSnapshot.toFile(photos: Photos, settings: BackupSettings): BackupFile {
     val linesByRecipe = lines.groupBy { it.recipeId }
@@ -218,7 +221,7 @@ fun BackupSnapshot.toFile(photos: Photos, settings: BackupSettings): BackupFile 
         },
         recipes = recipes.map { recipe ->
             recipe.toBackup(
-                photo = photos[recipe.id]?.let(Base64.getEncoder()::encodeToString),
+                photos = photos[recipe.id].orEmpty().map(Base64.getEncoder()::encodeToString),
                 lines = linesByRecipe[recipe.id].orEmpty().sortedBy { it.position },
             )
         },
@@ -280,7 +283,11 @@ fun BackupFile.toSnapshot(): BackupSnapshot = try {
 }
 
 fun BackupFile.photos(): Photos = try {
-    recipes.mapNotNull { recipe -> recipe.photo?.let { recipe.id to Base64.getDecoder().decode(it) } }.toMap()
+    recipes.mapNotNull { recipe ->
+        recipe.photos.ifEmpty { listOfNotNull(recipe.photo) }
+            .takeIf { it.isNotEmpty() }
+            ?.let { pages -> recipe.id to pages.map(Base64.getDecoder()::decode) }
+    }.toMap()
 } catch (e: IllegalArgumentException) {
     throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP, e)
 }
@@ -310,7 +317,7 @@ private fun BackupIngredient.toEntity() = Ingredient(
     labelSource = if (labelProduct != null && labelBarcode != null) LabelSource(labelProduct, labelBarcode) else null,
 )
 
-private fun Recipe.toBackup(photo: String?, lines: List<RecipeIngredient>) = BackupRecipe(
+private fun Recipe.toBackup(photos: List<String>, lines: List<RecipeIngredient>) = BackupRecipe(
     id = id,
     title = title,
     source = source,
@@ -320,7 +327,7 @@ private fun Recipe.toBackup(photo: String?, lines: List<RecipeIngredient>) = Bac
     activeTimeMinutes = activeTimeMinutes,
     modified = modified,
     dish = dish,
-    photo = photo,
+    photos = photos,
     lines = lines.map { BackupLine(it.id, it.amount, it.unit.code, it.ingredientId, it.wording) },
 )
 
