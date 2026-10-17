@@ -27,6 +27,12 @@ import androidx.compose.ui.unit.dp
 class FilterRow(val label: String, val chips: @Composable FlowRowScope.() -> Unit)
 
 /**
+ * A chip is 32dp tall inside a 48dp touch target; overlapping the targets by this much leaves
+ * the same visible 8dp between chips above each other as beside each other.
+ */
+private val ChipRowSpacing = (-8).dp
+
+/**
  * [rows] under each other, their labels in a column as wide as the widest, so every row's first
  * chip lines up; chips that don't fit wrap within their own column.
  */
@@ -36,7 +42,7 @@ fun FilterRows(rows: List<FilterRow>, modifier: Modifier = Modifier) {
     val style = MaterialTheme.typography.bodyMedium
     val measurer = rememberTextMeasurer()
     val labelWidth = with(LocalDensity.current) { rows.maxOf { measurer.measure(it.label, style).size.width }.toDp() }
-    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(ChipRowSpacing)) {
         rows.forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -48,6 +54,7 @@ fun FilterRows(rows: List<FilterRow>, modifier: Modifier = Modifier) {
                 FlowRow(
                     Modifier.weight(1f).alignByBaseline(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(ChipRowSpacing),
                     content = row.chips,
                 )
             }
