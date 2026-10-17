@@ -7,9 +7,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -78,8 +78,10 @@ import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.nutritionLines
 import com.example.plantry.ui.HideOnScrollFab
 import com.example.plantry.ui.cooklog.PlanDatePickerDialog
-import com.example.plantry.ui.cooklog.RecipeStatsRow
+import com.example.plantry.ui.cooklog.icon
+import com.example.plantry.ui.cooklog.label
 import com.example.plantry.ui.rememberFabVisibility
+import com.example.plantry.ui.theme.highlightGreen
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -172,6 +174,8 @@ fun RecipeDetailScreen(
     val recipe = state?.recipe
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var pickPlanDate by rememberSaveable { mutableStateOf(false) }
+    // The photo open over the whole screen, by its index in the roll.
+    var openPhoto by rememberSaveable { mutableStateOf<Int?>(null) }
     // Opening state of the Nährwerte rows; closed whenever the screen opens.
     var openNutrients by remember { mutableStateOf(emptySet<Nutrient>()) }
     val fab = rememberFabVisibility()
@@ -211,25 +215,14 @@ fun RecipeDetailScreen(
                 .nestedScroll(fab.connection)
                 .verticalScroll(rememberScrollState()),
         ) {
-            // Without lines its zeros would say nothing.
-            if (detail.lines.isNotEmpty()) {
-                RecipeStatsRow(
-                    detail.stats,
-                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
-                    highlights = detail.highlights,
-                    large = true,
-                )
+            if (detail.highlights.isNotEmpty()) {
+                HighlightTags(detail.highlights, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
             }
             photo?.let { bytes ->
-                ZoomablePhoto(
-                    bytes,
-                    Modifier
-                        .fillMaxWidth()
-                        .height(320.dp)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                )
+                PhotoRoll(listOf(bytes), onOpen = { openPhoto = it }, Modifier.padding(top = 16.dp))
             }
-            MetadataCard(current)
+            // Without lines a 0 would say nothing.
+            MetadataCard(current, plantPoints = detail.stats.roundedPlantPoints.takeIf { detail.lines.isNotEmpty() })
 
             DetailCard {
                 SectionTitle(R.string.recipe_section_lines)
@@ -255,6 +248,11 @@ fun RecipeDetailScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
+        }
+
+        val openBytes = openPhoto?.let { listOfNotNull(photo).getOrNull(it) }
+        if (openBytes != null) {
+            PhotoViewer(openBytes, onClose = { openPhoto = null })
         }
 
         if (pickPlanDate) {
@@ -332,9 +330,12 @@ private fun DetailCard(content: @Composable () -> Unit) {
     }
 }
 
-/** The same for every Art: Arbeitszeit | Gesamtzeit, Portionen | Art, then Quelle at full width. */
+/**
+ * The same for every Art: Arbeitszeit | Gesamtzeit, Portionen | Pflanzenpunkte, Art in the left half,
+ * then Quelle at full width. [plantPoints] null shows "—".
+ */
 @Composable
-private fun MetadataCard(recipe: Recipe) {
+private fun MetadataCard(recipe: Recipe, plantPoints: Int?) {
     DetailCard {
         Column(
             Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
@@ -346,9 +347,47 @@ private fun MetadataCard(recipe: Recipe) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 MetadataCell(R.string.recipe_servings, Modifier.weight(1f)) { MetadataValue(recipe.servings.toString()) }
+                MetadataCell(R.string.recipe_plant_points, Modifier.weight(1f)) {
+                    MetadataValue(plantPoints?.toString() ?: stringResource(R.string.recipe_time_none))
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 MetadataCell(R.string.recipe_dish, Modifier.weight(1f)) { MetadataValue(stringResource(recipe.dish.label)) }
+                Spacer(Modifier.weight(1f))
             }
             MetadataCell(R.string.recipe_source, Modifier.fillMaxWidth()) { MetadataValue(sourceLabel(recipe)) }
+        }
+    }
+}
+
+/** A green tag per highlight, wrapping onto a second line when they don't fit. Not tappable. */
+@Composable
+private fun HighlightTags(highlights: Set<RecipeHighlight>, modifier: Modifier = Modifier) {
+    FlowRow(
+        modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        RecipeHighlight.entries.filter { it in highlights }.forEach { HighlightTag(it) }
+    }
+}
+
+@Composable
+private fun HighlightTag(highlight: RecipeHighlight) {
+    val green = highlightGreen
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = green.copy(alpha = 0.12f),
+        contentColor = green,
+        border = BorderStroke(1.dp, green),
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(highlight.icon, contentDescription = null, Modifier.size(18.dp))
+            Text(stringResource(highlight.label), style = MaterialTheme.typography.labelLarge)
         }
     }
 }

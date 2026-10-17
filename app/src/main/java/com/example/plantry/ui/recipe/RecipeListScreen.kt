@@ -66,7 +66,6 @@ import com.example.plantry.data.IngredientSuggestions
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeChip
 import com.example.plantry.data.RecipeFilter
-import com.example.plantry.data.RecipeHighlight
 import com.example.plantry.data.RecipeListItem
 import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
@@ -301,7 +300,7 @@ private fun FilterBar(state: RecipeListUiState, onToggle: (RecipeChip) -> Unit) 
         },
         {
             RecipeChip.HIGHLIGHTS.forEach { chip ->
-                ToggleChip(stringResource(chip.highlight.chipLabel), chip in active) { onToggle(chip) }
+                ToggleChip(stringResource(chip.highlight.label), chip in active) { onToggle(chip) }
             }
         },
         if (ingredients.isEmpty()) {
@@ -328,15 +327,6 @@ private fun FilterBar(state: RecipeListUiState, onToggle: (RecipeChip) -> Unit) 
         )
     }
 }
-
-/** The nutrient chip's name. */
-private val RecipeHighlight.chipLabel: Int
-    get() = when (this) {
-        RecipeHighlight.HIGH_PROTEIN -> R.string.filter_protein
-        RecipeHighlight.HIGH_CARB -> R.string.filter_carbs
-        RecipeHighlight.HIGH_FIBRE -> R.string.filter_fibre
-        RecipeHighlight.PLANT_POINT_POWER, RecipeHighlight.LOW_CALORIE -> label
-    }
 
 @Composable
 private fun IngredientFilterDialog(

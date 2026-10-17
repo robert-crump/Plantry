@@ -328,10 +328,7 @@ class RecipeQueryTest {
         val chips = RecipeChip.HIGHLIGHTS.fold(ChipSelection<RecipeChip>()) { selection, chip -> selection.toggle(chip) }
 
         assertEquals(RecipeChip.HIGHLIGHTS, chips.active)
-        assertEquals(
-            setOf(RecipeHighlight.HIGH_PROTEIN, RecipeHighlight.HIGH_CARB, RecipeHighlight.HIGH_FIBRE),
-            RecipeFilter.of(chips.active).highlights,
-        )
+        assertEquals(RecipeHighlight.entries.toSet(), RecipeFilter.of(chips.active).highlights)
     }
 
     @Test

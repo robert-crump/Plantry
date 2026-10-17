@@ -60,9 +60,8 @@ sealed interface RecipeChip : FilterChoice {
         /** "Schnell zubereitet". */
         val EASY = MaxActiveTime(20)
 
-        /** Protein, carbs and fibre per portion, in this order. */
-        val HIGHLIGHTS = listOf(RecipeHighlight.HIGH_PROTEIN, RecipeHighlight.HIGH_CARB, RecipeHighlight.HIGH_FIBRE)
-            .map(::WithHighlight)
+        /** Every highlight, in [RecipeHighlight]'s order. */
+        val HIGHLIGHTS = RecipeHighlight.entries.map(::WithHighlight)
 
         /** Hauptgericht, Frühstück and Snack. */
         val DISHES = Dish.entries.map(::OfDish)

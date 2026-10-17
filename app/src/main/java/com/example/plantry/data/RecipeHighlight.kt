@@ -2,23 +2,23 @@ package com.example.plantry.data
 
 /**
  * What makes a recipe stand out, judged on the rounded numbers the stats row shows, so a
- * highlighted number never contradicts its threshold.
+ * highlighted number never contradicts its threshold. In the order the tags and filter chips show them.
  */
 enum class RecipeHighlight {
-    /** "High-Protein": at least [PROTEIN_MIN] g protein per portion. */
-    HIGH_PROTEIN,
-
-    /** "High-Carb": at least [CARBS_MIN] g carbs per portion, e.g. before a long ride. */
-    HIGH_CARB,
-
     /** "Pflanzenpunkte-Power": at least [PLANT_POINTS_MIN] plant points. */
     PLANT_POINT_POWER,
 
+    /** "Protein-Power": at least [PROTEIN_MIN] g protein per portion. */
+    HIGH_PROTEIN,
+
+    /** "Carb-Booster": at least [CARBS_MIN] g carbs per portion, e.g. before a long ride. */
+    HIGH_CARB,
+
+    /** "Ballaststoff-Bombe": at least [FIBRE_MIN] g fibre per portion. */
+    HIGH_FIBRE,
+
     /** "Kalorienarm": at most [KCAL_MAX] kcal per portion. */
     LOW_CALORIE,
-
-    /** "Ballaststoffreich": at least [FIBRE_MIN] g fibre per portion. */
-    HIGH_FIBRE,
     ;
 
     companion object {
