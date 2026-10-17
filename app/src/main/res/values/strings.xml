@@ -27,6 +27,7 @@
     <string name="recipe_source">Quelle</string>
     <string name="recipe_dish">Art</string>
     <string name="dish_main">Hauptgericht</string>
+    <string name="dish_breakfast">Frühstück</string>
     <string name="dish_snack">Snack</string>
     <string name="recipe_page">Seite</string>
     <string name="recipe_servings">Portionen</string>
@@ -45,6 +46,7 @@
     <string name="recipe_minutes_compact_missing">?</string>
     <string name="recipe_total_time_spoken">Gesamtzeit: %1$s</string>
     <string name="recipe_cooking_time_missing">Unbekannt</string>
+    <string name="recipe_time_none">—</string>
     <string name="recipe_sort">Sortieren</string>
     <string name="recipe_sort_title">A–Z</string>
     <string name="recipe_sort_protein">Eiweiß je Portion</string>

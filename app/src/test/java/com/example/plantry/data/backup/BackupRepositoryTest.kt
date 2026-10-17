@@ -275,6 +275,7 @@ class BackupRepositoryTest {
                 Recipe(2, "Curry", "Kochbuch", 42, 2, 30, modified = true, activeTimeMinutes = 15),
                 Recipe(7, "Chili", "", null, 2, totalTimeMinutes = null),
                 Recipe(8, "Skyr mit Banane", "", null, 1, totalTimeMinutes = 2, dish = Dish.SNACK),
+                Recipe(9, "Porridge", "Frühstücksbuch", 7, 1, totalTimeMinutes = 10, dish = Dish.BREAKFAST, activeTimeMinutes = 5),
             ),
             lines = listOf(
                 RecipeIngredient(10, 2, 0, 1.5, LineUnit.Of(PieceUnit.PIECE), 3),

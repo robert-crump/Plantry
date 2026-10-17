@@ -284,10 +284,15 @@ class RecipeQueryTest {
 
     @Test
     fun dishFilter_showsOnlyThatDish() {
-        val recipes = listOf(recipe(1, "Dal"), recipe(2, "Skyr mit Banane").copy(dish = Dish.SNACK))
+        val recipes = listOf(
+            recipe(1, "Dal"),
+            recipe(2, "Skyr mit Banane").copy(dish = Dish.SNACK),
+            recipe(3, "Porridge").copy(dish = Dish.BREAKFAST),
+        )
 
         assertEquals(listOf("Skyr mit Banane"), run(recipes, filter = RecipeFilter(dish = Dish.SNACK)).titles())
         assertEquals(listOf("Dal"), run(recipes, filter = RecipeFilter(dish = Dish.MAIN)).titles())
+        assertEquals(listOf("Porridge"), run(recipes, filter = RecipeFilter(dish = Dish.BREAKFAST)).titles())
     }
 
     @Test

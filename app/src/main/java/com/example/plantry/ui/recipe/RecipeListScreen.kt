@@ -425,6 +425,7 @@ private val RecipeSort.label: Int
 internal val Dish.label: Int
     get() = when (this) {
         Dish.MAIN -> R.string.dish_main
+        Dish.BREAKFAST -> R.string.dish_breakfast
         Dish.SNACK -> R.string.dish_snack
     }
 

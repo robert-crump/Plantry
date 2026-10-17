@@ -41,7 +41,11 @@ class RecipeFormTest {
 
         assertEquals(Dish.SNACK, snack.dish)
         assertEquals("1", snack.servings)
-        assertFalse(snack.isMain)
+    }
+
+    @Test
+    fun withDish_breakfastKeepsServingsEmpty() {
+        assertEquals("", RecipeForm().withDish(Dish.BREAKFAST).servings)
     }
 
     @Test
@@ -58,26 +62,40 @@ class RecipeFormTest {
     }
 
     @Test
-    fun snack_savesHiddenFieldsEmpty() {
+    fun everyDish_keepsSourcePageAndTimesOnSave() {
         val main = valid.copy(source = "Buch", page = "12", activeTime = "10").withLine(null, tofu)
 
-        val draft = main.withDish(Dish.SNACK).toDraft()!!
+        for (dish in Dish.entries) {
+            val draft = main.withDish(dish).toDraft()!!
 
-        assertEquals("", draft.source)
-        assertNull(draft.page)
-        assertNull(draft.activeTimeMinutes)
-        assertNull(draft.totalTimeMinutes)
-        assertEquals(4, draft.servings)
-        assertEquals(Dish.SNACK, draft.dish)
+            assertEquals("Buch", draft.source)
+            assertEquals(12, draft.page)
+            assertEquals(10, draft.activeTimeMinutes)
+            assertEquals(45, draft.totalTimeMinutes)
+            assertEquals(4, draft.servings)
+            assertEquals(dish, draft.dish)
+        }
     }
 
     @Test
-    fun snack_ignoresInvalidHiddenFields_andKeepsThemForSwitchingBack() {
-        val snack = valid.copy(page = "abc", activeTime = "50", totalTime = "x").withLine(null, tofu).withDish(Dish.SNACK)
+    fun everyDish_validatesPageAndTimes() {
+        for (dish in Dish.entries) {
+            val errors = valid.copy(page = "abc", activeTime = "0", totalTime = "x").withLine(null, tofu).withDish(dish).errors()
 
-        assertFalse(snack.errors().hasAny)
-        assertTrue(snack.withDish(Dish.MAIN).errors().page)
-        assertEquals("abc", snack.withDish(Dish.MAIN).page)
+            assertTrue(errors.page)
+            assertTrue(errors.activeTime)
+            assertTrue(errors.totalTime)
+        }
+    }
+
+    @Test
+    fun everyDish_needsOnlyTitleServingsAndALine() {
+        for (dish in Dish.entries) {
+            val form = RecipeForm(title = "Porridge", servings = "1").withDish(dish)
+
+            assertTrue(form.errors().noLines)
+            assertEquals(dish, form.withLine(null, tofu).toDraft()?.dish)
+        }
     }
 
     @Test
@@ -86,11 +104,16 @@ class RecipeFormTest {
     }
 
     @Test
-    fun dish_newFormIsMainDish_andAnExistingSnackStaysOne() {
-        val snack = Recipe(1, "Porridge", "", null, servings = 1, totalTimeMinutes = 10, dish = Dish.SNACK)
+    fun dish_newFormIsMainDish_andAnExistingSnackOrBreakfastStaysOne() {
+        val snack = Recipe(1, "Skyr", "", null, servings = 1, totalTimeMinutes = 10, dish = Dish.SNACK)
+        val breakfast = Recipe(2, "Porridge", "Buch", 12, servings = 1, totalTimeMinutes = 10, dish = Dish.BREAKFAST)
 
         assertEquals(Dish.MAIN, valid.withLine(null, tofu).toDraft()?.dish)
         assertEquals(Dish.SNACK, RecipeForm.from(snack, emptyList()).withLine(null, tofu).toDraft()?.dish)
+        val draft = RecipeForm.from(breakfast, emptyList()).withLine(null, tofu).toDraft()!!
+        assertEquals(Dish.BREAKFAST, draft.dish)
+        assertEquals("Buch", draft.source)
+        assertEquals(12, draft.page)
     }
 
     @Test

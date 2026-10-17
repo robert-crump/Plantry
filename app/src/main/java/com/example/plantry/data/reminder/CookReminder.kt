@@ -54,11 +54,11 @@ object CookReminder {
 
     /**
      * Whether a recipe should be proposed on [today]: the reminder is on and no main dish is planned
-     * for that day. A planned snack leaves the dinner open.
+     * for that day. A planned snack or breakfast leaves the dinner open.
      */
     fun proposalWanted(enabled: Boolean, today: LocalDate, planned: List<PlannedRecipe>, recipes: List<Recipe>): Boolean {
         if (!enabled) return false
-        val snacks = recipes.filter { it.dish == Dish.SNACK }.mapTo(mutableSetOf()) { it.id }
-        return planned.none { it.plannedOn == today && it.recipeId !in snacks }
+        val mains = recipes.filter { it.dish == Dish.MAIN }.mapTo(mutableSetOf()) { it.id }
+        return planned.none { it.plannedOn == today && it.recipeId in mains }
     }
 }

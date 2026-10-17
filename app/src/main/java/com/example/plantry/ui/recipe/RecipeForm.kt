@@ -21,9 +21,8 @@ import com.example.plantry.data.toDraft
 import com.example.plantry.data.usda.UsdaFood
 
 /**
- * Raw text input of the recipe edit screen. A snack has only title, servings and lines; its
- * source, page and times stay in the form while hidden, so switching back keeps them, but are
- * saved empty.
+ * Raw text input of the recipe edit screen; every [Dish] has the same fields. Only title, servings
+ * and at least one line are required.
  */
 data class RecipeForm(
     val dish: Dish = Dish.MAIN,
@@ -43,9 +42,6 @@ data class RecipeForm(
 ) {
     /** Nothing entered yet, so a scan replaces nothing. */
     val isEmpty: Boolean get() = this == RecipeForm()
-
-    /** Whether the main-dish fields (source, page, times) are shown and saved. */
-    val isMain: Boolean get() = dish == Dish.MAIN
 
     /** A snack without servings starts at 1, e.g. one bar; 20 rice cakes are typed in. */
     fun withDish(value: Dish) = copy(
@@ -223,13 +219,12 @@ data class RecipeForm(
     /** The servings nutrition is divided by, or null while not a positive number. */
     fun effectiveServings(): Int? = servings.toPositiveIntOrNull()
 
-    /** The hidden fields of a snack are never wrong. */
     fun errors() = RecipeFormErrors(
         title = title.isBlank(),
-        page = isMain && page.isNotBlank() && page.toPositiveIntOrNull() == null,
+        page = page.isNotBlank() && page.toPositiveIntOrNull() == null,
         servings = servings.toPositiveIntOrNull() == null,
-        activeTime = isMain && (activeTime.isNotBlank() && activeTime.toPositiveIntOrNull() == null || activeExceedsTotal()),
-        totalTime = isMain && totalTime.isNotBlank() && totalTime.toPositiveIntOrNull() == null,
+        activeTime = activeTime.isNotBlank() && activeTime.toPositiveIntOrNull() == null || activeExceedsTotal(),
+        totalTime = totalTime.isNotBlank() && totalTime.toPositiveIntOrNull() == null,
         lines = lines.any { problem(it) != null },
         noLines = lines.isEmpty(),
     )
@@ -241,18 +236,18 @@ data class RecipeForm(
         return active > total
     }
 
-    /** Returns the validated draft, or null if any field is invalid; a snack's hidden fields are empty. */
+    /** Returns the validated draft, or null if any field is invalid. */
     fun toDraft(): RecipeDraft? {
         if (errors().hasAny) return null
         return RecipeDraft(
             title = title,
-            source = if (isMain) source else "",
-            page = if (isMain) page.toPositiveIntOrNull() else null,
+            source = source,
+            page = page.toPositiveIntOrNull(),
             servings = servings.toPositiveIntOrNull()!!,
-            totalTimeMinutes = if (isMain) totalTime.toPositiveIntOrNull() else null,
+            totalTimeMinutes = totalTime.toPositiveIntOrNull(),
             lines = completeLines(),
             dish = dish,
-            activeTimeMinutes = if (isMain) activeTime.toPositiveIntOrNull() else null,
+            activeTimeMinutes = activeTime.toPositiveIntOrNull(),
         )
     }
 

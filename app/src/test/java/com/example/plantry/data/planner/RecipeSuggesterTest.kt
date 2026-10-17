@@ -44,9 +44,9 @@ class RecipeSuggesterTest {
     }
 
     @Test
-    fun candidates_leaveOutSnacks() {
+    fun candidates_leaveOutSnacksAndBreakfasts() {
         val candidates = RecipeSuggester.candidates(
-            recipes = listOf(recipe(1), recipe(2).copy(dish = Dish.SNACK)),
+            recipes = listOf(recipe(1), recipe(2).copy(dish = Dish.SNACK), recipe(3).copy(dish = Dish.BREAKFAST)),
             lines = emptyList(),
             ingredients = listOf(tofu),
             lastCooked = emptyMap(),

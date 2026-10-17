@@ -104,4 +104,13 @@ class CookReminderTest {
         assertTrue(CookReminder.proposalWanted(true, today, listOf(PlannedRecipe(4, today)), recipes))
         assertFalse(CookReminder.proposalWanted(true, today, listOf(PlannedRecipe(4, today), PlannedRecipe(1, today)), recipes))
     }
+
+    @Test
+    fun proposalWanted_aPlannedBreakfastLeavesTheDinnerOpen() {
+        val breakfast = recipe(5, "Porridge").copy(dish = Dish.BREAKFAST)
+        val recipes = listOf(recipe(1, "Dal"), breakfast)
+
+        assertTrue(CookReminder.proposalWanted(true, today, listOf(PlannedRecipe(5, today)), recipes))
+        assertFalse(CookReminder.proposalWanted(true, today, listOf(PlannedRecipe(5, today), PlannedRecipe(1, today)), recipes))
+    }
 }

@@ -22,8 +22,8 @@ data class Recipe(
     val activeTimeMinutes: Int? = null,
 )
 
-/** What a recipe is eaten as: "Hauptgericht" or "Snack". */
-enum class Dish { MAIN, SNACK }
+/** What a recipe is eaten as: "Hauptgericht", "Frühstück" or "Snack"; stored by name. */
+enum class Dish { MAIN, BREAKFAST, SNACK }
 
 /** User input for creating or updating a [Recipe]. */
 data class RecipeDraft(
