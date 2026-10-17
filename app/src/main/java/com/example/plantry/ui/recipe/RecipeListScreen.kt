@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -18,13 +17,15 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.outlined.FilterAlt as OutlinedFilterAlt
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -49,6 +50,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -64,11 +66,13 @@ import com.example.plantry.data.IngredientSuggestions
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeChip
 import com.example.plantry.data.RecipeFilter
+import com.example.plantry.data.RecipeHighlight
 import com.example.plantry.data.RecipeListItem
 import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeSort
-import com.example.plantry.ui.FilterChipFlow
+import com.example.plantry.ui.FilterRow
+import com.example.plantry.ui.FilterRows
 import com.example.plantry.ui.HideOnScrollFab
 import com.example.plantry.ui.rememberFabVisibility
 import com.example.plantry.ui.ToggleChip
@@ -79,8 +83,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 data class RecipeListUiState(
@@ -88,17 +95,18 @@ data class RecipeListUiState(
     /** All recipes, unfiltered; 0 shows the empty state instead of the filters. */
     val recipeCount: Int,
     val filter: RecipeFilter,
-    /** The chips that are on, in the order they were switched on; deleted ingredients and gone dish chips left out. */
+    /** The chips that are on, in the order they were switched on; deleted ingredients left out. */
     val activeChips: List<RecipeChip>,
-    /** "Hauptgericht" and "Snack", or none while not both exist. */
-    val dishChips: List<RecipeChip.OfDish>,
     val sort: RecipeSort,
     /** The ingredients the filter offers: all of them, A–Z. */
     val choosableIngredients: List<Ingredient>,
     val ingredientNames: Map<Long, String>,
 )
 
-/** [initialIngredientId] opens the list filtered by that ingredient. */
+/**
+ * Opens with [RecipeChip.defaults]; [initialIngredientId] instead opens the list filtered by only
+ * that ingredient, so it shows as many recipes as the ingredient's count promised.
+ */
 class RecipeListViewModel(
     recipeRepository: RecipeRepository,
     ingredientRepository: IngredientRepository,
@@ -106,8 +114,9 @@ class RecipeListViewModel(
     initialIngredientId: Long? = null,
 ) : ViewModel() {
 
+    /** Null until the defaults are known; they are set once, later only taps change the chips. */
     private val chips = MutableStateFlow(
-        ChipSelection(listOfNotNull<RecipeChip>(initialIngredientId?.let { RecipeChip.WithIngredient(it) })),
+        initialIngredientId?.let { ChipSelection(listOf<RecipeChip>(RecipeChip.WithIngredient(it))) },
     )
     private val sort = MutableStateFlow(RecipeSort.TITLE)
 
@@ -117,25 +126,16 @@ class RecipeListViewModel(
         recipeRepository.observeAllLines(),
         ingredientRepository.observeIngredients(),
         cookLogRepository.observeLastCooked(),
-        combine(chips, sort, ::Pair),
+        combine(chips.filterNotNull(), sort, ::Pair),
     ) { recipes, lines, ingredients, lastCooked, (chips, sort) ->
         val byId = ingredients.associateBy { it.id }
-        val dishChips = RecipeChip.dishes(recipes)
-        // A dish chip that is no longer offered is off, so it can't filter what can't be unfiltered.
-        val active = chips.active.filter {
-            when (it) {
-                is RecipeChip.WithIngredient -> it.ingredientId in byId
-                is RecipeChip.OfDish -> it in dishChips
-                is RecipeChip.MaxTotalTime, is RecipeChip.MaxActiveTime, is RecipeChip.WithHighlight -> true
-            }
-        }
+        val active = chips.active.filter { it !is RecipeChip.WithIngredient || it.ingredientId in byId }
         val filter = RecipeFilter.of(active)
         RecipeListUiState(
             items = RecipeQuery.run(recipes, lines, byId, lastCooked, filter, sort),
             recipeCount = recipes.size,
             filter = filter,
             activeChips = active,
-            dishChips = dishChips,
             sort = sort,
             choosableIngredients = ingredients.sortedBy { it.name.lowercase() },
             ingredientNames = ingredients.associate { it.id to it.name },
@@ -146,11 +146,16 @@ class RecipeListViewModel(
         sort.value = value
     }
 
-    fun toggleChip(chip: RecipeChip) = chips.update { it.toggle(chip) }
-
-    fun resetFilter() {
-        chips.value = ChipSelection()
+    init {
+        if (chips.value == null) {
+            viewModelScope.launch {
+                val recipes = recipeRepository.observeRecipes().first()
+                chips.update { it ?: ChipSelection(RecipeChip.defaults(recipes)) }
+            }
+        }
     }
+
+    fun toggleChip(chip: RecipeChip) = chips.update { it?.toggle(chip) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -166,10 +171,14 @@ fun RecipeListScreen(
     val listState = rememberLazyListState()
     // Picking a sort, even the current one, jumps to the top; keyed on the sort too so it
     // runs after the list has been reordered (the keyed rows would otherwise keep their place).
+    // A changed filter starts at the top too, so a shrunk list isn't scrolled past its end.
     var sortPicks by remember { mutableIntStateOf(0) }
-    LaunchedEffect(sortPicks, state?.sort) { listState.scrollToItem(0) }
     val fab = rememberFabVisibility()
-    LaunchedEffect(sortPicks, state?.filter) { fab.visible = true }
+    LaunchedEffect(sortPicks, state?.sort, state?.filter) {
+        listState.scrollToItem(0)
+        fab.visible = true
+    }
+    var pickIngredients by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -183,7 +192,10 @@ fun RecipeListScreen(
                     }
                 },
                 actions = {
-                    state?.takeIf { it.recipeCount > 0 }?.let { SortMenu(it.sort) { option -> viewModel.setSort(option); sortPicks++ } }
+                    state?.takeIf { it.recipeCount > 0 }?.let {
+                        IngredientFilterButton(it.filter.ingredientIds.size) { pickIngredients = true }
+                        SortMenu(it.sort) { option -> viewModel.setSort(option); sortPicks++ }
+                    }
                 },
             )
         },
@@ -202,22 +214,47 @@ fun RecipeListScreen(
             CenteredMessage(stringResource(R.string.recipes_empty), Modifier.padding(padding))
             return@Scaffold
         }
-        Column(Modifier.fillMaxSize().padding(padding).nestedScroll(fab.connection)) {
-            FilterBar(current, viewModel)
+        val today = remember { LocalDate.now() }
+        val ingredientCount = current.filter.ingredientIds.size
+        LazyColumn(Modifier.fillMaxSize().padding(padding).nestedScroll(fab.connection), state = listState) {
+            // The filters scroll away with the list.
+            item(key = "filters") { FilterBar(current, viewModel::toggleChip) }
             if (current.items.isEmpty()) {
-                CenteredMessage(stringResource(R.string.recipe_filter_no_match)) {
-                    TextButton(onClick = viewModel::resetFilter) { Text(stringResource(R.string.recipe_filter_reset)) }
-                }
-            } else {
-                val today = remember { LocalDate.now() }
-                val ingredientCount = current.filter.ingredientIds.size
-                LazyColumn(Modifier.fillMaxSize(), state = listState) {
-                    items(current.items, key = { it.recipe.id }) { item ->
-                        RecipeRow(item, current.sort, ingredientCount, today, onClick = { onRecipeClick(item.recipe.id) })
-                        HorizontalDivider()
-                    }
+                item(key = "empty") {
+                    Text(
+                        stringResource(R.string.recipe_filter_no_match),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                    )
                 }
             }
+            items(current.items, key = { it.recipe.id }) { item ->
+                RecipeRow(item, current.sort, ingredientCount, today, onClick = { onRecipeClick(item.recipe.id) })
+                HorizontalDivider()
+            }
+        }
+        if (pickIngredients) {
+            IngredientFilterDialog(
+                ingredients = current.choosableIngredients,
+                selected = current.filter.ingredientIds,
+                onToggle = { viewModel.toggleChip(RecipeChip.WithIngredient(it)) },
+                onDismiss = { pickIngredients = false },
+            )
+        }
+    }
+}
+
+/** Opens the ingredient filter; filled with a count badge while ingredients are chosen. */
+@Composable
+private fun IngredientFilterButton(chosen: Int, onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        BadgedBox(badge = { if (chosen > 0) Badge { Text("$chosen") } }) {
+            Icon(
+                if (chosen > 0) Icons.Filled.FilterAlt else Icons.Outlined.OutlinedFilterAlt,
+                contentDescription = stringResource(R.string.recipe_filter_ingredients),
+            )
         }
     }
 }
@@ -246,42 +283,41 @@ private fun SortMenu(sort: RecipeSort, onSort: (RecipeSort) -> Unit) {
     }
 }
 
-/** The picked ingredients' chips, "+ Zutat", then the two time chips, the highlight chips and the dish chips, each in a fixed place. */
+/** "Typ:", "Schnell:" and "Viel:", each chip in a fixed place, then "Mit:" while ingredients are chosen. */
 @Composable
-private fun FilterBar(state: RecipeListUiState, viewModel: RecipeListViewModel) {
-    var pickIngredients by rememberSaveable { mutableStateOf(false) }
-    FilterChipFlow {
-        state.activeChips.filterIsInstance<RecipeChip.WithIngredient>().forEach { chip ->
-            ToggleChip(state.ingredientNames[chip.ingredientId].orEmpty(), selected = true) { viewModel.toggleChip(chip) }
-        }
-        FilterChip(
-            selected = false,
-            onClick = { pickIngredients = true },
-            label = { Text(stringResource(R.string.recipe_filter_add_ingredient)) },
-            leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null, Modifier.size(FilterChipDefaults.IconSize)) },
-        )
-        ToggleChip(stringResource(R.string.recipe_filter_quick), selected = RecipeChip.QUICK in state.activeChips) {
-            viewModel.toggleChip(RecipeChip.QUICK)
-        }
-        ToggleChip(stringResource(R.string.recipe_filter_easy), selected = RecipeChip.EASY in state.activeChips) {
-            viewModel.toggleChip(RecipeChip.EASY)
-        }
-        RecipeChip.HIGHLIGHTS.forEach { chip ->
-            ToggleChip(stringResource(chip.highlight.label), selected = chip in state.activeChips) { viewModel.toggleChip(chip) }
-        }
-        state.dishChips.forEach { chip ->
-            ToggleChip(stringResource(chip.dish.label), selected = chip in state.activeChips) { viewModel.toggleChip(chip) }
-        }
-    }
-    if (pickIngredients) {
-        IngredientFilterDialog(
-            ingredients = state.choosableIngredients,
-            selected = state.filter.ingredientIds,
-            onToggle = { viewModel.toggleChip(RecipeChip.WithIngredient(it)) },
-            onDismiss = { pickIngredients = false },
-        )
-    }
+private fun FilterBar(state: RecipeListUiState, onToggle: (RecipeChip) -> Unit) {
+    val active = state.activeChips
+    val ingredients = active.filterIsInstance<RecipeChip.WithIngredient>()
+    val rows = listOfNotNull(
+        FilterRow(stringResource(R.string.filter_row_type)) {
+            RecipeChip.DISHES.forEach { chip -> ToggleChip(stringResource(chip.dish.label), chip in active) { onToggle(chip) } }
+        },
+        FilterRow(stringResource(R.string.filter_row_quick)) {
+            ToggleChip(stringResource(R.string.recipe_filter_easy), RecipeChip.EASY in active) { onToggle(RecipeChip.EASY) }
+            ToggleChip(stringResource(R.string.recipe_filter_quick), RecipeChip.QUICK in active) { onToggle(RecipeChip.QUICK) }
+        },
+        FilterRow(stringResource(R.string.filter_row_much)) {
+            RecipeChip.HIGHLIGHTS.forEach { chip ->
+                ToggleChip(stringResource(chip.highlight.chipLabel), chip in active) { onToggle(chip) }
+            }
+        },
+        if (ingredients.isEmpty()) null else FilterRow(stringResource(R.string.filter_row_with)) {
+            ingredients.forEach { chip ->
+                ToggleChip(state.ingredientNames[chip.ingredientId].orEmpty(), selected = true) { onToggle(chip) }
+            }
+        },
+    )
+    FilterRows(rows, Modifier.padding(top = 4.dp, bottom = 8.dp))
 }
+
+/** The "Viel:" chip's short name for the nutrient. */
+private val RecipeHighlight.chipLabel: Int
+    get() = when (this) {
+        RecipeHighlight.HIGH_PROTEIN -> R.string.filter_protein
+        RecipeHighlight.HIGH_CARB -> R.string.filter_carbs
+        RecipeHighlight.HIGH_FIBRE -> R.string.filter_fibre
+        RecipeHighlight.PLANT_POINT_POWER, RecipeHighlight.LOW_CALORIE -> label
+    }
 
 @Composable
 private fun IngredientFilterDialog(
@@ -330,14 +366,13 @@ private fun IngredientFilterDialog(
 
 /**
  * The name on up to two lines, then the stats with the cooking time on the right. A third line
- * marks a snack and shows how many of the filter's ingredients the recipe uses and, sorted by
- * last cooked, when.
+ * shows how many of the filter's ingredients the recipe uses (from two on) and, sorted by last
+ * cooked, when.
  */
 @Composable
 private fun RecipeRow(item: RecipeListItem, sort: RecipeSort, ingredientCount: Int, today: LocalDate, onClick: () -> Unit) {
     val details = listOfNotNull(
-        if (item.recipe.dish == Dish.SNACK) stringResource(R.string.dish_snack) else null,
-        if (ingredientCount > 0) pluralStringResource(R.plurals.recipe_list_matched, ingredientCount, item.matchedIngredients, ingredientCount) else null,
+        if (ingredientCount > 1) pluralStringResource(R.plurals.recipe_list_matched, ingredientCount, item.matchedIngredients, ingredientCount) else null,
         if (sort == RecipeSort.LAST_COOKED) lastCookedLabel(item.lastCookedOn, today) else null,
     )
     Column(
@@ -366,14 +401,13 @@ private fun RecipeRow(item: RecipeListItem, sort: RecipeSort, ingredientCount: I
 }
 
 @Composable
-private fun CenteredMessage(text: String, modifier: Modifier = Modifier, action: @Composable () -> Unit = {}) {
+private fun CenteredMessage(text: String, modifier: Modifier = Modifier) {
     Column(
         modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        action()
     }
 }
 

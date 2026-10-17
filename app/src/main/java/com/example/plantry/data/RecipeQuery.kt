@@ -44,7 +44,7 @@ sealed interface RecipeChip : FilterChoice {
         override val group: Any get() = MaxActiveTime::class
     }
 
-    /** Only recipes with this highlight, e.g. "High-Protein"; with "Snack" the high-protein snacks. */
+    /** Only recipes with this highlight, e.g. "Viel: Protein"; with "Snack" the high-protein snacks. */
     data class WithHighlight(val highlight: RecipeHighlight) : RecipeChip {
         override val group: Any? get() = null
     }
@@ -54,20 +54,25 @@ sealed interface RecipeChip : FilterChoice {
     }
 
     companion object {
-        /** "Schnell fertig". */
+        /** "Schnell: Fertig". */
         val QUICK = MaxTotalTime(30)
 
-        /** "Wenig Arbeit". */
+        /** "Schnell: Zubereitung". */
         val EASY = MaxActiveTime(20)
 
-        /** "High-Protein" and "High-Carb", in this order. */
-        val HIGHLIGHTS = listOf(RecipeHighlight.HIGH_PROTEIN, RecipeHighlight.HIGH_CARB).map(::WithHighlight)
+        /** "Viel:" protein, carbs and fibre per portion, in this order. */
+        val HIGHLIGHTS = listOf(RecipeHighlight.HIGH_PROTEIN, RecipeHighlight.HIGH_CARB, RecipeHighlight.HIGH_FIBRE)
+            .map(::WithHighlight)
 
-        /** "Hauptgericht" and "Snack", only when [recipes] hold both; else either chip would match them all. */
-        fun dishes(recipes: List<Recipe>): List<OfDish> {
-            val present = recipes.mapTo(mutableSetOf()) { it.dish }
-            return if (present.size == Dish.entries.size) Dish.entries.map(::OfDish) else emptyList()
-        }
+        /** "Typ:" Hauptgericht and Snack. */
+        val DISHES = Dish.entries.map(::OfDish)
+
+        /**
+         * The chips on when the list opens: Hauptgericht, so snacks show only on request; none
+         * while [recipes] hold no main dish, which would leave the list empty.
+         */
+        fun defaults(recipes: List<Recipe>): List<RecipeChip> =
+            if (recipes.any { it.dish == Dish.MAIN }) listOf(OfDish(Dish.MAIN)) else emptyList()
     }
 }
 

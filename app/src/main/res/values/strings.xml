@@ -51,15 +51,14 @@
     <string name="recipe_sort_carbs">Kohlenhydrate je Portion</string>
     <string name="recipe_sort_plant_points">Pflanzenpunkte</string>
     <string name="recipe_sort_last_cooked">Am längsten nicht gekocht</string>
-    <string name="recipe_filter_add_ingredient">Zutat</string>
+    <string name="recipe_filter_ingredients">Nach Zutaten filtern</string>
     <string name="recipe_filter_ingredients_title">Was soll rein?</string>
     <string name="recipe_filter_ingredients_search">Zutat suchen</string>
     <string name="recipe_filter_ingredients_none">Keine Zutat gefunden.</string>
-    <string name="recipe_filter_quick">Schnell fertig</string>
-    <string name="recipe_filter_easy">Wenig Arbeit</string>
+    <string name="recipe_filter_quick">Fertig</string>
+    <string name="recipe_filter_easy">Zubereitung</string>
     <string name="recipe_filter_done">Fertig</string>
     <string name="recipe_filter_no_match">Kein Rezept passt zum Filter.</string>
-    <string name="recipe_filter_reset">Filter zurücksetzen</string>
     <plurals name="recipe_list_matched">
         <item quantity="one">%1$d von %2$d Zutat</item>
         <item quantity="other">%1$d von %2$d Zutaten</item>
@@ -225,7 +224,13 @@
         <item quantity="one">%1$d/%2$d Zutat</item>
         <item quantity="other">%1$d/%2$d Zutaten</item>
     </plurals>
-    <string name="filter_used">Verwendet</string>
+    <string name="filter_row_type">Typ:</string>
+    <string name="filter_row_quick">Schnell:</string>
+    <string name="filter_row_much">Viel:</string>
+    <string name="filter_row_with">Mit:</string>
+    <string name="filter_protein">Protein</string>
+    <string name="filter_carbs">Kohlenhyd.</string>
+    <string name="filter_fibre">Ballastst.</string>
     <string name="ingredient_fab">Zutat</string>
     <string name="ingredient_add">Zutat hinzufügen</string>
     <plurals name="ingredient_recipe_count">

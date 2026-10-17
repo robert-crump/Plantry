@@ -323,17 +323,21 @@ class RecipeQueryTest {
         val chips = RecipeChip.HIGHLIGHTS.fold(ChipSelection<RecipeChip>()) { selection, chip -> selection.toggle(chip) }
 
         assertEquals(RecipeChip.HIGHLIGHTS, chips.active)
-        assertEquals(setOf(RecipeHighlight.HIGH_PROTEIN, RecipeHighlight.HIGH_CARB), RecipeFilter.of(chips.active).highlights)
+        assertEquals(
+            setOf(RecipeHighlight.HIGH_PROTEIN, RecipeHighlight.HIGH_CARB, RecipeHighlight.HIGH_FIBRE),
+            RecipeFilter.of(chips.active).highlights,
+        )
     }
 
     @Test
-    fun dishChips_onlyWhenBothDishesExist() {
+    fun defaultChips_mainDishOnlyWhenOneExists() {
         val main = recipe(1, "Dal")
         val snack = recipe(2, "Porridge").copy(dish = Dish.SNACK)
 
-        assertEquals(emptyList<RecipeChip>(), RecipeChip.dishes(listOf(main)))
-        assertEquals(emptyList<RecipeChip>(), RecipeChip.dishes(listOf(snack)))
-        assertEquals(listOf(RecipeChip.OfDish(Dish.MAIN), RecipeChip.OfDish(Dish.SNACK)), RecipeChip.dishes(listOf(main, snack)))
+        assertEquals(listOf(RecipeChip.OfDish(Dish.MAIN)), RecipeChip.defaults(listOf(main, snack)))
+        assertEquals(listOf(RecipeChip.OfDish(Dish.MAIN)), RecipeChip.defaults(listOf(main)))
+        assertEquals(emptyList<RecipeChip>(), RecipeChip.defaults(listOf(snack)))
+        assertEquals(emptyList<RecipeChip>(), RecipeChip.defaults(emptyList()))
     }
 
     @Test

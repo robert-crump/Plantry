@@ -28,7 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -46,7 +46,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.ui.FastScrollbar
-import com.example.plantry.ui.FilterChipFlow
+import com.example.plantry.ui.FilterRow
+import com.example.plantry.ui.FilterRows
 import com.example.plantry.ui.HideOnScrollFab
 import com.example.plantry.ui.rememberFabVisibility
 import com.example.plantry.ui.ToggleChip
@@ -96,7 +97,7 @@ class IngredientListViewModel(
             val recipeCounts = RecipeQuery.recipeCounts(lines, all.associateBy { it.id })
             IngredientListUiState(
                 ingredients = IngredientSorting.sortedByName(
-                    IngredientFilters.apply(all, recipeCounts, chips.active),
+                    IngredientFilters.apply(all, chips.active),
                     Locale.getDefault(),
                 ),
                 totalCount = all.size,
@@ -123,7 +124,12 @@ fun IngredientListScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val fab = rememberFabVisibility()
-    LaunchedEffect(state?.chips) { fab.visible = true }
+    val listState = rememberLazyListState()
+    // A changed filter starts at the top, so a shrunk list isn't scrolled past its end.
+    LaunchedEffect(state?.chips) {
+        listState.scrollToItem(0)
+        fab.visible = true
+    }
 
     Scaffold(
         topBar = {
@@ -140,68 +146,71 @@ fun IngredientListScreen(
         },
     ) { padding ->
         val current = state ?: return@Scaffold
-        Column(Modifier.fillMaxSize().padding(padding).nestedScroll(fab.connection)) {
-            FilterChipFlow {
-                IngredientChip.entries.forEach { chip ->
-                    ToggleChip(stringResource(chip.label), selected = chip in current.chips.active) { viewModel.toggleChip(chip) }
-                }
-            }
-            CountRow(current)
-            if (current.ingredients.isEmpty()) {
-                Column(
-                    Modifier.fillMaxSize().padding(32.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        stringResource(
-                            if (current.totalCount > 0) R.string.ingredients_empty_filtered
-                            else R.string.ingredients_empty,
-                        ),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (current.filtered) {
-                        TextButton(onClick = viewModel::resetFilters) { Text(stringResource(R.string.recipe_filter_reset)) }
-                    }
-                }
-            } else {
-                val listState = rememberLazyListState()
-                val locale = currentLocale()
-                // One letter per row, in list order (the list is already sorted by name).
-                val scrollLabels = remember(current.ingredients, locale) {
-                    current.ingredients.map { IngredientSorting.indexLetter(it.name, locale) }
-                }
-                Box(Modifier.fillMaxSize()) {
-                    LazyColumn(
-                        Modifier.fillMaxSize(),
-                        state = listState,
-                        // Room below the last row for the FAB.
-                        contentPadding = PaddingValues(bottom = FabClearance),
-                    ) {
-                        items(current.ingredients, key = { it.id }) { ingredient ->
-                            val recipeCount = current.recipeCounts[ingredient.id] ?: 0
-                            IngredientRow(
-                                ingredient,
-                                recipeCount = recipeCount,
-                                onClick = { onIngredientClick(ingredient.id) },
-                                onRecipesClick = if (recipeCount > 0) {
-                                    { onRecipesClick(ingredient.id) }
-                                } else {
-                                    null
+        val locale = currentLocale()
+        // One letter per row, in list order (the list is already sorted by name); none for the filters.
+        val scrollLabels = remember(current.ingredients, locale) {
+            listOf(null) + current.ingredients.map { IngredientSorting.indexLetter(it.name, locale) }
+        }
+        val muchLabel = stringResource(R.string.filter_row_much)
+        Box(Modifier.fillMaxSize().padding(padding).nestedScroll(fab.connection)) {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                state = listState,
+                // Room below the last row for the FAB.
+                contentPadding = PaddingValues(bottom = FabClearance),
+            ) {
+                // The filters scroll away with the list.
+                item(key = "filters") {
+                    Column {
+                        FilterRows(
+                            listOf(
+                                FilterRow(muchLabel) {
+                                    IngredientChip.entries.forEach { chip ->
+                                        ToggleChip(stringResource(chip.label), selected = chip in current.chips.active) {
+                                            viewModel.toggleChip(chip)
+                                        }
+                                    }
                                 },
-                            )
-                            HorizontalDivider()
-                        }
+                            ),
+                        )
+                        CountRow(current)
                     }
-                    FastScrollbar(
-                        listState,
-                        label = { scrollLabels.getOrNull(it) },
-                        // Ends above the FAB.
-                        modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight().padding(bottom = FabClearance),
+                }
+                if (current.ingredients.isEmpty()) {
+                    item(key = "empty") {
+                        Text(
+                            stringResource(
+                                if (current.totalCount > 0) R.string.ingredients_empty_filtered
+                                else R.string.ingredients_empty,
+                            ),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        )
+                    }
+                }
+                items(current.ingredients, key = { it.id }) { ingredient ->
+                    val recipeCount = current.recipeCounts[ingredient.id] ?: 0
+                    IngredientRow(
+                        ingredient,
+                        recipeCount = recipeCount,
+                        onClick = { onIngredientClick(ingredient.id) },
+                        onRecipesClick = if (recipeCount > 0) {
+                            { onRecipesClick(ingredient.id) }
+                        } else {
+                            null
+                        },
                     )
+                    HorizontalDivider()
                 }
             }
+            FastScrollbar(
+                listState,
+                label = { scrollLabels.getOrNull(it) },
+                // Ends above the FAB.
+                modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight().padding(bottom = FabClearance),
+            )
         }
     }
 }
@@ -225,7 +234,9 @@ private fun CountRow(state: IngredientListUiState) {
 
 private val IngredientChip.label: Int
     get() = when (this) {
-        IngredientChip.USED -> R.string.filter_used
+        IngredientChip.HIGH_PROTEIN -> R.string.filter_protein
+        IngredientChip.HIGH_CARBS -> R.string.filter_carbs
+        IngredientChip.HIGH_FIBRE -> R.string.filter_fibre
     }
 
 /** One line: name (ellipsized) and the recipes button aligned right. */
