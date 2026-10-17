@@ -95,6 +95,7 @@ import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.Cooked
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlannedItem
+import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.settings.SettingsRepository
@@ -174,13 +175,29 @@ class CookingViewModel(
         viewModelScope.launch { plannedRepository.undoCook(cooked) }
     }
 
+    /**
+     * "Vorschlag" and "Planen": puts the recipe on Geplant for [date], or moves it there; [onDone]
+     * gets the entry it replaced, for [undoPlan]. Counts as seen, since Kochen is already showing.
+     */
+    fun plan(recipeId: Long, date: LocalDate, onDone: (PlannedRecipe?) -> Unit) {
+        viewModelScope.launch {
+            val previous = plannedRepository.plan(recipeId, date)
+            seenPlans = plannedRepository.plans.value
+            onDone(previous)
+        }
+    }
+
+    fun undoPlan(recipeId: Long, previous: PlannedRecipe?) {
+        viewModelScope.launch { plannedRepository.undoPlan(recipeId, previous) }
+    }
+
     fun unplan(recipeId: Long) {
         viewModelScope.launch { plannedRepository.remove(recipeId) }
     }
 }
 
-/** A recipe just put on Geplant from the suggestions, to confirm with an undo snackbar. */
-data class JustPlanned(val recipeId: Long, val title: String)
+/** A recipe and day picked on "Vorschlag" or "Planen", to plan with an undo snackbar. */
+data class JustPlanned(val recipeId: Long, val title: String, val date: LocalDate)
 
 /** A recipe and day picked on the "Kocheintrag" screen, to log with an undo snackbar. */
 data class JustLogged(val recipeId: Long, val date: LocalDate)
@@ -189,9 +206,10 @@ data class JustLogged(val recipeId: Long, val date: LocalDate)
  * The Kochen tab: Geplant on top as cards (hidden when empty), then the cooking history under
  * "Verlauf", newest first, in Monday–Sunday weeks with sticky headers showing the week's plant
  * points, each row with its own date badge. History rows show the recipe as it was when logged. A "+" FAB, hidden while scrolling
- * down, opens "Vorschlag" and "Kocheintrag" ([onLog], pick a recipe, then a day up to today).
- * [justPlanned] is shown once as a snackbar, then [onJustPlannedShown] clears it; [justLogged] is
- * logged once, then [onJustLoggedShown] clears it.
+ * down, opens "Vorschlag", "Planen" ([onPlan], pick a recipe, then a day from today) and
+ * "Kocheintrag" ([onLog], pick a recipe, then a day up to today). [justPlanned] is planned once with
+ * an undo snackbar, then [onJustPlannedShown] clears it; [justLogged] is logged once, then
+ * [onJustLoggedShown] clears it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -199,6 +217,7 @@ fun CookingScreen(
     viewModel: CookingViewModel,
     onRecipeClick: (Long) -> Unit,
     onSuggest: () -> Unit,
+    onPlan: () -> Unit,
     onLog: () -> Unit,
     justPlanned: JustPlanned?,
     onJustPlannedShown: () -> Unit,
@@ -211,6 +230,7 @@ fun CookingScreen(
     val showSwipeHint by viewModel.showSwipeHint.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
     val loggedMessage = stringResource(R.string.cooked_logged)
     val undoLabel = stringResource(R.string.action_undo)
     val plannedMessage = stringResource(R.string.suggest_planned, justPlanned?.title.orEmpty())
@@ -227,7 +247,10 @@ fun CookingScreen(
     LaunchedEffect(justPlanned) {
         val planned = justPlanned ?: return@LaunchedEffect
         onJustPlannedShown()
-        showUndo(plannedMessage) { viewModel.unplan(planned.recipeId) }
+        viewModel.plan(planned.recipeId, planned.date) { previous ->
+            scope.launch { listState.scrollToItem(0) }
+            showUndo(plannedMessage) { viewModel.undoPlan(planned.recipeId, previous) }
+        }
     }
 
     LaunchedEffect(justLogged) {
@@ -247,7 +270,6 @@ fun CookingScreen(
         with(density) { (snackbarHeight.toDp() - 12.dp).coerceAtLeast(0.dp) },
         label = "fab lift",
     )
-    val listState = rememberLazyListState()
     var fabVisible by rememberSaveable { mutableStateOf(true) }
     var fabMenuOpen by rememberSaveable { mutableStateOf(false) }
     // Only actual scrolling counts, so dragging a list too short to scroll leaves the FAB alone.
@@ -270,6 +292,7 @@ fun CookingScreen(
                     onExpandedChange = { fabMenuOpen = it },
                     visible = fabVisible,
                     onSuggest = onSuggest,
+                    onPlan = onPlan,
                     onLog = onLog,
                     modifier = Modifier.padding(bottom = fabLift),
                 )

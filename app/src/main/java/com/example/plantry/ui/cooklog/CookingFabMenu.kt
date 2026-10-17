@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -25,7 +26,7 @@ import com.example.plantry.R
 
 /**
  * The Kochen FAB: the Material 3 FAB menu, a "+" that turns into an X when tapped and shows
- * "Vorschlag" and "Kocheintrag" above it. Hidden while [visible] is false (scrolling down) unless
+ * "Vorschlag", "Planen" and "Kocheintrag" above it. Hidden while [visible] is false (scrolling down) unless
  * open; back closes it. Taps outside it land on [FabScrim].
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -35,6 +36,7 @@ fun CookingFabMenu(
     onExpandedChange: (Boolean) -> Unit,
     visible: Boolean,
     onSuggest: () -> Unit,
+    onPlan: () -> Unit,
     onLog: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -66,6 +68,14 @@ fun CookingFabMenu(
             },
             text = { Text(stringResource(R.string.suggest_action)) },
             icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
+        )
+        FloatingActionButtonMenuItem(
+            onClick = {
+                onExpandedChange(false)
+                onPlan()
+            },
+            text = { Text(stringResource(R.string.plan_action)) },
+            icon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
         )
         FloatingActionButtonMenuItem(
             onClick = {

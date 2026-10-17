@@ -123,27 +123,19 @@ class SuggestionsViewModel(
     }
 
     fun today(): LocalDate = clock()
-
-    /** Puts the recipe on Geplant for [date], then calls [onDone]. */
-    fun plan(card: SuggestionCard, date: LocalDate, onDone: () -> Unit) {
-        viewModelScope.launch {
-            plannedRepository.plan(card.recipeId, date)
-            onDone()
-        }
-    }
 }
 
 /**
  * Up to three suggested recipes, on the weekend while the week is short of its plant points one more
  * below them to boost those; "Neue Vorschläge" replaces them all. Tapping a card asks for the day to
- * cook it; picking one puts it on Geplant and hands it to [onPlanned].
+ * cook it; picking one hands it and the day to [onPlanned], which puts it on Geplant.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SuggestionsScreen(
     viewModel: SuggestionsViewModel,
     onBack: () -> Unit,
-    onPlanned: (recipeId: Long, title: String) -> Unit,
+    onPlanned: (recipeId: Long, title: String, date: LocalDate) -> Unit,
 ) {
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     var confirmId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -208,7 +200,7 @@ fun SuggestionsScreen(
         PlanDatePickerDialog(
             date = viewModel.today(),
             today = viewModel.today(),
-            onPick = { date -> viewModel.plan(confirming, date) { onPlanned(confirming.recipeId, confirming.snapshot.title) } },
+            onPick = { date -> onPlanned(confirming.recipeId, confirming.snapshot.title, date) },
             onDismiss = { confirmId = null },
         )
     }

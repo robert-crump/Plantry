@@ -32,6 +32,37 @@ class PlannedRepositoryTest {
     }
 
     @Test
+    fun undoPlan_newPlan_takesItOffGeplant() = runTest {
+        val previous = repository.plan(1, today.plusDays(2))
+
+        assertNull(previous)
+        repository.undoPlan(1, previous)
+        assertEquals(emptyList<PlannedRecipe>(), dao.all.value)
+    }
+
+    @Test
+    fun undoPlan_movedPlan_goesBackToTheOldDay() = runTest {
+        repository.plan(1, today.plusDays(2))
+
+        val previous = repository.plan(1, today.plusDays(5))
+
+        assertEquals(PlannedRecipe(1, today.plusDays(2)), previous)
+        repository.undoPlan(1, previous)
+        assertEquals(listOf(PlannedRecipe(1, today.plusDays(2))), repository.observe().first())
+    }
+
+    @Test
+    fun undoPlan_droppedOffPlan_isNotRestored() = runTest {
+        dao.upsert(PlannedRecipe(1, today.minusDays(10)))
+
+        val previous = repository.plan(1, today)
+
+        assertNull(previous)
+        repository.undoPlan(1, previous)
+        assertEquals(emptyList<PlannedRecipe>(), dao.all.value)
+    }
+
+    @Test
     fun postpone_movesTheRecipesStillPlannedForTheDayToTheNextDay() = runTest {
         repository.plan(1, today)
         repository.plan(2, today)

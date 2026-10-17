@@ -32,10 +32,20 @@ class PlannedRepository(
     private val _plans = MutableStateFlow(0)
     val plans: StateFlow<Int> = _plans.asStateFlow()
 
-    /** Puts the recipe on Geplant for [date], or moves it there if it already is. */
-    suspend fun plan(recipeId: Long, date: LocalDate) {
+    /**
+     * Puts the recipe on Geplant for [date], or moves it there if it already is. Returns the entry
+     * it replaced, for [undoPlan]; null if the recipe wasn't on Geplant.
+     */
+    suspend fun plan(recipeId: Long, date: LocalDate): PlannedRecipe? {
+        val previous = dao.get(recipeId)?.takeIf { it.isCurrent(today()) }
         dao.upsert(PlannedRecipe(recipeId, date))
         _plans.update { it + 1 }
+        return previous
+    }
+
+    /** Undoes [plan]: back to the [previous] day, or off Geplant if there was none. */
+    suspend fun undoPlan(recipeId: Long, previous: PlannedRecipe?) {
+        if (previous != null) restore(previous) else dao.delete(recipeId)
     }
 
     /** Returns the removed entry, for undo; null if the recipe wasn't on Geplant. */

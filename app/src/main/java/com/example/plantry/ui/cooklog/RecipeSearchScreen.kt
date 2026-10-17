@@ -47,33 +47,56 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
+import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
+import com.example.plantry.ui.currentLocale
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.serialization.Serializable
 import java.time.LocalDate
 
-class CookLogSearchViewModel(recipeRepository: RecipeRepository) : ViewModel() {
+/** What picking a recipe on [RecipeSearchScreen] is for. */
+@Serializable
+enum class RecipeSearchMode {
+    /** "Kocheintrag": the day it was cooked, up to today. */
+    Log,
+
+    /** "Planen": the day to cook it, from today. */
+    Plan,
+}
+
+class RecipeSearchViewModel(recipeRepository: RecipeRepository, plannedRepository: PlannedRepository) : ViewModel() {
     /** Null until loaded, so "Keine Rezepte gefunden" doesn't flash. */
     val recipes: StateFlow<List<Recipe>?> = recipeRepository.observeRecipes()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** The day each recipe on Geplant is planned for; null until loaded. */
+    val plannedOn: StateFlow<Map<Long, LocalDate>?> = plannedRepository.observe()
+        .map { all -> all.associate { it.recipeId to it.plannedOn } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 
 /**
- * "Kocheintrag": a search field in the app bar over all recipes, A–Z, narrowed as you type. The
- * keyboard opens with the screen and hides when the list is scrolled. Tapping a recipe asks for the
- * day it was cooked, up to today; picking one hands both to [onLogged].
+ * "Kocheintrag" and "Planen": a search field in the app bar over all recipes, A–Z, narrowed as you
+ * type. The keyboard opens with the screen and hides when the list is scrolled. Tapping a recipe
+ * asks for a day, up to today for [RecipeSearchMode.Log] and from today for [RecipeSearchMode.Plan];
+ * picking one hands both to [onPicked]. When planning, recipes already on Geplant show their day,
+ * and the picker starts there, since picking moves them.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CookLogSearchScreen(
-    viewModel: CookLogSearchViewModel,
+fun RecipeSearchScreen(
+    viewModel: RecipeSearchViewModel,
+    mode: RecipeSearchMode,
     onBack: () -> Unit,
-    onLogged: (recipeId: Long, date: LocalDate) -> Unit,
+    onPicked: (recipe: Recipe, date: LocalDate) -> Unit,
 ) {
     val recipes by viewModel.recipes.collectAsStateWithLifecycle()
+    val plannedOn by viewModel.plannedOn.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     var pickedId by rememberSaveable { mutableStateOf<Long?>(null) }
     val focusRequester = remember { FocusRequester() }
@@ -97,7 +120,7 @@ fun CookLogSearchScreen(
                         query,
                         onValueChange = { query = it },
                         modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                        placeholder = { Text(stringResource(R.string.cook_log_search)) },
+                        placeholder = { Text(stringResource(R.string.recipe_search)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
@@ -122,7 +145,7 @@ fun CookLogSearchScreen(
                                 focusRequester.requestFocus()
                             },
                         ) {
-                            Icon(Icons.Filled.Close, stringResource(R.string.cook_log_clear))
+                            Icon(Icons.Filled.Close, stringResource(R.string.recipe_search_clear))
                         }
                     }
                 },
@@ -130,11 +153,15 @@ fun CookLogSearchScreen(
         },
     ) { padding ->
         val all = recipes ?: return@Scaffold
+        // Only planning needs the days, so logging doesn't wait for them.
+        val planned = if (mode == RecipeSearchMode.Plan) plannedOn ?: return@Scaffold else emptyMap()
+        val today = remember { LocalDate.now() }
+        val locale = currentLocale()
         val shown = remember(all, query) { RecipeQuery.byTitle(all, query) }
         val modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()
         if (shown.isEmpty()) {
             Text(
-                stringResource(R.string.cook_log_none),
+                stringResource(R.string.recipe_search_none),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = modifier.padding(16.dp),
@@ -143,8 +170,12 @@ fun CookLogSearchScreen(
             LazyColumn(modifier.nestedScroll(hideKeyboard)) {
                 itemsIndexed(shown, key = { _, recipe -> recipe.id }) { index, recipe ->
                     if (index > 0) HorizontalDivider()
+                    val day = planned[recipe.id]
                     ListItem(
                         headlineContent = { Text(recipe.title) },
+                        supportingContent = day?.let {
+                            { Text(stringResource(R.string.recipe_search_planned, formatPlannedDate(it, today, locale))) }
+                        },
                         modifier = Modifier.clickable {
                             focusManager.clearFocus()
                             pickedId = recipe.id
@@ -154,13 +185,20 @@ fun CookLogSearchScreen(
             }
         }
     }
-    pickedId?.let { recipeId ->
+    val picked = pickedId?.let { id -> recipes?.firstOrNull { it.id == id } }
+    if (picked != null) {
         val today = LocalDate.now()
-        CookDatePickerDialog(
-            date = today,
-            today = today,
-            onPick = { date -> onLogged(recipeId, date) },
-            onDismiss = { pickedId = null },
-        )
+        val onPick = { date: LocalDate -> onPicked(picked, date) }
+        val onDismiss = { pickedId = null }
+        when (mode) {
+            RecipeSearchMode.Log -> CookDatePickerDialog(date = today, today = today, onPick = onPick, onDismiss = onDismiss)
+            // A day that has already passed can't be picked again, so moving starts from today.
+            RecipeSearchMode.Plan -> PlanDatePickerDialog(
+                date = plannedOn?.get(picked.id)?.takeIf { it >= today } ?: today,
+                today = today,
+                onPick = onPick,
+                onDismiss = onDismiss,
+            )
+        }
     }
 }

@@ -59,12 +59,13 @@ import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.IngredientUnit
-import com.example.plantry.ui.cooklog.CookLogSearchScreen
-import com.example.plantry.ui.cooklog.CookLogSearchViewModel
 import com.example.plantry.ui.cooklog.CookingScreen
 import com.example.plantry.ui.cooklog.CookingViewModel
 import com.example.plantry.ui.cooklog.JustLogged
 import com.example.plantry.ui.cooklog.JustPlanned
+import com.example.plantry.ui.cooklog.RecipeSearchMode
+import com.example.plantry.ui.cooklog.RecipeSearchScreen
+import com.example.plantry.ui.cooklog.RecipeSearchViewModel
 import com.example.plantry.ui.ingredient.IngredientDetailScreen
 import com.example.plantry.ui.ingredient.IngredientDetailViewModel
 import com.example.plantry.ui.ingredient.IngredientListScreen
@@ -92,13 +93,14 @@ object CookingRoute
 @Serializable
 object SuggestionsRoute
 
-/** Saved-state keys with which the suggestions hand a planned recipe back to Kochen. */
+/** Saved-state keys with which "Vorschlag" and "Planen" hand the recipe and day (epoch day) to plan back to Kochen. */
 private const val JUST_PLANNED_ID = "justPlannedId"
 private const val JUST_PLANNED_TITLE = "justPlannedTitle"
+private const val JUST_PLANNED_DAY = "justPlannedDay"
 
-/** "Kocheintrag": a recipe to find, then the day it was cooked. */
+/** "Kocheintrag" and "Planen": a recipe to find, then the day it was cooked or is to be cooked. */
 @Serializable
-object CookLogSearchRoute
+data class RecipeSearchRoute(val mode: RecipeSearchMode)
 
 /** Saved-state keys with which "Kocheintrag" hands the picked recipe and day (epoch day) back to Kochen. */
 private const val JUST_LOGGED_ID = "justLoggedId"
@@ -309,6 +311,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                     val handle = entry.savedStateHandle
                     val justPlannedId by handle.getStateFlow<Long?>(JUST_PLANNED_ID, null).collectAsStateWithLifecycle()
                     val justPlannedTitle by handle.getStateFlow(JUST_PLANNED_TITLE, "").collectAsStateWithLifecycle()
+                    val justPlannedDay by handle.getStateFlow(JUST_PLANNED_DAY, 0L).collectAsStateWithLifecycle()
                     val justLoggedId by handle.getStateFlow<Long?>(JUST_LOGGED_ID, null).collectAsStateWithLifecycle()
                     val justLoggedDay by handle.getStateFlow(JUST_LOGGED_DAY, 0L).collectAsStateWithLifecycle()
                     CookingScreen(
@@ -317,12 +320,14 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                         onSuggest = { navController.navigate(SuggestionsRoute) },
-                        onLog = { navController.navigate(CookLogSearchRoute) },
-                        justPlanned = justPlannedId?.let { JustPlanned(it, justPlannedTitle) },
+                        onPlan = { navController.navigate(RecipeSearchRoute(RecipeSearchMode.Plan)) },
+                        onLog = { navController.navigate(RecipeSearchRoute(RecipeSearchMode.Log)) },
+                        justPlanned = justPlannedId?.let { JustPlanned(it, justPlannedTitle, LocalDate.ofEpochDay(justPlannedDay)) },
                         onJustPlannedShown = {
                             // Reset, not removed: removing would leave the collected flows on the old value.
                             handle[JUST_PLANNED_ID] = null
                             handle[JUST_PLANNED_TITLE] = ""
+                            handle[JUST_PLANNED_DAY] = 0L
                         },
                         justLogged = justLoggedId?.let { JustLogged(it, LocalDate.ofEpochDay(justLoggedDay)) },
                         onJustLoggedShown = {
@@ -331,15 +336,23 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         },
                     )
                 }
-                composable<CookLogSearchRoute> {
-                    CookLogSearchScreen(
-                        viewModel = viewModel { CookLogSearchViewModel(recipeRepository) },
+                composable<RecipeSearchRoute> { entry ->
+                    val mode = entry.toRoute<RecipeSearchRoute>().mode
+                    RecipeSearchScreen(
+                        viewModel = viewModel { RecipeSearchViewModel(recipeRepository, app.plannedRepository) },
+                        mode = mode,
                         onBack = { navController.popBackStack() },
-                        onLogged = { recipeId, date ->
-                            navController.previousBackStackEntry?.savedStateHandle?.let { handle ->
-                                // The day first: Kochen reacts to the id.
-                                handle[JUST_LOGGED_DAY] = date.toEpochDay()
-                                handle[JUST_LOGGED_ID] = recipeId
+                        onPicked = { recipe, date ->
+                            when (mode) {
+                                RecipeSearchMode.Log -> navController.previousBackStackEntry?.savedStateHandle?.let { handle ->
+                                    // The day first: Kochen reacts to the id.
+                                    handle[JUST_LOGGED_DAY] = date.toEpochDay()
+                                    handle[JUST_LOGGED_ID] = recipe.id
+                                }
+                                RecipeSearchMode.Plan -> {
+                                    askForNotifications()
+                                    navController.previousBackStackEntry?.handOverPlan(recipe.id, recipe.title, date)
+                                }
                             }
                             navController.popBackStack()
                         },
@@ -351,13 +364,9 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                             SuggestionsViewModel(app.recipeSuggester, app.plannedRepository, recipeRepository, ingredientRepository)
                         },
                         onBack = { navController.popBackStack() },
-                        onPlanned = { recipeId, title ->
+                        onPlanned = { recipeId, title, date ->
                             askForNotifications()
-                            navController.previousBackStackEntry?.savedStateHandle?.let { handle ->
-                                // The title first: Kochen reacts to the id.
-                                handle[JUST_PLANNED_TITLE] = title
-                                handle[JUST_PLANNED_ID] = recipeId
-                            }
+                            navController.previousBackStackEntry?.handOverPlan(recipeId, title, date)
                             navController.popBackStack()
                         },
                     )
@@ -493,6 +502,14 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
 }
 
 /** The tab this entry is the first screen of; the recipe list filtered by an ingredient is a sub-screen. */
+/** Hands a recipe and day to plan back to Kochen, which plans it with an undo snackbar. */
+private fun NavBackStackEntry.handOverPlan(recipeId: Long, title: String, date: LocalDate) {
+    // Title and day first: Kochen reacts to the id.
+    savedStateHandle[JUST_PLANNED_TITLE] = title
+    savedStateHandle[JUST_PLANNED_DAY] = date.toEpochDay()
+    savedStateHandle[JUST_PLANNED_ID] = recipeId
+}
+
 private fun NavBackStackEntry.topLevel(): TopLevelDestination? =
     TopLevelDestination.entries.firstOrNull { destination.hasRoute(it.route::class) }
         ?.takeUnless { destination.hasRoute(RecipeListRoute::class) && toRoute<RecipeListRoute>().ingredientId != null }
