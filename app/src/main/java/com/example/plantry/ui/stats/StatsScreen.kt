@@ -130,8 +130,8 @@ private enum class StatsChart { PLANT_POINTS, PROTEIN, FIBRE }
 
 /**
  * Statistik, opened from Speiseplan: a Woche / Monat / 3 Monate toggle and the period title with
- * ‹ › and back-to-today drive the cards below; swiping steps periods too. It always opens on the
- * current week. The plant-points card shows a week's progress towards the goal, or a bar per week;
+ * ‹ › and back-to-today drive the cards below; swiping steps periods too. It opens on the week of
+ * [openWeek], from a Speiseplan week header, or else on the current week. The plant-points card shows a week's progress towards the goal, or a bar per week;
  * the top lists open a recipe or ingredient that still exists.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -141,6 +141,7 @@ fun StatsScreen(
     onBack: () -> Unit,
     onRecipeClick: (Long) -> Unit,
     onIngredientClick: (Long) -> Unit,
+    openWeek: LocalDate? = null,
 ) {
     val data by viewModel.data.collectAsStateWithLifecycle()
     Scaffold(
@@ -170,7 +171,9 @@ fun StatsScreen(
         val today = remember { LocalDate.now() }
         val calendar = remember(stats.firstEntry) { StatsCalendar(today, stats.firstEntry) }
         var range by rememberSaveable { mutableStateOf(StatsRange.WEEK) }
-        var offset by rememberSaveable(range) { mutableIntStateOf(0) }
+        // Only until the range is switched, which jumps to the current period.
+        var openWeekSteps by rememberSaveable { mutableIntStateOf(openWeek?.let(calendar::weekStepsTo) ?: 0) }
+        var offset by rememberSaveable(range) { mutableIntStateOf(if (range == StatsRange.WEEK) openWeekSteps else 0) }
         val period = calendar.current(range).plus(offset.toLong())
         var selected by rememberSaveable(range, offset) { mutableStateOf<Pair<StatsChart, Int>?>(null) }
         fun selectedIn(chart: StatsChart) = selected?.takeIf { it.first == chart }?.second
@@ -198,7 +201,10 @@ fun StatsScreen(
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            RangeToggle(range, onSelect = { range = it })
+            RangeToggle(range, onSelect = {
+                openWeekSteps = 0
+                range = it
+            })
             PeriodHeader(
                 title = periodTitle(period, today),
                 canBack = canBack,

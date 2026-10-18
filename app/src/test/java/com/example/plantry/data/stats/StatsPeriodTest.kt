@@ -106,6 +106,27 @@ class StatsPeriodTest {
     }
 
     @Test
+    fun weekStepsTo_countsWeeksBackFromTheCurrentOne() {
+        val calendar = StatsCalendar(today, firstEntry = date(9, 16))
+
+        assertEquals(0, calendar.weekStepsTo(date(10, 12)))
+        assertEquals(0, calendar.weekStepsTo(today))
+        assertEquals(-1, calendar.weekStepsTo(date(10, 5)))
+        // Thu 17 Sep belongs to the week of Mon 14 Sep.
+        assertEquals(-4, calendar.weekStepsTo(date(9, 17)))
+        assertEquals(date(9, 14), calendar.current(StatsRange.WEEK).plus(-4).start)
+    }
+
+    @Test
+    fun weekStepsTo_staysBetweenTheFirstEntrysWeekAndToday() {
+        val calendar = StatsCalendar(today, firstEntry = date(9, 16))
+
+        assertEquals(-4, calendar.weekStepsTo(date(8, 3)))
+        assertEquals(0, calendar.weekStepsTo(date(11, 2)))
+        assertEquals(0, StatsCalendar(today, firstEntry = null).weekStepsTo(date(10, 5)))
+    }
+
+    @Test
     fun withoutEntries_thereIsNothingToStepBackTo() {
         assertFalse(StatsCalendar(today, firstEntry = null).canStepBack(StatsPeriod(StatsRange.WEEK, date(10, 12))))
     }

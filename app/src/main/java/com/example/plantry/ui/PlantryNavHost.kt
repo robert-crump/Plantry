@@ -186,8 +186,9 @@ data class IngredientCreateRoute(
     )
 }
 
+/** [week]: the epoch day of a week to open on, from a Speiseplan week header; null for the current one. */
 @Serializable
-object StatsRoute
+data class StatsRoute(val week: Long? = null)
 
 @Serializable
 object SettingsRoute
@@ -335,7 +336,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         onSuggest = { navController.navigate(SuggestionsRoute) },
                         onPlan = { navController.navigate(RecipeSearchRoute(RecipeSearchMode.Plan)) },
                         onLog = { navController.navigate(RecipeSearchRoute(RecipeSearchMode.Log)) },
-                        onStats = { navController.navigate(StatsRoute) },
+                        onStats = { week -> navController.navigate(StatsRoute(week?.toEpochDay())) },
                         justPlanned = justPlannedId?.let { JustPlanned(it, justPlannedTitle, LocalDate.ofEpochDay(justPlannedDay)) },
                         onJustPlannedShown = {
                             // Reset, not removed: removing would leave the collected flows on the old value.
@@ -386,12 +387,13 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         },
                     )
                 }
-                composable<StatsRoute> {
+                composable<StatsRoute> { entry ->
                     StatsScreen(
                         viewModel = viewModel { StatsViewModel(cookLogRepository) },
                         onBack = { navController.popBackStack() },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                         onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
+                        openWeek = entry.toRoute<StatsRoute>().week?.let(LocalDate::ofEpochDay),
                     )
                 }
                 composable<RecipeListRoute> { entry ->

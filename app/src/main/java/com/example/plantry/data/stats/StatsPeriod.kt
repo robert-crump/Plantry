@@ -69,6 +69,17 @@ class StatsCalendar(private val today: LocalDate, private val firstEntry: LocalD
         firstEntry != null && period.start > StatsPeriod.containing(period.range, weekStart(firstEntry), today).start
 
     fun canStepForward(period: StatsPeriod): Boolean = period.start < current(period.range).start
+
+    /**
+     * How many weeks [date]'s week lies before the current one, as a negative step count, kept
+     * between the first entry's week and the current week.
+     */
+    fun weekStepsTo(date: LocalDate): Int {
+        val current = current(StatsRange.WEEK).start
+        val first = firstEntry?.let(::weekStart) ?: current
+        return ChronoUnit.WEEKS.between(current, weekStart(date)).toInt()
+            .coerceIn(ChronoUnit.WEEKS.between(current, first).toInt(), 0)
+    }
 }
 
 /**

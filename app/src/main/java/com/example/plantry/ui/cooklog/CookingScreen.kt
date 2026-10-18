@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -219,7 +220,8 @@ data class JustLogged(val recipeId: Long, val date: LocalDate)
  * an undo snackbar, then [onJustPlannedShown] clears it; [justLogged] is logged once, then
  * [onJustLoggedShown] clears it. A long press selects a card or row, like Gmail: taps then toggle,
  * and a bar on top offers "Gekocht" (Geplant only) and "Löschen", each confirmed in a dialog.
- * Outside selection, the top bar's chart icon opens Statistik ([onStats]).
+ * Outside selection, the top bar's chart icon opens Statistik ([onStats] with null); a week header's
+ * plant points open it on that week (its Monday).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -229,7 +231,7 @@ fun CookingScreen(
     onSuggest: () -> Unit,
     onPlan: () -> Unit,
     onLog: () -> Unit,
-    onStats: () -> Unit,
+    onStats: (week: LocalDate?) -> Unit,
     justPlanned: JustPlanned?,
     onJustPlannedShown: () -> Unit,
     justLogged: JustLogged?,
@@ -353,7 +355,7 @@ fun CookingScreen(
                     TopAppBar(
                         title = { Text(stringResource(R.string.cooking_title)) },
                         actions = {
-                            IconButton(onClick = onStats) { Icon(Icons.Filled.BarChart, stringResource(R.string.stats_title)) }
+                            IconButton(onClick = { onStats(null) }) { Icon(Icons.Filled.BarChart, stringResource(R.string.stats_title)) }
                         },
                     )
                 }
@@ -449,7 +451,11 @@ fun CookingScreen(
                         }
                         weeks.forEach { (monday, week) ->
                             stickyHeader(key = "week-$monday") {
-                                WeekHeader(cookWeekLabel(monday, today, locale, thisWeek, lastWeek), weeklyPlantPoints[monday])
+                                WeekHeader(
+                                    cookWeekLabel(monday, today, locale, thisWeek, lastWeek),
+                                    weeklyPlantPoints[monday],
+                                    onPlantPointsClick = { onStats(monday) },
+                                )
                             }
                             items(week, key = { it.id }) { entry ->
                                 HistoryRow(
@@ -487,19 +493,28 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 /**
  * A week's header in the history: a thin line, then e.g. "Diese Woche" and, at the end, a leaf with
  * the week's [plantPoints] against the goal, e.g. "23/30", green and bold once reached (none while
- * still loading). Opaque, as it sticks at the top.
+ * still loading); tapping them calls [onPlantPointsClick]. Opaque, as it sticks at the top.
  */
 @Composable
-private fun WeekHeader(text: String, plantPoints: Double?) {
+private fun WeekHeader(text: String, plantPoints: Double?, onPlantPointsClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         HorizontalDivider()
         Row(
-            Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+            // The points' own padding makes up the rest, for a larger touch target.
+            Modifier.padding(start = 16.dp, end = 8.dp, top = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val color = MaterialTheme.colorScheme.onSurfaceVariant
             Text(text, style = MaterialTheme.typography.titleSmall, color = color, modifier = Modifier.weight(1f))
-            if (plantPoints != null) WeekPlantPointsScore(plantPoints)
+            if (plantPoints != null) {
+                WeekPlantPointsScore(
+                    plantPoints,
+                    Modifier
+                        .clip(MaterialTheme.shapes.small)
+                        .clickable(onClickLabel = stringResource(R.string.cook_week_open_stats), onClick = onPlantPointsClick)
+                        .padding(8.dp),
+                )
+            }
         }
     }
 }

@@ -194,6 +194,7 @@
     <string name="cook_week_this">Diese Woche</string>
     <string name="cook_week_last">Letzte Woche</string>
     <string name="cook_week_plant_points">%1$d von %2$d Pflanzenpunkten</string>
+    <string name="cook_week_open_stats">Statistik der Woche öffnen</string>
     <string name="planned_done_action">Gekocht</string>
     <string name="planned_done_title">„%1$s“ als gekocht eintragen?</string>
     <plurals name="planned_done_several_title">
