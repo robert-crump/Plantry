@@ -1,6 +1,7 @@
 package com.example.plantry.ui.stats
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +21,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Grass
+import androidx.compose.material.icons.filled.LocalFlorist
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -47,17 +50,22 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
+import com.example.plantry.data.CookLog
+import com.example.plantry.data.CookLogPlant
 import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.planner.WeeklyPlantPointsGoal
 import com.example.plantry.data.stats.NutrientBar
@@ -66,14 +74,19 @@ import com.example.plantry.data.stats.PlantPointsStats
 import com.example.plantry.data.stats.StatsCalendar
 import com.example.plantry.data.stats.StatsPeriod
 import com.example.plantry.data.stats.StatsRange
+import com.example.plantry.data.stats.TopPlant
+import com.example.plantry.data.stats.TopRecipe
 import com.example.plantry.data.stats.WeekPoints
 import com.example.plantry.data.stats.dailyNutrient
+import com.example.plantry.data.stats.topPlants
+import com.example.plantry.data.stats.topRecipes
 import com.example.plantry.ui.cooklog.cookMonthLabel
 import com.example.plantry.ui.cooklog.cookWeekLabel
 import com.example.plantry.ui.cooklog.formatPlannedDate
 import com.example.plantry.ui.cooklog.ProteinIcon
 import com.example.plantry.ui.cooklog.weeklyPlantPoints
 import com.example.plantry.ui.currentLocale
+import com.example.plantry.ui.ingredient.plantPointsLabel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -86,13 +99,16 @@ import kotlin.math.roundToInt
 
 /**
  * What the Statistik screen draws from: the first entry's date (null without entries), each week's
- * plant points by its Monday, and each day's logged protein and fibre, see [dailyNutrient].
+ * plant points by its Monday, each day's logged protein and fibre, see [dailyNutrient], and the
+ * entries with their plants for the top lists.
  */
 data class StatsData(
     val firstEntry: LocalDate?,
     val weeklyPlantPoints: Map<LocalDate, Double>,
     val dailyProtein: Map<LocalDate, Double> = emptyMap(),
     val dailyFibre: Map<LocalDate, Double> = emptyMap(),
+    val entries: List<CookLog> = emptyList(),
+    val plants: List<CookLogPlant> = emptyList(),
 )
 
 class StatsViewModel(repository: CookLogRepository) : ViewModel() {
@@ -103,6 +119,8 @@ class StatsViewModel(repository: CookLogRepository) : ViewModel() {
             weeklyPlantPoints(entries, plants),
             dailyNutrient(entries) { it.proteinPerPortion },
             dailyNutrient(entries) { it.fibrePerPortion },
+            entries,
+            plants,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
@@ -113,11 +131,17 @@ private enum class StatsChart { PLANT_POINTS, PROTEIN, FIBRE }
 /**
  * Statistik, opened from Speiseplan: a Woche / Monat / 3 Monate toggle and the period title with
  * ‹ › and back-to-today drive the cards below; swiping steps periods too. It always opens on the
- * current week. The plant-points card shows a week's progress towards the goal, or a bar per week.
+ * current week. The plant-points card shows a week's progress towards the goal, or a bar per week;
+ * the top lists open a recipe or ingredient that still exists.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
+fun StatsScreen(
+    viewModel: StatsViewModel,
+    onBack: () -> Unit,
+    onRecipeClick: (Long) -> Unit,
+    onIngredientClick: (Long) -> Unit,
+) {
     val data by viewModel.data.collectAsStateWithLifecycle()
     Scaffold(
         topBar = {
@@ -210,6 +234,8 @@ fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
                 selectedIn(StatsChart.FIBRE),
                 onSelect = select(StatsChart.FIBRE),
             )
+            TopRecipesCard(topRecipes(period, stats.entries), onRecipeClick)
+            TopPlantsCard(topPlants(period, stats.entries, stats.plants), onIngredientClick)
         }
     }
 }
@@ -458,6 +484,93 @@ private fun NutrientCard(
             onSelect = onSelect,
         )
     }
+}
+
+/** "Linsen-Dal · 4×" per row. */
+@Composable
+private fun TopRecipesCard(recipes: List<TopRecipe>, onRecipeClick: (Long) -> Unit) {
+    StatsCard(stringResource(R.string.stats_top_recipes_title), rememberVectorPainter(Icons.Filled.Restaurant)) {
+        TopList(recipes) { recipe ->
+            TopRow(
+                recipe.title,
+                badge = null,
+                count = recipe.count,
+                description = pluralStringResource(R.plurals.stats_times_cooked, recipe.count, recipe.title, recipe.count),
+                onClick = recipe.recipeId?.let { id -> { onRecipeClick(id) } },
+            )
+        }
+    }
+}
+
+/** "Zwiebel · 3×", herbs and spices with a "¼". */
+@Composable
+private fun TopPlantsCard(plants: List<TopPlant>, onIngredientClick: (Long) -> Unit) {
+    StatsCard(stringResource(R.string.stats_top_plants_title), rememberVectorPainter(Icons.Filled.LocalFlorist)) {
+        TopList(plants) { plant ->
+            val quarter = plant.plantPoints < 1.0
+            TopRow(
+                plant.name,
+                badge = if (quarter) stringResource(R.string.stats_quarter_point) else null,
+                count = plant.count,
+                description = pluralStringResource(
+                    R.plurals.stats_times_used,
+                    plant.count,
+                    if (quarter) "${plant.name}, ${plantPointsLabel(plant.plantPoints)}" else plant.name,
+                    plant.count,
+                ),
+                onClick = plant.ingredientId?.let { id -> { onIngredientClick(id) } },
+            )
+        }
+    }
+}
+
+@Composable
+private fun <T> TopList(rows: List<T>, row: @Composable (T) -> Unit) {
+    if (rows.isEmpty()) {
+        Summary(stringResource(R.string.stats_top_empty))
+    } else {
+        // Rows reach the card's edges, so their ripple does too.
+        Column(Modifier.widenBy(16.dp)) { rows.forEach { row(it) } }
+    }
+}
+
+/** A name, an optional [badge] after it and "4×"; tappable when [onClick] is set. */
+@Composable
+private fun TopRow(name: String, badge: String?, count: Int, description: String, onClick: (() -> Unit)?) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .clearAndSetSemantics { contentDescription = description }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (badge != null) {
+                Text(badge, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
+            }
+        }
+        Text(
+            stringResource(R.string.stats_times, count),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Lays the content out [by] wider on each side than its parent allows, e.g. past a card's padding. */
+private fun Modifier.widenBy(by: Dp): Modifier = layout { measurable, constraints ->
+    val extra = by.roundToPx()
+    val placeable = measurable.measure(constraints.copy(maxWidth = constraints.maxWidth + 2 * extra))
+    layout(placeable.width - 2 * extra, placeable.height) { placeable.place(-extra, 0) }
 }
 
 /** Where a period's bars sit: each bar's span on the axis, its length and its labels. */

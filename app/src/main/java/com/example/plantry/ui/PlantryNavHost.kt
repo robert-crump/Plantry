@@ -387,7 +387,12 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                     )
                 }
                 composable<StatsRoute> {
-                    StatsScreen(viewModel = viewModel { StatsViewModel(cookLogRepository) }, onBack = { navController.popBackStack() })
+                    StatsScreen(
+                        viewModel = viewModel { StatsViewModel(cookLogRepository) },
+                        onBack = { navController.popBackStack() },
+                        onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
+                        onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
+                    )
                 }
                 composable<RecipeListRoute> { entry ->
                     val ingredientId = entry.toRoute<RecipeListRoute>().ingredientId

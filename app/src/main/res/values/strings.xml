@@ -569,4 +569,21 @@
     <string name="stats_nutrient_chart">Balkendiagramm: %1$s in Gramm pro Tag. %2$s</string>
     <!-- %1$s is the nutrient, %2$s the weeks with their daily average -->
     <string name="stats_nutrient_chart_weekly">Balkendiagramm: %1$s in Gramm pro Tag, Durchschnitt je Woche. %2$s</string>
+    <string name="stats_top_recipes_title">Meistgekochte Rezepte</string>
+    <string name="stats_top_plants_title">Top-Pflanzen</string>
+    <string name="stats_top_empty">Keine Einträge in diesem Zeitraum</string>
+    <!-- How often a recipe or plant appears in the period, e.g. "4×" -->
+    <string name="stats_times">%1$d×</string>
+    <!-- After a herb or spice worth a quarter point -->
+    <string name="stats_quarter_point">¼</string>
+    <!-- Screen reader: %1$s the recipe, %2$d how often it was cooked -->
+    <plurals name="stats_times_cooked">
+        <item quantity="one">%1$s, %2$d-mal gekocht</item>
+        <item quantity="other">%1$s, %2$d-mal gekocht</item>
+    </plurals>
+    <!-- Screen reader: %1$s the plant (with its points if a quarter), %2$d the number of entries -->
+    <plurals name="stats_times_used">
+        <item quantity="one">%1$s, in %2$d Gericht</item>
+        <item quantity="other">%1$s, in %2$d Gerichten</item>
+    </plurals>
 </resources>
