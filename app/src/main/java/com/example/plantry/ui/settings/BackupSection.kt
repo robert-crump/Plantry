@@ -36,6 +36,8 @@ data class BackupUiState(
     val busy: Boolean = false,
     /** A parsed file waiting for the user to confirm that it replaces all data. */
     val pendingImport: BackupFile? = null,
+    /** Data changed since the last export; the pending import would lose it. */
+    val unexportedChanges: Boolean = false,
     @StringRes val message: Int? = null,
 )
 
@@ -60,20 +62,21 @@ class BackupViewModel(
     fun read(uri: Uri) = run {
         val stream = contentResolver.openInputStream(uri) ?: throw IOException("No stream for $uri")
         val file = repository.read(stream.bufferedReader().use { it.readText() })
-        _state.update { it.copy(pendingImport = file) }
+        val unexportedChanges = repository.hasUnexportedChanges()
+        _state.update { it.copy(pendingImport = file, unexportedChanges = unexportedChanges) }
         null
     }
 
     fun confirmImport() {
         val file = _state.value.pendingImport ?: return
-        _state.update { it.copy(pendingImport = null) }
+        _state.update { it.copy(pendingImport = null, unexportedChanges = false) }
         run {
             repository.import(file)
             R.string.backup_imported
         }
     }
 
-    fun cancelImport() = _state.update { it.copy(pendingImport = null) }
+    fun cancelImport() = _state.update { it.copy(pendingImport = null, unexportedChanges = false) }
 
     fun messageShown() = _state.update { it.copy(message = null) }
 
@@ -141,7 +144,9 @@ fun BackupSection(viewModel: BackupViewModel, snackbarHostState: SnackbarHostSta
             onDismissRequest = viewModel::cancelImport,
             title = { Text(stringResource(R.string.backup_import_confirm_title)) },
             text = {
-                Text(stringResource(R.string.backup_import_confirm_message, file.recipes.size, file.ingredients.size))
+                val message = stringResource(R.string.backup_import_confirm_message, file.recipes.size, file.ingredients.size)
+                val warning = stringResource(R.string.backup_import_unexported_changes)
+                Text(if (state.unexportedChanges) "$message\n\n$warning" else message)
             },
             confirmButton = {
                 TextButton(onClick = viewModel::confirmImport) { Text(stringResource(R.string.backup_import_confirm)) }

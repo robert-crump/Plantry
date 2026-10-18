@@ -282,6 +282,35 @@ class BackupRepositoryTest {
         assertFalse(target.repository.reminder.value)
     }
 
+    @Test
+    fun unexportedChanges_sinceLastExport() = runTest {
+        source.export()
+        assertFalse(source.repository.hasUnexportedChanges())
+
+        source.store.data = source.store.data.copy(planned = emptyList())
+        assertTrue(source.repository.hasUnexportedChanges())
+
+        source.export()
+        assertFalse(source.repository.hasUnexportedChanges())
+
+        // Settings are replaced by an import too.
+        source.settings.setCooldownDays(20)
+        assertTrue(source.repository.hasUnexportedChanges())
+    }
+
+    @Test
+    fun unexportedChanges_noneAfterImport() = runTest {
+        val target = Device()
+        target.repository.import(target.repository.read(source.export()))
+
+        assertFalse(target.repository.hasUnexportedChanges())
+    }
+
+    @Test
+    fun unexportedChanges_noneWithoutBaseline() = runTest {
+        assertFalse(source.repository.hasUnexportedChanges())
+    }
+
     private suspend fun readError(text: String): InvalidBackupException = try {
         source.repository.read(text)
         throw AssertionError("accepted: $text")

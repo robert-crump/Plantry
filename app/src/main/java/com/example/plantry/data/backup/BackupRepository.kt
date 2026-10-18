@@ -79,9 +79,15 @@ class BackupRepository(
             setBaseline(currentJson())
             return
         }
-        _reminder.value = ChronoUnit.DAYS.between(baselineDate, today()) > REMINDER_DAYS &&
-            fingerprint(currentJson()) != storage.getString(KEY_BASELINE_FINGERPRINT)
+        _reminder.value = ChronoUnit.DAYS.between(baselineDate, today()) > REMINDER_DAYS && changedSinceBaseline()
     }
+
+    /** True when data has changed since the last export or import, so an import would lose it. */
+    suspend fun hasUnexportedChanges(): Boolean =
+        storage.getString(KEY_BASELINE_FINGERPRINT) != null && changedSinceBaseline()
+
+    private suspend fun changedSinceBaseline(): Boolean =
+        fingerprint(currentJson()) != storage.getString(KEY_BASELINE_FINGERPRINT)
 
     private fun exportsOn(date: LocalDate): Int =
         if (storage.getString(KEY_NAME_DATE) == date.toString()) storage.getString(KEY_NAME_COUNT)?.toIntOrNull() ?: 0 else 0

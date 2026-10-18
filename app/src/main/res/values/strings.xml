@@ -439,6 +439,7 @@
     <string name="backup_import_hint">Aus Sicherung wiederherstellen</string>
     <string name="backup_import_confirm_title">Alle Daten ersetzen?</string>
     <string name="backup_import_confirm_message">Rezepte, Zutaten, Kochprotokoll und Einstellungen werden durch die Sicherung ersetzt (%1$d Rezepte, %2$d Zutaten). Das lässt sich nicht rückgängig machen. Der API-Schlüssel bleibt erhalten.</string>
+    <string name="backup_import_unexported_changes">Seit dem letzten Export wurde etwas geändert. Diese Änderungen gehen beim Import verloren.</string>
     <string name="backup_import_confirm">Ersetzen</string>
     <string name="backup_exported">Daten exportiert.</string>
     <string name="backup_imported">Sicherung wiederhergestellt.</string>
