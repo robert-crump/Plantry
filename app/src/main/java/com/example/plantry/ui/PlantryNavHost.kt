@@ -79,6 +79,7 @@ import com.example.plantry.ui.recipe.RecipeEditViewModel
 import com.example.plantry.ui.recipe.RecipeListScreen
 import com.example.plantry.ui.recipe.RecipeListViewModel
 import com.example.plantry.ui.settings.BackupViewModel
+import com.example.plantry.ui.settings.AboutScreen
 import com.example.plantry.ui.settings.SettingsScreen
 import com.example.plantry.ui.settings.SettingsViewModel
 import com.example.plantry.ui.suggest.SuggestionsScreen
@@ -185,6 +186,9 @@ data class IngredientCreateRoute(
 
 @Serializable
 object SettingsRoute
+
+@Serializable
+object AboutRoute
 
 private enum class TopLevelDestination(
     val route: Any,
@@ -522,7 +526,12 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                     SettingsScreen(
                         viewModel = viewModel { SettingsViewModel(settingsRepository, app.connectionTester) },
                         backupViewModel = viewModel { BackupViewModel(app.backupRepository, app.contentResolver) },
+                        onAbout = { navController.navigate(AboutRoute) },
                     )
+                }
+                composable<AboutRoute> {
+                    val settings by settingsRepository.settings.collectAsStateWithLifecycle()
+                    AboutScreen(cooldownDays = settings.cooldownDays, onBack = { navController.popBackStack() })
                 }
             }
         }

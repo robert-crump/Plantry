@@ -449,4 +449,57 @@
     <string name="backup_error_import">Die Sicherung ist fehlerhaft. Es wurde nichts verändert.</string>
     <string name="backup_reminder">Deine letzte Sicherung ist über 30 Tage alt und seitdem hat sich etwas geändert.</string>
     <string name="backup_reminder_later">Später</string>
+
+    <!-- About (#108) -->
+    <string name="settings_info">Info</string>
+    <string name="about_title">Über Plantry</string>
+    <string name="about_summary">Ziel, Schwellenwerte, Datenquellen</string>
+    <!-- %1$d is the weekly plant points goal -->
+    <string name="about_intro">Plantry hilft dir, die Woche mit selbst gekochten Rezepten zu planen – abwechslungsreich, proteinreich und mit möglichst vielen verschiedenen Pflanzen. Das Ziel: %1$d Pflanzen pro Woche, denn Vielfalt auf dem Teller ist gut für die Darmflora.</string>
+    <string name="about_how">So funktioniert’s</string>
+    <string name="about_step_recipes">1. Rezepte anlegen – von Hand oder per Foto aus dem Kochbuch scannen (Claude).</string>
+    <string name="about_step_suggestions">2. Vorschläge holen und passende Rezepte in den Speiseplan übernehmen.</string>
+    <string name="about_step_reminder">3. Abends fragt eine Erinnerung, ob ihr gekocht habt – dann kannst du das Rezept als gekocht loggen.</string>
+    <string name="about_step_history">4. Der Verlauf zeigt, was ihr gekocht habt und wie viele Pflanzenpunkte jede Woche gesammelt hat.</string>
+    <string name="about_plant_points">Pflanzenpunkte</string>
+    <!-- %1$d is the weekly plant points goal -->
+    <string name="about_plant_points_rules">Jede Pflanze zählt einmal pro Woche (Montag bis Sonntag), auch wenn sie in mehreren Rezepten oder in einer Mischung wie Pesto steckt. Es zählen nur gekochte Rezepte, geplante noch nicht. Ziel: %1$d pro Woche.</string>
+    <string name="about_recipe_tags">Rezept-Tags</string>
+    <!-- %1$s is an amount such as "30 g Protein" -->
+    <string name="about_at_least_per_portion">ab %1$s je Portion</string>
+    <string name="about_at_most_kcal_per_portion">höchstens %1$d kcal je Portion</string>
+    <string name="about_at_least_plant_points">ab %1$d Pflanzenpunkten</string>
+    <string name="about_ingredient_filters">Zutaten-Filter</string>
+    <!-- %1$s is an amount such as "12 g Protein" -->
+    <string name="about_at_least_per_100g">ab %1$s je 100 g</string>
+    <string name="about_fibre_eu">ab %1$s je 100 g – laut EU „ballaststoffreich“</string>
+    <string name="about_suggestions">Wie Vorschläge entstehen</string>
+    <!-- %1$d is how many of the best-scoring recipes the random pick draws from -->
+    <string name="about_suggestions_intro">Vorschläge sind gewichteter Zufall, kein festes Ranking: Jedes Hauptgericht bekommt eine Punktzahl, dann wird aus den besten %1$d gezogen – je höher die Punktzahl, desto wahrscheinlicher.</string>
+    <string name="about_suggestions_cooldown_label">Abstand</string>
+    <plurals name="about_suggestions_cooldown">
+        <item quantity="one">Nach dem Kochen zählt ein Rezept erst nach %1$d Tag wieder voll (einstellbar unter Rezeptvorschläge). Nie gekochte Rezepte gelten als überfällig.</item>
+        <item quantity="other">Nach dem Kochen zählt ein Rezept erst nach %1$d Tagen wieder voll (einstellbar unter Rezeptvorschläge). Nie gekochte Rezepte gelten als überfällig.</item>
+    </plurals>
+    <string name="about_suggestions_protein_label">Protein</string>
+    <string name="about_suggestions_protein">voll ab %1$d g je Portion, darunter anteilig weniger.</string>
+    <string name="about_suggestions_plants_label">Pflanzenpunkte</string>
+    <string name="about_suggestions_plants">Rezepte mit neuen Pflanzen für diese Woche werden bevorzugt, bis das Wochenziel erreicht ist.</string>
+    <string name="about_suggestions_never_excluded">Kein Rezept wird ganz ausgeschlossen.</string>
+    <string name="about_suggestions_boost_label">Pflanzen-Boost</string>
+    <string name="about_suggestions_boost">Freitag bis Sonntag, solange die Woche unter %1$d liegt, schlägt eine Extrakarte ein Frühstück oder einen Snack mit neuen Pflanzen vor.</string>
+    <string name="about_data">Daten &amp; Datenschutz</string>
+    <string name="about_data_claude_label">Claude (Anthropic)</string>
+    <string name="about_data_claude">nur beim Scannen: Rezept- und Etikettfotos sowie Namen neuer Zutaten. Mit deinem eigenen API-Schlüssel, auf deine Kosten; der Schlüssel liegt verschlüsselt auf dem Gerät und steht in keiner Sicherung.</string>
+    <string name="about_data_off_label">Open Food Facts</string>
+    <string name="about_data_off">nur der Barcode, wenn du eine Packung nachschlägst.</string>
+    <string name="about_data_usda_label">USDA</string>
+    <string name="about_data_usda">die Nährwertdaten sind in der App enthalten und werden offline durchsucht.</string>
+    <string name="about_data_local_label">Alles andere</string>
+    <string name="about_data_local">Rezepte, Verlauf und Speiseplan bleiben auf dem Gerät – außer in Sicherungen, die du selbst exportierst.</string>
+    <string name="about_source_off">Open Food Facts</string>
+    <string name="about_source_off_summary">Produktdaten unter der Open Database License (ODbL)</string>
+    <string name="about_source_usda">USDA FoodData Central</string>
+    <string name="about_source_usda_summary">Nährwerte aus SR Legacy (April 2018), gemeinfrei (CC0 1.0). U.S. Department of Agriculture, Agricultural Research Service. FoodData Central, 2019. fdc.nal.usda.gov</string>
+    <string name="about_version">Version %1$s</string>
 </resources>

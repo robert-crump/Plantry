@@ -172,7 +172,7 @@ class SettingsViewModel(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewModel) {
+fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewModel, onAbout: () -> Unit) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val modelNames by viewModel.modelNames.collectAsStateWithLifecycle()
     val connectionTest by viewModel.connectionTest.collectAsStateWithLifecycle()
@@ -313,6 +313,18 @@ fun SettingsScreen(viewModel: SettingsViewModel, backupViewModel: BackupViewMode
 
             SectionHeader(R.string.settings_backup)
             BackupSection(backupViewModel, snackbar)
+
+            SectionHeader(R.string.settings_info)
+            SettingsGroup(
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.Info,
+                        title = stringResource(R.string.about_title),
+                        summary = stringResource(R.string.about_summary),
+                        onClick = onAbout,
+                    )
+                },
+            )
         }
     }
 

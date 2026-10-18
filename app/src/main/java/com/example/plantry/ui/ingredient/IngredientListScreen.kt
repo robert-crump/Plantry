@@ -300,7 +300,7 @@ private fun CountRow(state: IngredientListUiState) {
     )
 }
 
-private val IngredientChip.label: Int
+internal val IngredientChip.label: Int
     get() = when (this) {
         IngredientChip.HIGH_PROTEIN -> R.string.filter_protein
         IngredientChip.HIGH_CARBS -> R.string.filter_carbs
@@ -311,7 +311,7 @@ private val IngredientChip.label: Int
 private fun shownChips(chips: ChipSelection<IngredientChip>): List<IngredientChip> =
     IngredientChip.entries.filter { it in chips.active }
 
-private val IngredientChip.amountLabel: Int
+internal val IngredientChip.amountLabel: Int
     get() = when (this) {
         IngredientChip.HIGH_PROTEIN -> R.string.filter_amount_protein
         IngredientChip.HIGH_CARBS -> R.string.filter_amount_carbs
