@@ -1,8 +1,10 @@
 # Seed and bulk import
 
-One-time offline job: turn photos of the cookbooks and of the packages at home into a complete
-Plantry backup file (ingredients with their units + recipes) that is imported via Settings →
-Datensicherung → Importieren. The generator (`output/seed.py`) is run by Claude Code in this repo.
+Offline job: turn photos of the cookbooks and of the packages at home into a complete Plantry backup
+file (ingredients with their units + recipes) that is imported via Settings → Datensicherung →
+Importieren. The generator (`output/seed.py`) is run by Claude Code in this repo. The seed is
+cumulative: each run holds every book so far, and once the app is in use it is merged into an
+export of the app (section 4), so nothing entered in the app is lost.
 
 `input/` and `output/` are gitignored — they contain cookbook content.
 
@@ -38,11 +40,16 @@ input/
    refine [`matching-rules.md`](matching-rules.md).
 3. **Apply** the rules to all ingredients; only low-confidence matches are flagged for review.
 4. **Generate**: `python output/seed.py` writes the review table and the backup file. It fails on
-   an unknown ingredient name, a unit an ingredient lacks or a missing USDA entry.
-5. **Review** `output/03-review.md`: flags first, then the products (name, source, plant points,
-   store section, units), the recipes with each line's computed grams, and all ingredients.
-6. **Import** `output/YYMMDD-plantry.json` in the app. This replaces all app data; the API key is
-   kept.
+   an unknown ingredient name, a unit an ingredient lacks or a missing USDA entry. Once the app is
+   in use, export in the app first, copy the file to `input/` and run
+   `python output/seed.py input/YYMMDD-plantry.json`: this writes `output/YYMMDD-plantry-merged.json`
+   instead, the seed merged into the export (section 4).
+5. **Review** `output/03-review.md`: the merge report first when merging, then the flags, the
+   products (name, source, plant points, store section, units), the recipes with each line's
+   computed grams, and all ingredients.
+6. **Import** the backup file in the app. This replaces all app data; the API key is kept. Don't
+   change anything in the app between the export and the import of a merged file: that change
+   isn't in the export, so the import drops it.
 
 ## 3. Generator format
 
@@ -65,6 +72,32 @@ grams with the wording. The source is the book title with its page and Gesamtzei
 for a handwritten recipe, or "Eigenes Rezept". Changes the user noted on a book page (added,
 dropped or swapped ingredients) are applied, the changed lines marked "(notiert)" in their wording.
 
-The backup is format 2 (`BackupFile`): ingredients with their unit rows and the ids of their
+A standalone seed is format 2 (`BackupFile`): ingredients with their unit rows and the ids of their
 components (`contains`), recipes with structured lines. Every schema change after the import needs
 a migration.
+
+## 4. Merging into an app export
+
+[`merge.py`](merge.py) (tests: `python -m unittest discover -s tools/seed`) adds to the export what
+only the seed has; the app's version wins wherever both have something. Kochlog, Geplant, aliases,
+settings and photos are taken from the export unchanged, and the merged file keeps its format. The
+seed's ids are not stable, so the merge matches by key:
+
+- **Ingredient**: by name, ignoring case. A seed ingredient missing from the app is added. A unit a
+  new recipe line needs is added to the app's ingredient ("Einheiten aus Seed ergänzt"); units both
+  have keep the app's grams.
+- **Recipe**: a book recipe by source + page, so renaming it in the app keeps it matched; any other
+  recipe by source + title.
+
+The review lists everything added ("Neu hinzugefügt") and every difference between app and seed
+("In App und Seed verschieden"); to take the seed's version, change the app by hand. The run fails
+instead of adding a probable duplicate:
+
+- a new recipe whose title the app already has (from another source or page);
+- a new recipe whose title is in the Kochlog of a recipe deleted in the app: delete it from
+  `RECIPES` too, or it comes back with every seed;
+- a new ingredient whose barcode or USDA entry the app has under a name the seed doesn't know,
+  probably renamed in the app: rename it in the seed too.
+
+A recipe renamed in the app that has no page, or a deleted one never cooked, comes back as new:
+check "Neu hinzugefügt".

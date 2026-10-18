@@ -19,3 +19,6 @@ progress.txt
 /tools/seed/input/*
 !/tools/seed/input/.gitkeep
 /tools/seed/output/
+
+# Python bytecode of tools/seed
+__pycache__/
