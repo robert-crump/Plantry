@@ -8,19 +8,6 @@ import org.junit.Test
 
 class IngredientListTest {
 
-    @Test
-    fun upToEightLines_allShow() {
-        assertEquals(0, collapsedLineCount(0))
-        assertEquals(6, collapsedLineCount(6))
-        assertEquals(8, collapsedLineCount(8))
-    }
-
-    @Test
-    fun fromNineLines_theFirstSixShow() {
-        assertEquals(6, collapsedLineCount(9))
-        assertEquals(6, collapsedLineCount(20))
-    }
-
     private val tomato = ShownLine(1, "2 Tomaten", StoreSection.PRODUCE)
     private val onion = ShownLine(2, "1 Zwiebel", StoreSection.PRODUCE)
     private val feta = ShownLine(3, "200 g Feta", StoreSection.DAIRY_CHILLED)

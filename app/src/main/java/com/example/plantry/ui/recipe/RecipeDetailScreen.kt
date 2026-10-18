@@ -26,8 +26,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.AlertDialog
@@ -81,6 +79,8 @@ import com.example.plantry.data.StoreSection
 import com.example.plantry.data.nutritionLines
 import com.example.plantry.data.resolve
 import com.example.plantry.ui.HideOnScrollFab
+import com.example.plantry.ui.ShowMoreToggle
+import com.example.plantry.ui.collapsedCount
 import com.example.plantry.ui.cooklog.PlanDatePickerDialog
 import com.example.plantry.ui.cooklog.icon
 import com.example.plantry.ui.cooklog.label
@@ -518,21 +518,21 @@ private fun TimerChip(text: String, modifier: Modifier) {
 
 /**
  * The lines one per line, under a header for each store section, see [ingredientListRows]. A long
- * list shows only its first lines, see [collapsedLineCount], and a toggle below them for the rest;
+ * list shows only its first lines, see [collapsedCount], and a toggle below them for the rest;
  * it starts collapsed whenever the screen opens. Each line is tappable.
  */
 @Composable
 private fun IngredientList(lines: List<ShownLine>, onLineClick: (ShownLine) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    val collapsedCount = collapsedLineCount(lines.size)
-    val hidden = lines.size - collapsedCount
+    val collapsed = collapsedCount(lines.size)
+    val hidden = lines.size - collapsed
     Column(
         Modifier
             .padding(vertical = 8.dp)
             .animateContentSize(),
     ) {
         val openLabel = stringResource(R.string.recipe_line_open)
-        ingredientListRows(lines, if (expanded) lines.size else collapsedCount).forEach { row ->
+        ingredientListRows(lines, if (expanded) lines.size else collapsed).forEach { row ->
             when (row) {
                 is IngredientListRow.Header -> Text(
                     stringResource(row.section.label),
@@ -553,40 +553,14 @@ private fun IngredientList(lines: List<ShownLine>, onLineClick: (ShownLine) -> U
             }
         }
         if (hidden > 0) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .clickable { expanded = !expanded }
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    if (expanded) {
-                        stringResource(R.string.recipe_lines_less)
-                    } else {
-                        pluralStringResource(R.plurals.recipe_lines_more, hidden, hidden)
-                    },
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Icon(
-                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
+            ShowMoreToggle(
+                expanded,
+                pluralStringResource(R.plurals.recipe_lines_more, hidden, hidden),
+                onToggle = { expanded = !expanded },
+            )
         }
     }
 }
-
-/** Lines shown while the ingredient list is collapsed. */
-internal const val COLLAPSED_LINES = 6
-
-/** Fewer hidden lines than this aren't worth a toggle, which takes about as much room. */
-internal const val MIN_HIDDEN_LINES = 3
 
 /** A row of the ingredient list: a store section's header or one of its lines. */
 internal sealed interface IngredientListRow {
@@ -608,10 +582,6 @@ internal fun ingredientListRows(lines: List<ShownLine>, shown: Int): List<Ingred
         }
     }
 }
-
-/** How many of [count] lines show while collapsed: all of them unless enough would hide behind the first [COLLAPSED_LINES]. */
-internal fun collapsedLineCount(count: Int): Int =
-    if (count - COLLAPSED_LINES >= MIN_HIDDEN_LINES) COLLAPSED_LINES else count
 
 @Composable
 private fun SectionTitle(@StringRes text: Int) {

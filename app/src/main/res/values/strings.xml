@@ -2,6 +2,7 @@
     <string name="app_name">Plantry</string>
 
     <!-- Common actions -->
+    <string name="action_show_less">Weniger anzeigen</string>
     <string name="action_back">Zurück</string>
     <string name="action_close">Schließen</string>
     <string name="action_save">Speichern</string>
@@ -96,7 +97,6 @@
         <item quantity="one">+ %1$d weitere Zutat</item>
         <item quantity="other">+ %1$d weitere Zutaten</item>
     </plurals>
-    <string name="recipe_lines_less">Weniger anzeigen</string>
     <string name="recipe_line_open">Zutat öffnen</string>
     <string name="recipe_line_amount">%1$s · %2$s</string>
     <string name="recipe_line_add">Zutat hinzufügen</string>
@@ -195,6 +195,10 @@
     <string name="cook_week_last">Letzte Woche</string>
     <string name="cook_week_plant_points">%1$d von %2$d Pflanzenpunkten</string>
     <string name="cook_week_open_stats">Statistik der Woche öffnen</string>
+    <plurals name="cook_week_more">
+        <item quantity="one">+ %1$d weiterer Eintrag</item>
+        <item quantity="other">+ %1$d weitere Einträge</item>
+    </plurals>
     <string name="planned_done_action">Gekocht</string>
     <string name="planned_done_title">„%1$s“ als gekocht eintragen?</string>
     <plurals name="planned_done_several_title">

@@ -105,7 +105,9 @@ import com.example.plantry.ui.FabMenu
 import com.example.plantry.ui.FabMenuAction
 import com.example.plantry.ui.FabScrim
 import com.example.plantry.ui.FastScrollbar
+import com.example.plantry.ui.ShowMoreToggle
 import com.example.plantry.ui.SnackbarBelowFab
+import com.example.plantry.ui.collapsedCount
 import com.example.plantry.ui.currentLocale
 import com.example.plantry.ui.theme.highlightGreen
 import kotlinx.coroutines.Job
@@ -214,7 +216,9 @@ data class JustLogged(val recipeId: Long, val date: LocalDate)
 /**
  * The Speiseplan tab: Geplant on top as cards (hidden when empty), then the cooking history under
  * "Verlauf", newest first, in Monday–Sunday weeks with sticky headers showing the week's plant
- * points, each row with its own date badge. History rows show the recipe as it was when logged. A "+" FAB, hidden while scrolling
+ * points, each row with its own date badge. History rows show the recipe as it was when logged. A
+ * week with more entries than fit collapsed (see [collapsedCount]) shows its newest ones and a toggle
+ * for the rest; each week expands on its own. A "+" FAB, hidden while scrolling
  * down, opens "Planen" ([onPlan], pick a recipe, then a day from today), "Vorschlag" and
  * "Kocheintrag" ([onLog], pick a recipe, then a day up to today). [justPlanned] is planned once with
  * an undo snackbar, then [onJustPlannedShown] clears it; [justLogged] is logged once, then
@@ -287,6 +291,9 @@ fun CookingScreen(
         selectedLogs = emptySet()
     }
     BackHandler(enabled = selecting, onBack = ::clearSelection)
+
+    // Mondays of the history weeks showing all their entries; the others show their newest few.
+    var expandedWeeks by rememberSaveable { mutableStateOf(emptySet<LocalDate>()) }
 
     var fabVisible by rememberSaveable { mutableStateOf(true) }
     var fabMenuOpen by rememberSaveable { mutableStateOf(false) }
@@ -410,19 +417,41 @@ fun CookingScreen(
                 val today = remember(list) { LocalDate.now() }
                 val weeks = remember(list) { groupByWeek(list) { it.cookedOn } }
                 val swipeHint = showSwipeHint && plannedItems.isNotEmpty()
+                // Each week's entries as shown: all of them once expanded, otherwise its newest few.
+                val shownWeeks = remember(weeks, expandedWeeks) {
+                    weeks.mapValues { (monday, week) -> if (monday in expandedWeeks) week else week.take(collapsedCount(week.size)) }
+                }
                 // One label per list item, in list order: "Geplant" over the planned section (title,
-                // hint and cards), the month and year of each history entry (the "Verlauf" title and
-                // each week header take their first entry's).
-                val scrollLabels = remember(plannedItems, swipeHint, weeks, plannedLabel, locale) {
-                    buildList {
+                // hint and cards), the month and year of each history entry (the "Verlauf" title,
+                // each week header and its toggle take their first entry's). Also each week
+                // header's index, keyed by its Monday.
+                val (scrollLabels, weekHeaderIndex) = remember(plannedItems, swipeHint, weeks, shownWeeks, plannedLabel, locale) {
+                    val headerIndex = mutableMapOf<LocalDate, Int>()
+                    val labels = buildList {
                         if (plannedItems.isNotEmpty()) {
                             repeat(plannedItems.size + if (swipeHint) 2 else 1) { add(plannedLabel) }
                         }
                         list.firstOrNull()?.let { add(cookMonthYearLabel(it.cookedOn, locale)) }
-                        weeks.values.forEach { week ->
-                            add(cookMonthYearLabel(week.first().cookedOn, locale))
-                            week.forEach { add(cookMonthYearLabel(it.cookedOn, locale)) }
+                        weeks.forEach { (monday, week) ->
+                            val weekLabel = cookMonthYearLabel(week.first().cookedOn, locale)
+                            headerIndex[monday] = size
+                            add(weekLabel)
+                            shownWeeks.getValue(monday).forEach { add(cookMonthYearLabel(it.cookedOn, locale)) }
+                            if (week.size > collapsedCount(week.size)) add(weekLabel)
                         }
+                    }
+                    labels to headerIndex
+                }
+
+                // Collapsing a week scrolled past its first entry brings its header back to the top,
+                // so the list doesn't land weeks further down.
+                fun toggleWeek(monday: LocalDate) {
+                    if (monday in expandedWeeks) {
+                        expandedWeeks = expandedWeeks - monday
+                        val header = weekHeaderIndex.getValue(monday)
+                        if (listState.firstVisibleItemIndex > header) scope.launch { listState.scrollToItem(header) }
+                    } else {
+                        expandedWeeks = expandedWeeks + monday
                     }
                 }
                 Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).nestedScroll(hideFab)) {
@@ -457,14 +486,26 @@ fun CookingScreen(
                                     onPlantPointsClick = { onStats(monday) },
                                 )
                             }
-                            items(week, key = { it.id }) { entry ->
+                            items(shownWeeks.getValue(monday), key = { it.id }) { entry ->
                                 HistoryRow(
                                     entry,
                                     selected = entry.id in selectedLogs,
                                     // A deleted recipe has nothing to open.
                                     onClick = if (selecting) ({ toggleLog(entry.id) }) else entry.recipeId?.let { id -> { onRecipeClick(id) } },
                                     onLongClick = { toggleLog(entry.id) },
+                                    modifier = Modifier.animateItem(),
                                 )
+                            }
+                            val hidden = week.size - collapsedCount(week.size)
+                            if (hidden > 0) {
+                                item(key = "week-more-$monday") {
+                                    ShowMoreToggle(
+                                        expanded = monday in expandedWeeks,
+                                        moreLabel = pluralStringResource(R.plurals.cook_week_more, hidden, hidden),
+                                        onToggle = { toggleWeek(monday) },
+                                        modifier = Modifier.animateItem(),
+                                    )
+                                }
                             }
                         }
                     }
@@ -740,9 +781,15 @@ private val SwipeIconSize = 24.dp
 
 /** A history entry, its date badge a check while [selected]; [onClick] is null when there is nothing to open. */
 @Composable
-private fun HistoryRow(entry: CookLog, selected: Boolean, onClick: (() -> Unit)?, onLongClick: () -> Unit) {
+private fun HistoryRow(
+    entry: CookLog,
+    selected: Boolean,
+    onClick: (() -> Unit)?,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp)
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
