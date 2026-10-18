@@ -19,16 +19,26 @@ object IngredientFilters {
     const val CARBS_MIN = 50.0
     const val FIBRE_MIN = 6.0
 
-    /** The [ingredients] matching all of [chips], in their order. */
-    fun apply(ingredients: List<Ingredient>, chips: Collection<IngredientChip>): List<Ingredient> =
+    /**
+     * The [ingredients] matching all of [chips] and whose name contains every word of [search] (see
+     * [RecipeQuery.titleMatches]), in their order.
+     */
+    fun apply(ingredients: List<Ingredient>, chips: Collection<IngredientChip>, search: String = ""): List<Ingredient> =
         ingredients.filter { ingredient ->
-            val nutrition = ingredient.nutrition
-            chips.all { chip ->
-                when (chip) {
-                    IngredientChip.HIGH_PROTEIN -> nutrition.protein >= PROTEIN_MIN
-                    IngredientChip.HIGH_CARBS -> nutrition.carbs >= CARBS_MIN
-                    IngredientChip.HIGH_FIBRE -> nutrition.fibre >= FIBRE_MIN
-                }
-            }
+            chips.all { amount(it, ingredient.nutrition) >= min(it) } && RecipeQuery.titleMatches(ingredient.name, search.trim())
         }
+
+    /** The grams per 100 g from which an ingredient counts for [chip]. */
+    fun min(chip: IngredientChip): Double = when (chip) {
+        IngredientChip.HIGH_PROTEIN -> PROTEIN_MIN
+        IngredientChip.HIGH_CARBS -> CARBS_MIN
+        IngredientChip.HIGH_FIBRE -> FIBRE_MIN
+    }
+
+    /** The grams per 100 g of the nutrient [chip] is about. */
+    fun amount(chip: IngredientChip, nutrition: Nutrition): Double = when (chip) {
+        IngredientChip.HIGH_PROTEIN -> nutrition.protein
+        IngredientChip.HIGH_CARBS -> nutrition.carbs
+        IngredientChip.HIGH_FIBRE -> nutrition.fibre
+    }
 }

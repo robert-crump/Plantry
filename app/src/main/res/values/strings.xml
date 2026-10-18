@@ -245,6 +245,13 @@
     <string name="filter_protein">Protein-Power</string>
     <string name="filter_carbs">Carb-Booster</string>
     <string name="filter_fibre">Ballaststoff-Bombe</string>
+    <string name="filter_amount_protein">%s g Protein</string>
+    <string name="filter_amount_carbs">%s g Kohlenhydrate</string>
+    <string name="filter_amount_fibre">%s g Ballaststoffe</string>
+    <string name="filter_threshold">ab %s</string>
+    <!-- The ingredient count, then each active chip's threshold, e.g. "90/213 Zutaten · ab 12 g Protein je 100 g" -->
+    <string name="filter_thresholds">%1$s · %2$s je 100 g</string>
+    <string name="ingredient_search">Zutat suchen</string>
     <string name="ingredient_fab">Zutat</string>
     <string name="ingredient_add">Zutat hinzufügen</string>
     <plurals name="ingredient_recipe_count">
