@@ -69,7 +69,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.IngredientRepository
-import com.example.plantry.data.LineUnit
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
@@ -78,13 +77,14 @@ import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeStats
-import com.example.plantry.data.ResolvedAmount
+import com.example.plantry.data.StoreSection
 import com.example.plantry.data.nutritionLines
 import com.example.plantry.data.resolve
 import com.example.plantry.ui.HideOnScrollFab
 import com.example.plantry.ui.cooklog.PlanDatePickerDialog
 import com.example.plantry.ui.cooklog.icon
 import com.example.plantry.ui.cooklog.label
+import com.example.plantry.ui.ingredient.label
 import com.example.plantry.ui.rememberFabVisibility
 import com.example.plantry.ui.theme.highlightGreen
 import java.time.LocalDate
@@ -105,8 +105,8 @@ data class RecipeDetailUiState(
     val plannedOn: LocalDate?,
 )
 
-/** A line as the recipe shows it; [calculation] only where the text doesn't already say the grams. */
-data class ShownLine(val ingredientId: Long, val text: String, val calculation: String?)
+/** A line as the recipe shows it, under its ingredient's store [section]. */
+data class ShownLine(val ingredientId: Long, val text: String, val section: StoreSection)
 
 class RecipeDetailViewModel(
     private val recipeId: Long,
@@ -134,11 +134,11 @@ class RecipeDetailViewModel(
         val stats = RecipeStats.of(recipe, lines, byId, contents)
         RecipeDetailUiState(
             recipe = recipe,
+            // Grouped by store section, in recipe order within each.
             lines = lines.map { line ->
-                val resolved: ResolvedAmount = line.resolve(byId[line.ingredientId]?.name.orEmpty())
-                val saysGrams = line.unit == LineUnit.Grams && line.wording == null
-                ShownLine(line.ingredientId, resolved.text, resolved.calculation.takeUnless { saysGrams })
-            },
+                val ingredient = byId[line.ingredientId]
+                ShownLine(line.ingredientId, line.resolve(ingredient?.name.orEmpty()).text, ingredient?.storeSection ?: StoreSection.OTHER)
+            }.sortedBy { it.section },
             nutrition = RecipeNutrition.calculate(
                 nutritionLines(lines, byId),
                 recipe.servings,
@@ -508,9 +508,9 @@ private fun TimerChip(text: String, modifier: Modifier) {
 }
 
 /**
- * The lines in recipe order, one per line, each with its calculation where the text doesn't say the grams. A long list shows only its first
- * lines, see [collapsedLineCount], and a toggle below them for the rest; it starts collapsed
- * whenever the screen opens. Each line is tappable.
+ * The lines one per line, under a header for each store section, see [ingredientListRows]. A long
+ * list shows only its first lines, see [collapsedLineCount], and a toggle below them for the rest;
+ * it starts collapsed whenever the screen opens. Each line is tappable.
  */
 @Composable
 private fun IngredientList(lines: List<ShownLine>, onLineClick: (ShownLine) -> Unit) {
@@ -523,20 +523,23 @@ private fun IngredientList(lines: List<ShownLine>, onLineClick: (ShownLine) -> U
             .animateContentSize(),
     ) {
         val openLabel = stringResource(R.string.recipe_line_open)
-        (if (expanded) lines else lines.take(collapsedCount)).forEach { line ->
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .clickable(onClickLabel = openLabel) { onLineClick(line) }
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Column {
-                    Text(line.text, style = MaterialTheme.typography.bodyLarge)
-                    line.calculation?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+        ingredientListRows(lines, if (expanded) lines.size else collapsedCount).forEach { row ->
+            when (row) {
+                is IngredientListRow.Header -> Text(
+                    stringResource(row.section.label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                )
+                is IngredientListRow.Line -> Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .clickable(onClickLabel = openLabel) { onLineClick(row.line) }
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Text(row.line.text, style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }
@@ -575,6 +578,27 @@ internal const val COLLAPSED_LINES = 6
 
 /** Fewer hidden lines than this aren't worth a toggle, which takes about as much room. */
 internal const val MIN_HIDDEN_LINES = 3
+
+/** A row of the ingredient list: a store section's header or one of its lines. */
+internal sealed interface IngredientListRow {
+    data class Header(val section: StoreSection) : IngredientListRow
+
+    data class Line(val line: ShownLine) : IngredientListRow
+}
+
+/**
+ * The first [shown] of [lines] (grouped by section), each section's first one after its header.
+ * Without headers when all lines share one section, which a header would only repeat.
+ */
+internal fun ingredientListRows(lines: List<ShownLine>, shown: Int): List<IngredientListRow> {
+    val headers = lines.distinctBy { it.section }.size > 1
+    return buildList {
+        lines.take(shown).forEachIndexed { index, line ->
+            if (headers && (index == 0 || lines[index - 1].section != line.section)) add(IngredientListRow.Header(line.section))
+            add(IngredientListRow.Line(line))
+        }
+    }
+}
 
 /** How many of [count] lines show while collapsed: all of them unless enough would hide behind the first [COLLAPSED_LINES]. */
 internal fun collapsedLineCount(count: Int): Int =
