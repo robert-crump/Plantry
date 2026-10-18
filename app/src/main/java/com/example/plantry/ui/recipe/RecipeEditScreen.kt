@@ -89,6 +89,7 @@ import com.example.plantry.data.Nutrition
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.SourceSuggestions
+import com.example.plantry.data.StoreSection
 import com.example.plantry.data.claude.ClaudeFailure
 import com.example.plantry.data.claude.ClaudeResult
 import com.example.plantry.data.claude.NewFood
@@ -103,6 +104,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapLatest
 import com.example.plantry.data.settings.SettingsRepository
+import com.example.plantry.ui.DraggableColumn
 import com.example.plantry.ui.settings.message
 import com.example.plantry.ui.settings.ChoiceDialog
 import com.example.plantry.ui.settings.SettingsGroup
@@ -112,6 +114,7 @@ import com.example.plantry.ui.settings.ApiKeyEntry
 import com.example.plantry.data.claude.ConnectionTester
 import com.example.plantry.ui.ingredient.LabelNutritionDialog
 import com.example.plantry.ui.ingredient.LabelNutritionForm
+import com.example.plantry.ui.ingredient.label
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -276,6 +279,11 @@ class RecipeEditViewModel(
         combine(ingredients, _state.map { it.form.newIngredients }.distinctUntilChanged()) { all, new ->
             all.associate { it.id to it.name } + new.mapValues { it.value.proposal.name }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /** Store sections of the stored ingredients by id; new ones have theirs in the form, see [RecipeForm.checklistGroups]. */
+    val ingredientSections: StateFlow<Map<Long, StoreSection>> = ingredients
+        .map { all -> all.associate { it.id to it.storeSection } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     /** Units by ingredient id, including those of new ingredients by their temporary id. */
     val ingredientUnits: StateFlow<Map<Long, List<IngredientUnit>>> =
@@ -614,7 +622,9 @@ class RecipeEditViewModel(
         }
         // Other lines in the same unit no longer miss it.
         val form = (newUnit?.let(withUnit::withUnitDefined) ?: withUnit).withLine(editor.index, line)
-        val next = editor.index?.takeIf { editor.toNextProblem }?.let(form::nextProblem)
+        // In the order shown before applying: a line that got its ingredient leaves the top block, the next one there follows.
+        val order = state.form.checklistOrder(ingredientSections.value)
+        val next = editor.index?.takeIf { editor.toNextProblem }?.let { form.nextProblem(it, order) }
         _state.update { it.copy(form = form, lineEditor = next?.let { index -> lineEditor(form, index) }) }
     }
 
@@ -624,6 +634,11 @@ class RecipeEditViewModel(
 
     fun removeLine(index: Int) {
         _state.update { it.copy(form = it.form.removeLine(index)) }
+    }
+
+    /** Drops the line at [from] next to the one at [to] within its store section, see [RecipeForm.moveLine]. */
+    fun moveLine(from: Int, to: Int) {
+        _state.update { it.copy(form = it.form.moveLine(from, to)) }
     }
 
     /** Leaves the editor; with [RecipeEditUiState.hasChanges] it asks first, see [discard]. */
@@ -678,6 +693,7 @@ fun RecipeEditScreen(
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     val ingredientNames by viewModel.ingredientNames.collectAsStateWithLifecycle()
     val ingredientUnits by viewModel.ingredientUnits.collectAsStateWithLifecycle()
+    val ingredientSections by viewModel.ingredientSections.collectAsStateWithLifecycle()
     val sourceSuggestions by viewModel.sourceSuggestions.collectAsStateWithLifecycle()
     val photoSource = rememberPhotoSource(viewModel::onPhoto)
     var showingScanInfo by rememberSaveable { mutableStateOf(false) }
@@ -821,28 +837,58 @@ fun RecipeEditScreen(
                             )
                         }
                         ProposalStatus(state.proposals, onRetry = viewModel::proposeNewIngredients)
-                        // Problem lines first, so only the top of the list needs attention.
-                        form.checklistOrder().forEach { index ->
+                        val lineRow: @Composable (Int, Modifier) -> Unit = { index, actions ->
                             val line = form.lines[index]
                             val newId = line.ingredientId?.takeIf { it in form.newIngredients }
-                            LineItem(
-                                line = line,
-                                ingredientName = line.ingredientId?.let { ingredientNames[it] },
-                                units = line.ingredientId?.let { ingredientUnits[it] }.orEmpty(),
-                                problem = form.problem(line),
-                                onClick = { viewModel.editLine(index) },
-                                onRemove = { viewModel.removeLine(index) },
-                            )
-                            if (newId != null && !form.isReady(newId)) {
-                                NewIngredientMatch(
-                                    newIngredient = form.newIngredients.getValue(newId),
-                                    isError = errors?.lines == true,
-                                    onConfirm = { viewModel.confirmNewIngredient(newId) },
-                                    onChange = { viewModel.openUsdaPicker(newId) },
-                                    onEnterLabel = { viewModel.openLabelNutrition(newId) },
-                                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                LineItem(
+                                    line = line,
+                                    ingredientName = line.ingredientId?.let { ingredientNames[it] },
+                                    units = line.ingredientId?.let { ingredientUnits[it] }.orEmpty(),
+                                    problem = form.problem(line),
+                                    onClick = { viewModel.editLine(index) },
+                                    onRemove = { viewModel.removeLine(index) },
+                                    modifier = actions,
+                                )
+                                if (newId != null && !form.isReady(newId)) {
+                                    NewIngredientMatch(
+                                        newIngredient = form.newIngredients.getValue(newId),
+                                        isError = errors?.lines == true,
+                                        onConfirm = { viewModel.confirmNewIngredient(newId) },
+                                        onChange = { viewModel.openUsdaPicker(newId) },
+                                        onEnterLabel = { viewModel.openLabelNutrition(newId) },
+                                        modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+                                    )
+                                }
+                            }
+                        }
+                        // Lines without an ingredient on top, then by store section as the recipe shows them.
+                        val groups = form.checklistGroups(ingredientSections)
+                        // Headers only for several sections, which one header would only repeat.
+                        val headers = groups.count { it.section != null } > 1
+                        groups.forEach { group ->
+                            val section = group.section
+                            if (section == null) {
+                                group.lines.forEach { lineRow(it, Modifier) }
+                                return@forEach
+                            }
+                            if (headers) {
+                                Text(
+                                    stringResource(section.label),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                                 )
                             }
+                            // The order only counts within a section, so a line is dragged only there.
+                            DraggableColumn(
+                                items = group.lines,
+                                onMove = { from, to -> viewModel.moveLine(group.lines[from], group.lines[to]) },
+                                moveUpLabel = stringResource(R.string.recipe_line_move_up),
+                                moveDownLabel = stringResource(R.string.recipe_line_move_down),
+                                spacing = 8.dp,
+                                content = lineRow,
+                            )
                         }
                         TextButton(onClick = viewModel::addLine) {
                             Icon(Icons.Filled.Add, contentDescription = null)
@@ -924,7 +970,8 @@ fun RecipeEditScreen(
             LineEditorDialog(
                 editor = editor,
                 newIngredient = editor.form.ingredientId?.let { form.newIngredients[it] },
-                hasNextProblem = editor.toNextProblem && editor.index?.let(form::nextProblem) != null,
+                hasNextProblem = editor.toNextProblem &&
+                    editor.index?.let { form.nextProblem(it, form.checklistOrder(ingredientSections)) } != null,
                 suggestions = suggestions,
                 ingredientUnits = ingredientUnits,
                 onChange = viewModel::onLineFormChange,
@@ -1218,6 +1265,7 @@ private fun LineItem(
     problem: LineProblem?,
     onClick: () -> Unit,
     onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
     val (container, label) = when (problem) {
@@ -1230,7 +1278,7 @@ private fun LineItem(
     }
     // Not a ListItem: its leading icon is centred in a two-line row, here it sits on the first line.
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
             .background(container)

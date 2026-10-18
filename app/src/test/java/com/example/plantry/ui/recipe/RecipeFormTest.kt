@@ -470,16 +470,45 @@ class RecipeFormTest {
         assertFalse(form.withLine(0, RecipeIngredientDraft(110.0, LineUnit.Grams, 10, "1 Zwiebel")).errors().lines)
     }
 
+    /** Tofu chilled, Reis and Salz dry goods, Zwiebel produce; Räuchertofu's proposal says other. */
+    private val sections = mapOf(
+        7L to StoreSection.DAIRY_CHILLED,
+        8L to StoreSection.DRY_GOODS,
+        9L to StoreSection.DRY_GOODS,
+        10L to StoreSection.PRODUCE,
+    )
+
     @Test
-    fun checklistOrder_putsProblemLinesFirstInRecipeOrder() {
-        assertEquals(listOf(1, 3, 4, 5, 0, 2), checklist.checklistOrder())
+    fun checklistGroups_putLinesWithoutIngredientFirstThenEachSectionInRecipeOrder() {
+        assertEquals(
+            listOf(
+                ChecklistGroup(null, listOf(1)),
+                ChecklistGroup(StoreSection.PRODUCE, listOf(5)),
+                ChecklistGroup(StoreSection.DAIRY_CHILLED, listOf(0)),
+                ChecklistGroup(StoreSection.DRY_GOODS, listOf(2, 4)),
+                ChecklistGroup(StoreSection.OTHER, listOf(3)),
+            ),
+            checklist.checklistGroups(sections),
+        )
+        assertEquals(listOf(1, 5, 0, 2, 4, 3), checklist.checklistOrder(sections))
     }
 
     @Test
-    fun nextProblem_isTheFollowingProblemLineWrappingAround() {
-        assertEquals(3, checklist.nextProblem(1))
-        assertEquals(3, checklist.nextProblem(2))
-        assertEquals(1, checklist.nextProblem(5))
+    fun checklistGroups_putIngredientsOfUnknownSectionUnderOther() {
+        val groups = checklist.checklistGroups(emptyMap())
+
+        assertEquals(listOf(null, StoreSection.OTHER), groups.map { it.section })
+        assertEquals(listOf(0, 2, 3, 4, 5), groups.last().lines)
+    }
+
+    @Test
+    fun nextProblem_isTheFollowingProblemLineInTheGivenOrderWrappingAround() {
+        val order = checklist.checklistOrder(sections)
+
+        assertEquals(5, checklist.nextProblem(1, order))
+        assertEquals(4, checklist.nextProblem(5, order))
+        assertEquals(4, checklist.nextProblem(0, order))
+        assertEquals(1, checklist.nextProblem(3, order))
     }
 
     @Test
@@ -491,8 +520,39 @@ class RecipeFormTest {
             ),
         )
 
-        assertNull(form.nextProblem(1))
-        assertEquals(listOf(1, 0), form.checklistOrder())
+        assertNull(form.nextProblem(1, form.checklistOrder(sections)))
+    }
+
+    @Test
+    fun moveLine_movesDownPastTheTargetAndUpBeforeIt() {
+        val words = { form: RecipeForm -> form.lines.map { it.wording } }
+
+        assertEquals(
+            listOf("1 Bund Koriander", "1 Tasse Reis", "200 g Räuchertofu", "Salz", "200 g Tofu", "1 Zwiebel"),
+            words(checklist.moveLine(0, 4)),
+        )
+        assertEquals(
+            listOf("200 g Tofu", "1 Bund Koriander", "Salz", "1 Tasse Reis", "200 g Räuchertofu", "1 Zwiebel"),
+            words(checklist.moveLine(4, 2)),
+        )
+    }
+
+    @Test
+    fun moveLine_keepsTheOrderWithinOtherSectionsAndOfLinesWithoutIngredient() {
+        // Salz above Reis: only the dry goods change order.
+        val moved = checklist.moveLine(4, 2)
+
+        assertEquals(
+            listOf(
+                ChecklistGroup(null, listOf(1)),
+                ChecklistGroup(StoreSection.PRODUCE, listOf(5)),
+                ChecklistGroup(StoreSection.DAIRY_CHILLED, listOf(0)),
+                ChecklistGroup(StoreSection.DRY_GOODS, listOf(2, 3)),
+                ChecklistGroup(StoreSection.OTHER, listOf(4)),
+            ),
+            moved.checklistGroups(sections),
+        )
+        assertEquals("Salz", moved.lines[2].wording)
     }
 
     @Test

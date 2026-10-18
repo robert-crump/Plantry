@@ -12,6 +12,7 @@ import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.LineUnit
 import com.example.plantry.data.RecipeLine
 import com.example.plantry.data.RecipeIngredientDraft
+import com.example.plantry.data.StoreSection
 import com.example.plantry.data.claude.IngredientProposal
 import com.example.plantry.data.claude.NewFood
 import com.example.plantry.data.claude.NutritionSource
@@ -173,17 +174,38 @@ data class RecipeForm(
         else -> null
     }
 
-    /** Line indices as the checklist shows them: problem lines first, each group in recipe order. */
-    fun checklistOrder(): List<Int> = lines.indices.sortedBy { problem(lines[it]) == null }
+    /**
+     * The checklist as the edit screen shows it: the lines without an ingredient on top, then the
+     * others by store section, each group in recipe order. [sections] maps stored ingredient ids to
+     * their section, new ingredients have theirs from the proposal; an unknown one counts as OTHER.
+     */
+    fun checklistGroups(sections: Map<Long, StoreSection>): List<ChecklistGroup> {
+        val (unmatched, matched) = lines.indices.partition { lines[it].ingredientId == null }
+        val bySection = matched.groupBy { index ->
+            val id = lines[index].ingredientId!!
+            sections[id] ?: newIngredients[id]?.proposal?.storeSection ?: StoreSection.OTHER
+        }
+        val groups = bySection.entries.sortedBy { it.key }.map { ChecklistGroup(it.key, it.value) }
+        return if (unmatched.isEmpty()) groups else listOf(ChecklistGroup(null, unmatched)) + groups
+    }
+
+    /** Line indices in the order the checklist shows them, see [checklistGroups]. */
+    fun checklistOrder(sections: Map<Long, StoreSection>): List<Int> = checklistGroups(sections).flatMap { it.lines }
 
     /**
-     * The problem line to edit after the one at [index]: the next one in recipe order, wrapping
-     * around, or null when no other problem is left.
+     * The problem line to edit after the one at [index]: the next one in [order] (see
+     * [checklistOrder]), wrapping around, or null when no other problem is left.
      */
-    fun nextProblem(index: Int): Int? {
-        val problems = lines.indices.filter { it != index && problem(lines[it]) != null }
-        return problems.firstOrNull { it > index } ?: problems.firstOrNull()
+    fun nextProblem(index: Int, order: List<Int>): Int? {
+        val after = order.indexOf(index) + 1
+        return (order.drop(after) + order.take(after)).firstOrNull { it != index && problem(lines[it]) != null }
     }
+
+    /**
+     * Moves the line at [from] to [to], the index of the line it is dropped next to: after it when
+     * moving down, before it when moving up. Every other line keeps its order.
+     */
+    fun moveLine(from: Int, to: Int) = copy(lines = lines.toMutableList().apply { add(to, removeAt(from)) })
 
     /** New ingredients that have nutrition, with their temporary id, for previews and suggestions. */
     fun previewIngredients(): List<Ingredient> = newIngredients
@@ -312,6 +334,9 @@ data class RecipeFormLine(
         fun from(line: RecipeIngredientDraft) = RecipeFormLine(line.amount, line.unit, line.ingredientId, line.wording)
     }
 }
+
+/** Line indices of the checklist under one store [section]; null for the lines without an ingredient. */
+data class ChecklistGroup(val section: StoreSection?, val lines: List<Int>)
 
 /** Why a line needs attention before the recipe can be saved, most pressing first. */
 enum class LineProblem {
