@@ -3,9 +3,12 @@ package com.example.plantry.data.openfoodfacts
 import com.example.plantry.data.LabelSource
 import com.example.plantry.data.Nutrient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -15,6 +18,7 @@ import kotlinx.serialization.json.intOrNull
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
+import java.net.URLEncoder
 import kotlin.math.round
 
 /**
@@ -23,7 +27,10 @@ import kotlin.math.round
  */
 data class OffProduct(
     val barcode: String,
-    /** The generic name if OFF has one (e.g. "Kichererbsen, gegart"), else the product name. */
+    /**
+     * The generic name if OFF has one (e.g. "Kichererbsen, gegart"), else the product name; German
+     * names come first, so an untranslated generic name does not win over a German product name.
+     */
     val nameSuggestion: String,
     /** The product name as on the package, for "Gefunden: …" and the source line. */
     val productName: String,
@@ -47,6 +54,17 @@ sealed interface OffLookup {
 
 fun interface ProductLookup {
     suspend fun lookup(barcode: String): OffLookup
+}
+
+sealed interface OffSearch {
+    /** Best matches first; empty when OFF knows no product for the query. */
+    data class Found(val products: List<OffProduct>) : OffSearch
+    /** No connection, or OFF did not answer properly. */
+    data object Offline : OffSearch
+}
+
+fun interface ProductSearch {
+    suspend fun search(query: String): OffSearch
 }
 
 object OpenFoodFacts {
@@ -73,11 +91,51 @@ object OpenFoodFacts {
     fun parse(barcode: String, body: String): OffProduct? {
         val root = json.parseToJsonElement(body) as? JsonObject ?: throw SerializationException("not an object")
         if ((root["status"] as? JsonPrimitive)?.intOrNull != 1) return null
-        val product = root["product"] as? JsonObject ?: return null
+        return product(barcode, root["product"] as? JsonObject ?: return null)
+    }
+
+    /**
+     * Reads a Search-a-licious response; hits without a barcode or any name are left out. A body
+     * that is no JSON object throws [SerializationException].
+     */
+    fun parseSearch(body: String): List<OffProduct> {
+        val root = json.parseToJsonElement(body) as? JsonObject ?: throw SerializationException("not an object")
+        val hits = root["hits"] as? JsonArray ?: return emptyList()
+        return hits.mapNotNull { hit ->
+            val product = hit as? JsonObject ?: return@mapNotNull null
+            val barcode = product.text("code")?.takeIf { code -> code.all { it.isDigit() } } ?: return@mapNotNull null
+            product(barcode, product)
+        }.distinctBy { it.barcode }
+    }
+
+    /**
+     * The Search-a-licious queries for what the user typed, best first; none for a blank one. The
+     * plain query ranks any brand matching one word above products matching all of them, so for
+     * several words each of the first [BRAND_WORDS] is also tried as the brand, e.g. "taifun
+     * räuchertofu" as `brands:"taifun" räuchertofu` and `brands:"räuchertofu" taifun`. Characters
+     * the query syntax would read as operators count as spaces.
+     */
+    fun searchQueries(query: String): List<String> {
+        val words = query.map { if (it in QUERY_OPERATORS) ' ' else it }.joinToString("").split(' ').filter { it.isNotEmpty() }
+        if (words.isEmpty()) return emptyList()
+        val asBrand = if (words.size < 2) emptyList() else words.take(BRAND_WORDS).mapIndexed { i, brand ->
+            (listOf("brands:\"$brand\"") + words.filterIndexed { j, _ -> j != i }).joinToString(" ")
+        }
+        return asBrand + words.joinToString(" ")
+    }
+
+    private const val BRAND_WORDS = 4
+
+    private const val QUERY_OPERATORS = """:"()[]{}^~*?\/!+-&|<>="""
+
+    private fun product(barcode: String, product: JsonObject): OffProduct? {
         val productName = product.text("product_name_de") ?: product.text("product_name")
-        val brand = product.text("brands")?.split(',')?.firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+        // The product API sends brands as one text, Search-a-licious as a list.
+        val brands = (product["brands"] as? JsonArray)?.firstNotNullOfOrNull { (it as? JsonPrimitive)?.contentOrNull }
+            ?: product.text("brands")
+        val brand = brands?.split(',')?.firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
         val shownName = productName ?: brand ?: return null
-        val generic = product.text("generic_name_de") ?: product.text("generic_name")
+        val suggestion = product.text("generic_name_de") ?: product.text("product_name_de") ?: product.text("generic_name")
         val nutriments = product["nutriments"] as? JsonObject ?: JsonObject(emptyMap())
         val nutrition = buildMap {
             kcal(nutriments)?.let { put(Nutrient.KCAL, it) }
@@ -85,7 +143,7 @@ object OpenFoodFacts {
         }
         return OffProduct(
             barcode = barcode,
-            nameSuggestion = generic ?: shownName,
+            nameSuggestion = suggestion ?: shownName,
             productName = if (productName != null && brand != null && !productName.contains(brand, ignoreCase = true)) {
                 "$productName ($brand)"
             } else {
@@ -139,8 +197,8 @@ object OpenFoodFacts {
     }
 }
 
-/** Looks products up on world.openfoodfacts.org. */
-class OpenFoodFactsClient : ProductLookup {
+/** Looks products up on world.openfoodfacts.org and searches them on search.openfoodfacts.org. */
+class OpenFoodFactsClient : ProductLookup, ProductSearch {
 
     override suspend fun lookup(barcode: String): OffLookup = withContext(Dispatchers.IO) {
         if (!barcode.all { it.isDigit() }) return@withContext OffLookup.NotFound
@@ -171,7 +229,44 @@ class OpenFoodFactsClient : ProductLookup {
         }
     }
 
+    /**
+     * Searches German product names, generic names, categories and brands with Search-a-licious; the
+     * classic text search answers anonymous requests with 503.
+     */
+    override suspend fun search(query: String): OffSearch = withContext(Dispatchers.IO) {
+        val results = OpenFoodFacts.searchQueries(query).map { async { searchOnce(it) } }.awaitAll()
+        when {
+            results.isEmpty() -> OffSearch.Found(emptyList())
+            results.all { it == null } -> OffSearch.Offline
+            else -> OffSearch.Found(results.filterNotNull().flatten().distinctBy { it.barcode }.take(SEARCH_RESULTS))
+        }
+    }
+
+    /** The hits for one Search-a-licious [query]; null when OFF could not be asked. */
+    private fun searchOnce(query: String): List<OffProduct>? = try {
+        val q = URLEncoder.encode(query, Charsets.UTF_8.name()).replace("+", "%20")
+        val url = URI("https://search.openfoodfacts.org/search?q=$q&langs=de&page_size=$SEARCH_RESULTS&fields=${OpenFoodFacts.FIELDS}").toURL()
+        val connection = url.openConnection() as HttpURLConnection
+        try {
+            connection.connectTimeout = TIMEOUT_MS
+            connection.readTimeout = TIMEOUT_MS
+            connection.setRequestProperty("User-Agent", "Plantry/1.0 (Android)")
+            if (connection.responseCode != 200) {
+                null
+            } else {
+                OpenFoodFacts.parseSearch(connection.inputStream.bufferedReader().use { it.readText() })
+            }
+        } finally {
+            connection.disconnect()
+        }
+    } catch (e: IOException) {
+        null
+    } catch (e: SerializationException) {
+        null
+    }
+
     private companion object {
         const val TIMEOUT_MS = 15_000
+        const val SEARCH_RESULTS = 20
     }
 }

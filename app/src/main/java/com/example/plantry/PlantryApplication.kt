@@ -21,6 +21,7 @@ import com.example.plantry.data.planner.RecipeSuggester
 import com.example.plantry.data.claude.ConnectionTester
 import com.example.plantry.data.openfoodfacts.OpenFoodFactsClient
 import com.example.plantry.data.openfoodfacts.ProductLookup
+import com.example.plantry.data.openfoodfacts.ProductSearch
 import com.example.plantry.data.settings.KeystoreCipher
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.data.settings.SharedPreferencesStorage
@@ -106,7 +107,11 @@ class PlantryApplication : Application() {
 
     val recipeScanner: RecipeScanner = AnthropicRecipeScanner()
 
-    val productLookup: ProductLookup = OpenFoodFactsClient()
+    private val openFoodFacts = OpenFoodFactsClient()
+
+    val productLookup: ProductLookup = openFoodFacts
+
+    val productSearch: ProductSearch = openFoodFacts
 
     val newIngredientFinder: NewIngredientFinder by lazy {
         NewIngredientFinder(AnthropicIngredientProposer(), loadUsdaCatalog)

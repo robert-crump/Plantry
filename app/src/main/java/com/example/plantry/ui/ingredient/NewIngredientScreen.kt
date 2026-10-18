@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.ElevatedCard
@@ -56,7 +57,9 @@ import com.example.plantry.data.claude.ConnectionTester
 import com.example.plantry.data.claude.IngredientProposal
 import com.example.plantry.data.claude.NewFood
 import com.example.plantry.data.openfoodfacts.OffLookup
+import com.example.plantry.data.openfoodfacts.OffProduct
 import com.example.plantry.data.openfoodfacts.ProductLookup
+import com.example.plantry.data.openfoodfacts.ProductSearch
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.ui.settings.ApiKeyDialog
 import com.example.plantry.ui.settings.ApiKeyEntry
@@ -89,6 +92,8 @@ sealed interface ClaudeStep {
 data class NewIngredientUiState(
     /** The scanned barcode's lookup; null when there is none to show. */
     val barcode: BarcodeLookup? = null,
+    /** The product name search; null when its dialog is closed. */
+    val productSearch: ProductSearchState? = null,
     val claude: ClaudeStep? = null,
     /** Set once a start is complete; the screen hands it on, see [NewIngredientViewModel.onSeedTaken]. */
     val seed: NewIngredientSeed? = null,
@@ -96,6 +101,7 @@ data class NewIngredientUiState(
 
 class NewIngredientViewModel(
     private val products: ProductLookup,
+    private val productSearch: ProductSearch,
     private val finder: NewIngredientFinder,
     private val settings: SettingsRepository,
     tester: ConnectionTester,
@@ -114,6 +120,8 @@ class NewIngredientViewModel(
 
     private var proposeJob: Job? = null
 
+    private var searchJob: Job? = null
+
     fun lookUp(barcode: String) {
         lookupJob?.cancel()
         _state.update { it.copy(barcode = BarcodeLookup.Searching) }
@@ -124,6 +132,37 @@ class NewIngredientViewModel(
     fun dismissBarcode() {
         lookupJob?.cancel()
         _state.update { it.copy(barcode = null) }
+    }
+
+    /** Opens the product name search with [query], searching right away unless it is blank. */
+    fun openProductSearch(query: String) {
+        _state.update { it.copy(productSearch = ProductSearchState(query)) }
+        if (query.isNotBlank()) searchProducts()
+    }
+
+    fun onProductQueryChange(query: String) {
+        _state.update { state -> state.copy(productSearch = state.productSearch?.copy(query = query)) }
+    }
+
+    fun searchProducts() {
+        val query = _state.value.productSearch?.query?.trim().orEmpty()
+        if (query.isEmpty()) return
+        searchJob?.cancel()
+        _state.update { state -> state.copy(productSearch = state.productSearch?.copy(searching = true, result = null)) }
+        searchJob = viewModelScope.launch {
+            val result = productSearch.search(query)
+            _state.update { state -> state.copy(productSearch = state.productSearch?.copy(searching = false, result = result)) }
+        }
+    }
+
+    /** Continues with [product] as if its barcode was scanned; dismissing that returns to the results. */
+    fun pickProduct(product: OffProduct) {
+        _state.update { it.copy(barcode = BarcodeLookup.Done(OffLookup.Found(product))) }
+    }
+
+    fun dismissProductSearch() {
+        searchJob?.cancel()
+        _state.update { it.copy(productSearch = null) }
     }
 
     fun askClaude() {
@@ -180,10 +219,11 @@ class NewIngredientViewModel(
         _state.update { it.copy(claude = null) }
     }
 
-    /** Hands on a start without asking Claude (barcode or typed in). */
+    /** Hands on a start without asking Claude (barcode, product search or typed in). */
     fun start(seed: NewIngredientSeed) {
         lookupJob?.cancel()
-        _state.update { it.copy(barcode = null, claude = null, seed = seed) }
+        searchJob?.cancel()
+        _state.update { it.copy(barcode = null, productSearch = null, claude = null, seed = seed) }
     }
 
     fun onSeedTaken() {
@@ -192,8 +232,8 @@ class NewIngredientViewModel(
 }
 
 /**
- * The three equal ways to start a new ingredient: scan a barcode, ask Claude, or type the values
- * in. Each ends on the ingredient's own screen, where the user finishes and saves it.
+ * The four equal ways to start a new ingredient: scan a barcode, search a product name, ask Claude,
+ * or type the values in. Each ends on the ingredient's own screen, where the user finishes and saves it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -242,6 +282,12 @@ fun NewIngredientScreen(
                 onClick = scan,
             )
             ChoiceCard(
+                icon = Icons.Filled.Search,
+                title = R.string.new_ingredient_choose_search,
+                description = R.string.new_ingredient_choose_search_description,
+                onClick = { viewModel.openProductSearch(initialName) },
+            )
+            ChoiceCard(
                 icon = Icons.Filled.AutoAwesome,
                 title = R.string.new_ingredient_choose_claude,
                 description = R.string.new_ingredient_choose_claude_description,
@@ -287,7 +333,15 @@ fun NewIngredientScreen(
                     missing = product?.missing.orEmpty(),
                 )
             }
-            null -> Unit
+            null -> state.productSearch?.let { search ->
+                ProductSearchDialog(
+                    state = search,
+                    onQueryChange = viewModel::onProductQueryChange,
+                    onSearch = viewModel::searchProducts,
+                    onPick = viewModel::pickProduct,
+                    onDismiss = viewModel::dismissProductSearch,
+                )
+            }
         }
         ClaudeDialogs(state.claude, viewModel, initialName)
     }

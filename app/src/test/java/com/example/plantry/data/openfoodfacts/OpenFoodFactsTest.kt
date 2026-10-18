@@ -117,4 +117,87 @@ class OpenFoodFactsTest {
     fun notJson_throws() {
         OpenFoodFacts.parse("1", "<html>Bad gateway</html>")
     }
+
+    @Test
+    fun searchResponse_readsHitsWithBrandListAndNutrients() {
+        val body = """
+            {"hits":[
+              {"code":"4012359113108","brands":["taifun","Life Food"],"quantity":"200g",
+               "product_name":"Smoked tofu","product_name_de":"Räuchertofu Mandel-Sesam",
+               "nutriments":{"energy-kcal_100g":198,"proteins_100g":19,"carbohydrates_100g":1.5,"sugars_100g":0.5,"fat_100g":12}},
+              {"code":"26032832","brands":[],"product_name_de":"Räuchertofu","nutriments":{}}
+            ],"page":1,"page_size":20,"count":2}
+        """.trimIndent()
+
+        val products = OpenFoodFacts.parseSearch(body)
+
+        assertEquals(listOf("4012359113108", "26032832"), products.map { it.barcode })
+        val first = products[0]
+        assertEquals("Räuchertofu Mandel-Sesam (taifun)", first.productName)
+        assertEquals(200.0, first.packageGrams!!, 0.0)
+        assertEquals(198.0, first.nutrition.getValue(Nutrient.KCAL), 0.0)
+        assertEquals(setOf(Nutrient.FIBRE), first.missing)
+        assertEquals("Räuchertofu", products[1].productName)
+        assertEquals(Nutrient.entries.toSet(), products[1].missing)
+    }
+
+    @Test
+    fun germanProductName_winsOverUntranslatedGenericName() {
+        val body = """
+            {"status":1,"product":{"product_name":"Smoked tofu","product_name_de":"Räuchertofu Mandel-Sesam",
+              "generic_name":"Tofu Fumé Amandes-Sésame","brands":"Taifun"}}
+        """.trimIndent()
+
+        assertEquals("Räuchertofu Mandel-Sesam", OpenFoodFacts.parse("4012359113108", body)!!.nameSuggestion)
+    }
+
+    @Test
+    fun searchResponse_skipsHitsWithoutBarcodeOrNameAndRepeats() {
+        val body = """
+            {"hits":[
+              {"code":"4056489488774","product_name":"Räuchertofu"},
+              {"product_name":"Ohne Barcode"},
+              {"code":"abc","product_name":"Kein Barcode"},
+              {"code":"4311501012215","nutriments":{"energy-kcal_100g":150}},
+              {"code":"4056489488774","product_name":"Räuchertofu"}
+            ]}
+        """.trimIndent()
+
+        assertEquals(listOf("4056489488774"), OpenFoodFacts.parseSearch(body).map { it.barcode })
+    }
+
+    @Test
+    fun searchResponse_withoutHits_isEmpty() {
+        assertEquals(emptyList<OffProduct>(), OpenFoodFacts.parseSearch("""{"detail":"nothing"}"""))
+    }
+
+    @Test(expected = SerializationException::class)
+    fun searchResponse_noJsonObject_throws() {
+        OpenFoodFacts.parseSearch("[]")
+    }
+
+    @Test
+    fun searchQueries_oneWord_isThePlainQuery() {
+        assertEquals(listOf("Haferflocken"), OpenFoodFacts.searchQueries(" Haferflocken "))
+    }
+
+    @Test
+    fun searchQueries_severalWords_tryEachAsBrandFirst() {
+        assertEquals(
+            listOf("brands:\"taifun\" räuchertofu", "brands:\"räuchertofu\" taifun", "taifun räuchertofu"),
+            OpenFoodFacts.searchQueries("taifun räuchertofu"),
+        )
+    }
+
+    @Test
+    fun searchQueries_onlyTheFirstFourWordsAsBrand() {
+        assertEquals(5, OpenFoodFacts.searchQueries("a b c d e").size)
+    }
+
+    @Test
+    fun searchQueries_operatorsCountAsSpaces() {
+        assertEquals("Müller Milch light", OpenFoodFacts.searchQueries("  Müller: Milch (light) ").last())
+        assertEquals("brands:\"Mandel\" Räuchertofu Sesam", OpenFoodFacts.searchQueries("Räuchertofu \"Mandel-Sesam\"")[1])
+        assertEquals(emptyList<String>(), OpenFoodFacts.searchQueries("\"*?\""))
+    }
 }

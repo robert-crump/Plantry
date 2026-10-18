@@ -502,7 +502,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                     val recipeLineName = entry.toRoute<NewIngredientRoute>().recipeLineName
                     NewIngredientScreen(
                         viewModel = viewModel {
-                            NewIngredientViewModel(app.productLookup, app.newIngredientFinder, settingsRepository, app.connectionTester)
+                            NewIngredientViewModel(app.productLookup, app.productSearch, app.newIngredientFinder, settingsRepository, app.connectionTester)
                         },
                         onBack = { navController.popBackStack() },
                         onNew = { seed -> navController.navigate(IngredientCreateRoute(seed, forRecipe = recipeLineName != null)) },

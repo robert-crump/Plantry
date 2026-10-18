@@ -17,7 +17,7 @@ Android app (Jetpack Compose) for planning a weekly menu of home-cooked recipes.
   from breakfasts and snacks
 - **Plant points**: every distinct plant counts toward 30 a week
 - **Scan recipes** from a cookbook photo with Claude (your own API key)
-- **Ingredients** with nutrition from the bundled USDA SR Legacy data, a package barcode (Open Food Facts)
+- **Ingredients** with nutrition from the bundled USDA SR Legacy data, a package barcode or product name search (Open Food Facts)
   or the label on the pack
 - **Cooking log** with search, and filters for what you want to cook with
 - **Backup** of all recipes, ingredients and history to a file
