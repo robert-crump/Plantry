@@ -119,8 +119,9 @@ private const val CREATED_INGREDIENT = "createdIngredient"
 @Serializable
 data class RecipeListRoute(val ingredientId: Long? = null)
 
+/** Opened from a suggestion ([fromSuggestions]), "Planen" plans it back on Speiseplan, as the suggestion's own button does. */
 @Serializable
-data class RecipeDetailRoute(val recipeId: Long)
+data class RecipeDetailRoute(val recipeId: Long, val fromSuggestions: Boolean = false)
 
 /** A null [recipeId] creates a new recipe. */
 @Serializable
@@ -367,6 +368,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                             SuggestionsViewModel(app.recipeSuggester, app.plannedRepository, recipeRepository, ingredientRepository)
                         },
                         onBack = { navController.popBackStack() },
+                        onRecipeClick = { navController.navigate(RecipeDetailRoute(it, fromSuggestions = true)) },
                         onPlanned = { recipeId, title, date ->
                             askForNotifications()
                             navController.previousBackStackEntry?.handOverPlan(recipeId, title, date)
@@ -397,7 +399,8 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                     )
                 }
                 composable<RecipeDetailRoute> { entry ->
-                    val recipeId = entry.toRoute<RecipeDetailRoute>().recipeId
+                    val route = entry.toRoute<RecipeDetailRoute>()
+                    val recipeId = route.recipeId
                     RecipeDetailScreen(
                         viewModel = viewModel {
                             RecipeDetailViewModel(
@@ -413,6 +416,16 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         onEdit = { navController.navigate(RecipeEditRoute(recipeId)) },
                         onIngredientClick = { navController.navigate(IngredientDetailRoute(it)) },
                         onPlanned = askForNotifications,
+                        onPlanPicked = if (route.fromSuggestions) {
+                            { title, date ->
+                                askForNotifications()
+                                navController.getBackStackEntry<CookingRoute>().handOverPlan(recipeId, title, date)
+                                // Vorschläge too, as after planning a suggestion from its card.
+                                navController.popBackStack<CookingRoute>(inclusive = false)
+                            }
+                        } else {
+                            null
+                        },
                     )
                 }
                 composable<RecipeEditRoute> { entry ->
@@ -516,7 +529,6 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
     }
 }
 
-/** The tab this entry is the first screen of; the recipe list filtered by an ingredient is a sub-screen. */
 /** Hands a recipe and day to plan back to Speiseplan or Rezepte, which plans it with an undo snackbar. */
 private fun NavBackStackEntry.handOverPlan(recipeId: Long, title: String, date: LocalDate) {
     // Title and day first: the screen reacts to the id.
@@ -525,6 +537,7 @@ private fun NavBackStackEntry.handOverPlan(recipeId: Long, title: String, date: 
     savedStateHandle[JUST_PLANNED_ID] = recipeId
 }
 
+/** The tab this entry is the first screen of; the recipe list filtered by an ingredient is a sub-screen. */
 private fun NavBackStackEntry.topLevel(): TopLevelDestination? =
     TopLevelDestination.entries.firstOrNull { destination.hasRoute(it.route::class) }
         ?.takeUnless { destination.hasRoute(RecipeListRoute::class) && toRoute<RecipeListRoute>().ingredientId != null }

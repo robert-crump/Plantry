@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -150,14 +151,15 @@ class SuggestionsViewModel(
  * Up to three suggested recipes, on the weekend while the week is short of its plant points one more
  * below them to boost those; "Neue Vorschläge" replaces them all. The top bar shows this week's plant
  * points, e.g. "22/30", and each card the ones it would add, e.g. "+4", green when they would reach
- * the goal. Tapping a card asks for the day to cook it; picking one hands it and the day to
- * [onPlanned], which puts it on Geplant.
+ * the goal. Tapping a card opens the recipe ([onRecipeClick]); its calendar button asks for the day
+ * to cook it, and picking one hands it and the day to [onPlanned], which puts it on Geplant.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SuggestionsScreen(
     viewModel: SuggestionsViewModel,
     onBack: () -> Unit,
+    onRecipeClick: (recipeId: Long) -> Unit,
     onPlanned: (recipeId: Long, title: String, date: LocalDate) -> Unit,
 ) {
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
@@ -203,7 +205,12 @@ fun SuggestionsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(current.cards, key = { it.recipeId }) { card ->
-                    SuggestionCardView(card, current.reachesGoal(card), onClick = { confirmId = card.recipeId })
+                    SuggestionCardView(
+                        card,
+                        current.reachesGoal(card),
+                        onClick = { onRecipeClick(card.recipeId) },
+                        onPlan = { confirmId = card.recipeId },
+                    )
                 }
                 current.boost?.let { card ->
                     item(key = "boost") {
@@ -214,7 +221,12 @@ fun SuggestionsScreen(
                         )
                     }
                     item(key = card.recipeId) {
-                        SuggestionCardView(card, current.reachesGoal(card), onClick = { confirmId = card.recipeId })
+                        SuggestionCardView(
+                            card,
+                            current.reachesGoal(card),
+                            onClick = { onRecipeClick(card.recipeId) },
+                            onPlan = { confirmId = card.recipeId },
+                        )
                     }
                 }
             }
@@ -232,9 +244,12 @@ fun SuggestionsScreen(
     }
 }
 
-/** The title row ends with the plant points the recipe adds to this week, green when they [reachGoal]. */
+/**
+ * The title row ends with the plant points the recipe adds to this week, green when they [reachGoal],
+ * and the calendar button that plans it ([onPlan]).
+ */
 @Composable
-private fun SuggestionCardView(card: SuggestionCard, reachGoal: Boolean, onClick: () -> Unit) {
+private fun SuggestionCardView(card: SuggestionCard, reachGoal: Boolean, onClick: () -> Unit, onPlan: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -254,6 +269,9 @@ private fun SuggestionCardView(card: SuggestionCard, reachGoal: Boolean, onClick
                     reached = reachGoal,
                     modifier = Modifier.padding(start = 8.dp),
                 )
+                IconButton(onClick = onPlan) {
+                    Icon(Icons.Filled.CalendarMonth, contentDescription = stringResource(R.string.plan_action))
+                }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RecipeStatsRow(card.snapshot.stats, Modifier.weight(1f))

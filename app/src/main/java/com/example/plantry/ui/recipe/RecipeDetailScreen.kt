@@ -189,6 +189,11 @@ fun RecipeDetailScreen(
     onIngredientClick: (Long) -> Unit = {},
     /** After "Planen", e.g. to ask for the reminder's notification permission. */
     onPlanned: () -> Unit = {},
+    /**
+     * Instead of planning here, gets the title and the day picked on "Planen", e.g. to plan it back
+     * on Speiseplan when the recipe was opened from a suggestion.
+     */
+    onPlanPicked: ((title: String, date: LocalDate) -> Unit)? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val photos by viewModel.photos.collectAsStateWithLifecycle()
@@ -318,8 +323,12 @@ fun RecipeDetailScreen(
                 date = detail.plannedOn?.takeIf { it >= today } ?: today,
                 today = today,
                 onPick = { date ->
-                    viewModel.plan(date)
-                    onPlanned()
+                    if (onPlanPicked != null) {
+                        onPlanPicked(current.title, date)
+                    } else {
+                        viewModel.plan(date)
+                        onPlanned()
+                    }
                 },
                 onDismiss = { pickPlanDate = false },
             )
