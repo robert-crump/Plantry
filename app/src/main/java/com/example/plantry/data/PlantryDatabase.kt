@@ -6,6 +6,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.AutoMigrationSpec
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.plantry.data.backup.BackupDao
 
 /**
@@ -15,12 +17,14 @@ import com.example.plantry.data.backup.BackupDao
 @Database(
     entities = [
         Recipe::class, Ingredient::class, IngredientUnit::class, RecipeIngredient::class, CookLog::class,
-        IngredientAlias::class, PlannedRecipe::class, MixComponent::class,
+        IngredientAlias::class, PlannedRecipe::class, MixComponent::class, CookLogPlant::class,
     ],
-    version = 2,
+    version = 3,
     autoMigrations = [
         // Adds the mix components ("Enthält").
         AutoMigration(from = 1, to = 2),
+        // Adds each cooking log entry's plants, filled from the recipes as they are now.
+        AutoMigration(from = 2, to = 3, spec = PlantryDatabase.BackfillCookLogPlants::class),
     ],
 )
 @TypeConverters(Converters::class)
@@ -35,6 +39,10 @@ abstract class PlantryDatabase : RoomDatabase() {
     abstract fun plannedRecipeDao(): PlannedRecipeDao
 
     abstract fun backupDao(): BackupDao
+
+    class BackfillCookLogPlants : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) = db.execSQL(CookLogPlant.BACKFILL_SQL)
+    }
 
     companion object {
         fun create(context: Context): PlantryDatabase =

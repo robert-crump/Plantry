@@ -68,7 +68,7 @@ class RecipeSuggester(
         val week = WeekPlants.of(
             today = today,
             entries = cookLogDao.observeHistory().first(),
-            lines = lines,
+            plants = cookLogDao.getPlants(),
             ingredients = ingredients.associateBy { it.id },
             contents = Mixes.contents(ingredientDao.getMixComponents()),
         )
@@ -99,7 +99,7 @@ class RecipeSuggester(
             ingredients: List<Ingredient>,
             lastCooked: Map<Long, LocalDate>,
             today: LocalDate,
-            week: WeekPlants = WeekPlants(emptySet(), ingredients.associateBy { it.id }, emptyMap()),
+            week: WeekPlants = WeekPlants(emptyList(), ingredients.associateBy { it.id }, emptyMap()),
             dishes: Set<Dish> = MAIN_DISHES,
         ): List<Candidate> {
             val ingredientsById = ingredients.associateBy { it.id }

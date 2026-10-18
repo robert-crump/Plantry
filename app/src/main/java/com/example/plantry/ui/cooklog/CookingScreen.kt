@@ -133,12 +133,9 @@ class CookingViewModel(
     /** Each history week's plant points, keyed by its Monday, see [weeklyPlantPoints]. */
     val weeklyPlantPoints: StateFlow<Map<LocalDate, Double>> = combine(
         repository.observeHistory(),
-        recipeRepository.observeAllLines(),
-        ingredientRepository.observeIngredients(),
-        ingredientRepository.observeContents(),
-    ) { entries, lines, ingredients, contents ->
-        weeklyPlantPoints(entries, lines, ingredients.associateBy { it.id }, contents)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+        repository.observePlants(),
+        ::weeklyPlantPoints,
+    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** Geplant, with each recipe's current stats; null until loaded. */
     val planned: StateFlow<List<PlannedItem>?> = combine(

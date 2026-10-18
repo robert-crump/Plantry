@@ -1,10 +1,11 @@
 package com.example.plantry.data.planner
 
 import com.example.plantry.data.CookLog
+import com.example.plantry.data.CookLogPlant
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.MixContents
 import com.example.plantry.data.Mixes
-import com.example.plantry.data.RecipeLine
+import com.example.plantry.data.distinctPlantPoints
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
@@ -21,37 +22,41 @@ fun plantPointsGoalReachedWith(weekPoints: Double, newPoints: Double): Boolean =
     !plantPointsGoalReached(weekPoints) && plantPointsGoalReached(weekPoints + newPoints)
 
 /**
- * The distinct plants of this Monday–Sunday week, each mix resolved to its components (see
- * [Mixes.plants]): those of the week's cook-log entries, by their recipes as they are now. Planned
- * recipes don't count until they are cooked, as in the history's week header.
+ * The distinct plants of this Monday–Sunday week: those its cook-log entries snapshotted (see
+ * [CookLogPlant]), so the points match the history's week header. Planned recipes don't count
+ * until they are cooked.
  */
 class WeekPlants(
-    val plants: Set<Long>,
+    val plants: List<CookLogPlant>,
     private val ingredients: Map<Long, Ingredient>,
     private val contents: MixContents,
 ) {
-    /** The week's plant points so far. */
-    val points: Double get() = plants.sumOf { ingredients[it]?.plantPoints?.value ?: 0.0 }
+    /** The week's plant points so far, by the points each plant was logged with. */
+    val points: Double get() = distinctPlantPoints(plants)
 
     val goalReached: Boolean get() = plantPointsGoalReached(points)
 
-    /** The plant points [ingredientIds] would add: those of their plants not yet in this week. */
+    private val ingredientIds = plants.mapNotNullTo(mutableSetOf()) { it.ingredientId }
+
+    /**
+     * The plant points [ingredientIds] would add, by their current points: those of their plants
+     * (mixes resolved, see [Mixes.plants]) not yet in this week.
+     */
     fun newPoints(ingredientIds: Iterable<Long>): Double =
-        (Mixes.plants(ingredientIds, contents) - plants).sumOf { ingredients[it]?.plantPoints?.value ?: 0.0 }
+        (Mixes.plants(ingredientIds, contents) - this.ingredientIds).sumOf { ingredients[it]?.plantPoints?.value ?: 0.0 }
 
     companion object {
         fun of(
             today: LocalDate,
             entries: List<CookLog>,
-            lines: List<RecipeLine>,
+            plants: List<CookLogPlant>,
             ingredients: Map<Long, Ingredient>,
             contents: MixContents,
         ): WeekPlants {
             val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
             val week = monday..monday.plusDays(6)
-            val recipeIds = entries.filter { it.cookedOn in week }.mapNotNull { it.recipeId }
-            val ingredientIds = lines.groupBy({ it.recipeId }, { it.ingredientId })
-            return WeekPlants(Mixes.plants(recipeIds.flatMap { ingredientIds[it].orEmpty() }, contents), ingredients, contents)
+            val entryIds = entries.filter { it.cookedOn in week }.mapTo(mutableSetOf()) { it.id }
+            return WeekPlants(plants.filter { it.cookLogId in entryIds }, ingredients, contents)
         }
     }
 }

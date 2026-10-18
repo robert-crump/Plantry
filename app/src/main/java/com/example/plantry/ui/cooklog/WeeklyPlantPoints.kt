@@ -1,25 +1,18 @@
 package com.example.plantry.ui.cooklog
 
 import com.example.plantry.data.CookLog
-import com.example.plantry.data.Ingredient
-import com.example.plantry.data.MixContents
-import com.example.plantry.data.Mixes
-import com.example.plantry.data.RecipeLine
+import com.example.plantry.data.CookLogPlant
+import com.example.plantry.data.distinctPlantPoints
 import java.time.LocalDate
 
 /**
- * Per Monday–Sunday week, keyed by its Monday: the plant points of the distinct plants of the
- * week's entries, by their recipes as they are now, each mix resolved to its components (see
- * [Mixes.plants]). Entries of deleted recipes are skipped.
+ * Per Monday–Sunday week, keyed by its Monday: the plant points of the distinct plants the week's
+ * entries snapshotted (see [CookLogPlant], [distinctPlantPoints]), so later changes to recipes or
+ * ingredients don't change past weeks.
  */
-internal fun weeklyPlantPoints(
-    entries: List<CookLog>,
-    lines: List<RecipeLine>,
-    ingredients: Map<Long, Ingredient>,
-    contents: MixContents = emptyMap(),
-): Map<LocalDate, Double> {
-    val ingredientIds = lines.groupBy({ it.recipeId }, { it.ingredientId })
+internal fun weeklyPlantPoints(entries: List<CookLog>, plants: List<CookLogPlant>): Map<LocalDate, Double> {
+    val plantsByEntry = plants.groupBy { it.cookLogId }
     return groupByWeek(entries) { it.cookedOn }.mapValues { (_, week) ->
-        Mixes.plantPoints(week.flatMap { entry -> entry.recipeId?.let { ingredientIds[it] }.orEmpty() }, ingredients, contents)
+        distinctPlantPoints(week.flatMap { plantsByEntry[it.id].orEmpty() })
     }
 }

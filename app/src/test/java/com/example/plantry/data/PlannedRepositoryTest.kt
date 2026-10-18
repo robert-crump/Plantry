@@ -236,7 +236,7 @@ class PlannedRepositoryTest {
         assertEquals(
             listOf(
                 PlannedItem(planned[0], RecipeSnapshot("Curry", RecipeStats(0.0, 0.0, 0.0, 0.0, 0.0))),
-                PlannedItem(planned[2], RecipeSnapshot("Dal", RecipeStats(1.0, 25.0, 50.0, 350.0, 10.0))),
+                PlannedItem(planned[2], RecipeSnapshot("Dal", RecipeStats(1.0, 25.0, 50.0, 350.0, 10.0), listOf(CookLogPlant(ingredientId = 5, name = "Linsen", plantPoints = 1.0)))),
             ),
             items,
         )

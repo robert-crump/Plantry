@@ -65,6 +65,24 @@ class CookLogRepositoryTest {
     }
 
     @Test
+    fun log_storesThePlantsOfThatMoment_andDeleteRemovesThem() = runTest {
+        val onion = CookLogPlant(ingredientId = 7, name = "Zwiebel", plantPoints = 1.0)
+        snapshots[1] = RecipeSnapshot("Rezept 1", RecipeStats(1.0, 20.0, 40.0), listOf(onion))
+        val first = repository.log(recipeId = 1, date = today)!!
+        snapshots[1] = RecipeSnapshot("Rezept 1", RecipeStats(1.25, 20.0, 40.0), listOf(onion.copy(plantPoints = 0.25), onion.copy(ingredientId = 8, name = "Lauch")))
+        val second = repository.log(recipeId = 1, date = today)!!
+
+        assertEquals(
+            listOf(onion.copy(id = 1, cookLogId = first), onion.copy(id = 2, cookLogId = second, plantPoints = 0.25), onion.copy(id = 3, cookLogId = second, ingredientId = 8, name = "Lauch")),
+            repository.observePlants().first(),
+        )
+
+        repository.delete(second)
+
+        assertEquals(listOf(first), repository.observePlants().first().map { it.cookLogId })
+    }
+
+    @Test
     fun log_missingRecipe_logsNothing() = runTest {
         assertNull(repository.log(recipeId = 99, date = today))
         assertEquals(emptyList<CookLog>(), dao.logs.value)
@@ -74,7 +92,9 @@ class CookLogRepositoryTest {
 /** In-memory [CookLogDao]; history ordering is covered by the instrumented CookLogDaoTest. */
 internal class FakeCookLogDao : CookLogDao {
     val logs = MutableStateFlow<List<CookLog>>(emptyList())
+    val plants = MutableStateFlow<List<CookLogPlant>>(emptyList())
     private var nextId = 1L
+    private var nextPlantId = 1L
 
     override suspend fun insert(log: CookLog): Long {
         val id = if (log.id == 0L) nextId++ else log.id
@@ -82,9 +102,19 @@ internal class FakeCookLogDao : CookLogDao {
         return id
     }
 
+    override suspend fun insertPlants(plants: List<CookLogPlant>) {
+        this.plants.value += plants.map { it.copy(id = nextPlantId++) }
+    }
+
+    /** Also deletes its plants, as the foreign key does. */
     override suspend fun deleteById(id: Long) {
         logs.value = logs.value.filter { it.id != id }
+        plants.value = plants.value.filter { it.cookLogId != id }
     }
+
+    override fun observePlants(): Flow<List<CookLogPlant>> = plants
+
+    override suspend fun getPlants(): List<CookLogPlant> = plants.value
 
     override fun observeHistory(): Flow<List<CookLog>> = logs
 

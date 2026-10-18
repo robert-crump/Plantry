@@ -12,6 +12,9 @@ class CookLogRepository(
     /** Newest first. */
     fun observeHistory(): Flow<List<CookLog>> = dao.observeHistory()
 
+    /** The plants of every entry, see [CookLogPlant]. */
+    fun observePlants(): Flow<List<CookLogPlant>> = dao.observePlants()
+
     /** The latest cook date per recipe; recipes never cooked are missing. */
     fun observeLastCooked(): Flow<Map<Long, LocalDate>> =
         dao.observeLastCooked().map { all -> all.associate { it.recipeId to it.lastCookedOn } }
@@ -21,12 +24,12 @@ class CookLogRepository(
         dao.observeDates(recipeId).map { CookingStats.from(it, today()) }
 
     /**
-     * Logs [recipeId] as cooked on [date] with a snapshot of the recipe as it is now and returns
+     * Logs [recipeId] as cooked on [date] with a snapshot of the recipe and its plants as it is now and returns
      * the entry id, e.g. for undo; null if the recipe doesn't exist.
      */
     suspend fun log(recipeId: Long, date: LocalDate): Long? {
         val snapshot = snapshot(recipeId) ?: return null
-        return dao.insert(CookLog.of(recipeId, date, snapshot))
+        return dao.insert(CookLog.of(recipeId, date, snapshot), snapshot.plants)
     }
 
     suspend fun delete(id: Long) = dao.deleteById(id)

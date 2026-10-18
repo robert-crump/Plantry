@@ -1,6 +1,7 @@
 package com.example.plantry.data.backup
 
 import com.example.plantry.data.CookLog
+import com.example.plantry.data.CookLogPlant
 import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
@@ -54,8 +55,10 @@ data class BackupFile(
          * before (versions 2 to 15, without units) are no longer read. 2 adds the mix components
          * ([BackupIngredient.contains]); a format-1 file reads as one without mixes. 3 has several
          * photos per recipe ([BackupRecipe.photos]); an earlier file's one photo is the first page.
+         * 4 keeps each cooking log entry's plants ([BackupCookLog.plants]); an earlier file's entries
+         * take them from their recipes as in the file, like the database migration.
          */
-        const val FORMAT_VERSION = 3
+        const val FORMAT_VERSION = 4
 
         /** The oldest format since the restart; still read. */
         private const val FIRST_FORMAT_VERSION = 1
@@ -185,7 +188,13 @@ data class BackupCookLog(
     /** Null for entries logged before kcal and fibre were snapshotted. */
     val kcalPerPortion: Double?,
     val fibrePerPortion: Double?,
+    /** The entry's plants when it was logged; null before format 4, see [CookLogPlant.of]. */
+    val plants: List<BackupPlant>? = null,
 )
+
+/** A [CookLogPlant]; [ingredientId] is null once the ingredient was deleted. */
+@Serializable
+data class BackupPlant(val ingredientId: Long?, val name: String, val plantPoints: Double)
 
 @Serializable
 data class BackupAlias(val wording: String, val ingredientId: Long)
@@ -204,6 +213,7 @@ data class BackupSnapshot(
     val planned: List<PlannedRecipe> = emptyList(),
     val units: List<IngredientUnit> = emptyList(),
     val components: List<MixComponent> = emptyList(),
+    val cookLogPlants: List<CookLogPlant> = emptyList(),
 )
 
 /** Recipe photos by recipe id, the pages in order; a recipe without photos may be missing. */
@@ -213,6 +223,7 @@ fun BackupSnapshot.toFile(photos: Photos, settings: BackupSettings): BackupFile 
     val linesByRecipe = lines.groupBy { it.recipeId }
     val unitsByIngredient = units.groupBy { it.ingredientId }
     val contents = Mixes.contents(components)
+    val plantsByEntry = cookLogPlants.groupBy { it.cookLogId }
     return BackupFile(
         formatVersion = BackupFile.FORMAT_VERSION,
         settings = settings,
@@ -236,6 +247,7 @@ fun BackupSnapshot.toFile(photos: Photos, settings: BackupSettings): BackupFile 
                 carbsPerPortion = log.stats.carbsPerPortion,
                 kcalPerPortion = log.stats.kcalPerPortion,
                 fibrePerPortion = log.stats.fibrePerPortion,
+                plants = plantsByEntry[log.id].orEmpty().map { BackupPlant(it.ingredientId, it.name, it.plantPoints) },
             )
         },
         aliases = aliases.map { BackupAlias(it.wording, it.ingredientId) },
@@ -246,7 +258,8 @@ fun BackupSnapshot.toFile(photos: Photos, settings: BackupSettings): BackupFile 
 /**
  * Throws [InvalidBackupException] for malformed dates or units, for a line whose ingredient, or
  * whose unit of that ingredient, the file doesn't have, and for a mix component that is missing,
- * a mix itself or the mix.
+ * a mix itself or the mix. A plant whose ingredient the file doesn't have reads as one of a
+ * deleted ingredient.
  */
 fun BackupFile.toSnapshot(): BackupSnapshot = try {
     val unitsByIngredient = ingredients.associate { ingredient -> ingredient.id to ingredient.units.mapTo(mutableSetOf()) { it.unit } }
@@ -263,8 +276,11 @@ fun BackupFile.toSnapshot(): BackupSnapshot = try {
     if (components.any { it.componentId !in unitsByIngredient || !Mixes.canContain(it.mixId, it.componentId, contents) }) {
         throw InvalidBackupException(InvalidBackupException.Reason.BROKEN_REFERENCE)
     }
+    val entities = ingredients.map { it.toEntity() }
+    val ingredientsById = entities.associateBy { it.id }
+    val ingredientIdsByRecipe = recipes.associate { recipe -> recipe.id to recipe.lines.map { it.ingredientId } }
     BackupSnapshot(
-        ingredients = ingredients.map { it.toEntity() },
+        ingredients = entities,
         recipes = recipes.map { it.toEntity() },
         lines = lines,
         cookLog = cookLog.map { log ->
@@ -277,6 +293,12 @@ fun BackupFile.toSnapshot(): BackupSnapshot = try {
             ingredient.units.map { IngredientUnit(ingredient.id, it.unit, it.gramsPerUnit, it.packageGrams, it.packageCount) }
         },
         components = components,
+        cookLogPlants = cookLog.flatMap { log ->
+            val plants = log.plants?.map {
+                CookLogPlant(ingredientId = it.ingredientId?.takeIf(ingredientsById::containsKey), name = it.name, plantPoints = it.plantPoints)
+            } ?: log.recipeId?.let(ingredientIdsByRecipe::get)?.let { CookLogPlant.of(it, ingredientsById, contents) }.orEmpty()
+            plants.map { it.copy(cookLogId = log.id) }
+        },
     )
 } catch (e: DateTimeParseException) {
     throw InvalidBackupException(InvalidBackupException.Reason.NOT_A_BACKUP, e)

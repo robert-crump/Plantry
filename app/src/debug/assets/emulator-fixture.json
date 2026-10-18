@@ -1,5 +1,5 @@
 {
-    "formatVersion": 3,
+    "formatVersion": 4,
     "settings": {
         "scanModel": "opus",
         "cooldownDays": 21
@@ -364,7 +364,9 @@
             ],
             "labelProduct": null,
             "labelBarcode": null,
-            "contains": [11]
+            "contains": [
+                11
+            ]
         },
         {
             "id": 17,
@@ -1610,7 +1612,54 @@
             "proteinPerPortion": 18.34935,
             "carbsPerPortion": 89.83802500000002,
             "kcalPerPortion": 484.655,
-            "fibrePerPortion": 19.93875
+            "fibrePerPortion": 19.93875,
+            "plants": [
+                {
+                    "ingredientId": 1,
+                    "name": "Zwiebeln",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 2,
+                    "name": "Knoblauch",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 4,
+                    "name": "Karotten",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 10,
+                    "name": "Paprika, rot",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 11,
+                    "name": "Tomaten",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 18,
+                    "name": "Schwarze Bohnen (Dose)",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 20,
+                    "name": "Basmatireis",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 28,
+                    "name": "Kreuzkümmel",
+                    "plantPoints": 0.25
+                },
+                {
+                    "ingredientId": 30,
+                    "name": "Paprikapulver",
+                    "plantPoints": 0.25
+                }
+            ]
         },
         {
             "id": 2,
@@ -1621,7 +1670,49 @@
             "proteinPerPortion": 31.478699999999996,
             "carbsPerPortion": 81.1709,
             "kcalPerPortion": 856.19,
-            "fibrePerPortion": 14.3495
+            "fibrePerPortion": 14.3495,
+            "plants": [
+                {
+                    "ingredientId": 1,
+                    "name": "Zwiebeln",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 2,
+                    "name": "Knoblauch",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 3,
+                    "name": "Ingwer",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 8,
+                    "name": "Blattspinat",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 13,
+                    "name": "Zitronen",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 19,
+                    "name": "Rote Linsen",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 28,
+                    "name": "Kreuzkümmel",
+                    "plantPoints": 0.25
+                },
+                {
+                    "ingredientId": 29,
+                    "name": "Kurkuma",
+                    "plantPoints": 0.25
+                }
+            ]
         },
         {
             "id": 3,
@@ -1632,7 +1723,24 @@
             "proteinPerPortion": 22.9088,
             "carbsPerPortion": 73.29180000000001,
             "kcalPerPortion": 525.4000000000001,
-            "fibrePerPortion": 8.84
+            "fibrePerPortion": 8.84,
+            "plants": [
+                {
+                    "ingredientId": 12,
+                    "name": "Bananen",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 21,
+                    "name": "Haferflocken",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 24,
+                    "name": "Walnüsse",
+                    "plantPoints": 1.0
+                }
+            ]
         },
         {
             "id": 4,
@@ -1643,7 +1751,34 @@
             "proteinPerPortion": 31.267899999999997,
             "carbsPerPortion": 113.57990000000001,
             "kcalPerPortion": 817.135,
-            "fibrePerPortion": 19.494
+            "fibrePerPortion": 19.494,
+            "plants": [
+                {
+                    "ingredientId": 2,
+                    "name": "Knoblauch",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 7,
+                    "name": "Brokkoli",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 13,
+                    "name": "Zitronen",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 22,
+                    "name": "Vollkornnudeln",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 24,
+                    "name": "Walnüsse",
+                    "plantPoints": 1.0
+                }
+            ]
         },
         {
             "id": 5,
@@ -1654,7 +1789,44 @@
             "proteinPerPortion": 20.25965,
             "carbsPerPortion": 101.04705,
             "kcalPerPortion": 875.4350000000001,
-            "fibrePerPortion": 11.1975
+            "fibrePerPortion": 11.1975,
+            "plants": [
+                {
+                    "ingredientId": 1,
+                    "name": "Zwiebeln",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 2,
+                    "name": "Knoblauch",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 8,
+                    "name": "Blattspinat",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 15,
+                    "name": "Koriander",
+                    "plantPoints": 0.25
+                },
+                {
+                    "ingredientId": 17,
+                    "name": "Kichererbsen (Dose)",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 20,
+                    "name": "Basmatireis",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 29,
+                    "name": "Kurkuma",
+                    "plantPoints": 0.25
+                }
+            ]
         },
         {
             "id": 6,
@@ -1665,7 +1837,39 @@
             "proteinPerPortion": 20.871499999999997,
             "carbsPerPortion": 20.277300000000004,
             "kcalPerPortion": 307.86,
-            "fibrePerPortion": 6.684
+            "fibrePerPortion": 6.684,
+            "plants": [
+                {
+                    "ingredientId": 1,
+                    "name": "Zwiebeln",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 2,
+                    "name": "Knoblauch",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 10,
+                    "name": "Paprika, rot",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 11,
+                    "name": "Tomaten",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 14,
+                    "name": "Petersilie",
+                    "plantPoints": 0.25
+                },
+                {
+                    "ingredientId": 28,
+                    "name": "Kreuzkümmel",
+                    "plantPoints": 0.25
+                }
+            ]
         },
         {
             "id": 7,
@@ -1676,7 +1880,39 @@
             "proteinPerPortion": 13.16115,
             "carbsPerPortion": 55.79865,
             "kcalPerPortion": 456.22,
-            "fibrePerPortion": 10.1265
+            "fibrePerPortion": 10.1265,
+            "plants": [
+                {
+                    "ingredientId": 1,
+                    "name": "Zwiebeln",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 5,
+                    "name": "Süßkartoffeln",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 9,
+                    "name": "Zucchini",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 10,
+                    "name": "Paprika, rot",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 14,
+                    "name": "Petersilie",
+                    "plantPoints": 0.25
+                },
+                {
+                    "ingredientId": 30,
+                    "name": "Paprikapulver",
+                    "plantPoints": 0.25
+                }
+            ]
         },
         {
             "id": 8,
@@ -1687,7 +1923,24 @@
             "proteinPerPortion": 8.528,
             "carbsPerPortion": 37.5535,
             "kcalPerPortion": 302.45,
-            "fibrePerPortion": 5.5600000000000005
+            "fibrePerPortion": 5.5600000000000005,
+            "plants": [
+                {
+                    "ingredientId": 12,
+                    "name": "Bananen",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 27,
+                    "name": "Erdnussbutter",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 40,
+                    "name": "Vollkorntoast",
+                    "plantPoints": 1.0
+                }
+            ]
         },
         {
             "id": 9,
@@ -1698,7 +1951,34 @@
             "proteinPerPortion": 23.1146,
             "carbsPerPortion": 100.6834,
             "kcalPerPortion": 646.605,
-            "fibrePerPortion": 7.471
+            "fibrePerPortion": 7.471,
+            "plants": [
+                {
+                    "ingredientId": 2,
+                    "name": "Knoblauch",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 4,
+                    "name": "Karotten",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 20,
+                    "name": "Basmatireis",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 26,
+                    "name": "Sesam",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 39,
+                    "name": "Erbsen (TK)",
+                    "plantPoints": 1.0
+                }
+            ]
         },
         {
             "id": 10,
@@ -1709,7 +1989,44 @@
             "proteinPerPortion": 18.8691,
             "carbsPerPortion": 74.9374,
             "kcalPerPortion": 493.82000000000005,
-            "fibrePerPortion": 12.741999999999999
+            "fibrePerPortion": 12.741999999999999,
+            "plants": [
+                {
+                    "ingredientId": 3,
+                    "name": "Ingwer",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 4,
+                    "name": "Karotten",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 10,
+                    "name": "Paprika, rot",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 23,
+                    "name": "Quinoa",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 26,
+                    "name": "Sesam",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 27,
+                    "name": "Erdnussbutter",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 39,
+                    "name": "Erbsen (TK)",
+                    "plantPoints": 1.0
+                }
+            ]
         },
         {
             "id": 11,
@@ -1720,7 +2037,34 @@
             "proteinPerPortion": 7.89725,
             "carbsPerPortion": 61.528125,
             "kcalPerPortion": 395.225,
-            "fibrePerPortion": 8.5725
+            "fibrePerPortion": 8.5725,
+            "plants": [
+                {
+                    "ingredientId": 1,
+                    "name": "Zwiebeln",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 3,
+                    "name": "Ingwer",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 5,
+                    "name": "Süßkartoffeln",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 6,
+                    "name": "Kartoffeln",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 25,
+                    "name": "Cashewkerne",
+                    "plantPoints": 1.0
+                }
+            ]
         },
         {
             "id": 12,
@@ -1731,7 +2075,24 @@
             "proteinPerPortion": 22.9088,
             "carbsPerPortion": 73.29180000000001,
             "kcalPerPortion": 525.4000000000001,
-            "fibrePerPortion": 8.84
+            "fibrePerPortion": 8.84,
+            "plants": [
+                {
+                    "ingredientId": 12,
+                    "name": "Bananen",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 21,
+                    "name": "Haferflocken",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 24,
+                    "name": "Walnüsse",
+                    "plantPoints": 1.0
+                }
+            ]
         },
         {
             "id": 13,
@@ -1742,7 +2103,54 @@
             "proteinPerPortion": 18.34935,
             "carbsPerPortion": 89.83802500000002,
             "kcalPerPortion": 484.655,
-            "fibrePerPortion": 19.93875
+            "fibrePerPortion": 19.93875,
+            "plants": [
+                {
+                    "ingredientId": 1,
+                    "name": "Zwiebeln",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 2,
+                    "name": "Knoblauch",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 4,
+                    "name": "Karotten",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 10,
+                    "name": "Paprika, rot",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 11,
+                    "name": "Tomaten",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 18,
+                    "name": "Schwarze Bohnen (Dose)",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 20,
+                    "name": "Basmatireis",
+                    "plantPoints": 1.0
+                },
+                {
+                    "ingredientId": 28,
+                    "name": "Kreuzkümmel",
+                    "plantPoints": 0.25
+                },
+                {
+                    "ingredientId": 30,
+                    "name": "Paprikapulver",
+                    "plantPoints": 0.25
+                }
+            ]
         }
     ],
     "aliases": [

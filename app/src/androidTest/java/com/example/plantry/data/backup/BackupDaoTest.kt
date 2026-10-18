@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.plantry.data.CookLog
+import com.example.plantry.data.CookLogPlant
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.LineUnit
@@ -73,6 +74,10 @@ class BackupDaoTest {
         planned = listOf(PlannedRecipe(3, LocalDate.of(2026, 10, 1))),
         units = listOf(IngredientUnit(5, PieceUnit.CUP, 250.0, 1000.0, 4), IngredientUnit(5, PieceUnit.PACKET, 500.0)),
         components = listOf(MixComponent(7, 1), MixComponent(7, 5)),
+        cookLogPlants = listOf(
+            CookLogPlant(cookLogId = 4, ingredientId = 1, name = "Reis, gekocht", plantPoints = 1.0),
+            CookLogPlant(cookLogId = 6, ingredientId = null, name = "Linsen", plantPoints = 1.0),
+        ),
     )
 
     @Test

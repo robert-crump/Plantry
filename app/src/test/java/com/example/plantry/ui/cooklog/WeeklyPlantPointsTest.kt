@@ -2,15 +2,8 @@ package com.example.plantry.ui.cooklog
 
 import com.example.plantry.data.planner.plantPointsGoalReached
 import com.example.plantry.data.CookLog
-import com.example.plantry.data.Ingredient
-import com.example.plantry.data.MixComponent
-import com.example.plantry.data.Mixes
-import com.example.plantry.data.Nutrition
-import com.example.plantry.data.PlantPoints
-import com.example.plantry.data.LineUnit
-import com.example.plantry.data.RecipeLine
+import com.example.plantry.data.CookLogPlant
 import com.example.plantry.data.RecipeStats
-import com.example.plantry.data.StoreSection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -20,46 +13,48 @@ import java.time.LocalDate
 class WeeklyPlantPointsTest {
 
     private val monday = LocalDate.of(2026, 10, 12)
-    private val ingredients = listOf(
-        ingredient(1, PlantPoints.ONE),
-        ingredient(2, PlantPoints.ONE),
-        ingredient(3, PlantPoints.QUARTER),
-        ingredient(4, PlantPoints.ZERO),
-    ).associateBy { it.id }
 
     @Test
-    fun anIngredientInSeveralDishesOfAWeek_countsOnce() {
-        val lines = lines(10, 1, 3, 4) + lines(11, 1, 2, 3)
-        val entries = listOf(entry(11, monday.plusDays(2)), entry(10, monday), entry(10, monday.plusDays(6)))
+    fun aPlantInSeveralDishesOfAWeek_countsOnce() {
+        val entries = listOf(entry(1, monday), entry(2, monday.plusDays(2)), entry(3, monday.plusDays(6)))
+        val plants = plants(1, 1L to 1.0, 3L to 0.25) + plants(2, 1L to 1.0, 2L to 1.0, 3L to 0.25) + plants(3, 2L to 1.0)
 
-        assertEquals(mapOf(monday to 2.25), weeklyPlantPoints(entries, lines, ingredients))
+        assertEquals(mapOf(monday to 2.25), weeklyPlantPoints(entries, plants))
     }
 
     @Test
     fun eachWeekCountsOnItsOwn() {
-        val lines = lines(10, 1, 2)
-        val entries = listOf(entry(10, monday), entry(10, monday.minusDays(1)))
+        val entries = listOf(entry(1, monday), entry(2, monday.minusDays(1)))
+        val plants = plants(1, 1L to 1.0, 2L to 1.0) + plants(2, 1L to 1.0, 2L to 1.0)
 
-        assertEquals(mapOf(monday to 2.0, monday.minusWeeks(1) to 2.0), weeklyPlantPoints(entries, lines, ingredients))
+        assertEquals(mapOf(monday to 2.0, monday.minusWeeks(1) to 2.0), weeklyPlantPoints(entries, plants))
     }
 
     @Test
-    fun entriesOfDeletedRecipes_areSkipped_andAWeekOfOnlyThoseHasZero() {
-        val lines = lines(10, 1)
-        val entries = listOf(entry(10, monday), entry(null, monday), entry(null, monday.minusWeeks(1)))
+    fun aWeekOfEntriesWithoutPlants_hasZero() {
+        val entries = listOf(entry(1, monday), entry(2, monday.minusWeeks(1)))
 
-        assertEquals(mapOf(monday to 1.0, monday.minusWeeks(1) to 0.0), weeklyPlantPoints(entries, lines, ingredients))
+        assertEquals(mapOf(monday to 1.0, monday.minusWeeks(1) to 0.0), weeklyPlantPoints(entries, plants(1, 1L to 1.0)))
     }
 
     @Test
-    fun mixes_countEachOfTheirPlantsOnceWithTheWeeksOtherIngredients() {
-        // 5 is a mix of 1 and 2 (its own point is ignored), 6 a mix of 2 and 3.
-        val withMixes = ingredients + listOf(ingredient(5, PlantPoints.ONE), ingredient(6, PlantPoints.ZERO)).associateBy { it.id }
-        val contents = Mixes.contents(listOf(MixComponent(5, 1), MixComponent(5, 2), MixComponent(6, 2), MixComponent(6, 3)))
-        val lines = lines(10, 1, 5) + lines(11, 6)
-        val entries = listOf(entry(10, monday), entry(11, monday.plusDays(1)))
+    fun deletedIngredients_matchByName() {
+        val entries = listOf(entry(1, monday), entry(2, monday.plusDays(1)))
+        val plants = listOf(
+            CookLogPlant(cookLogId = 1, ingredientId = null, name = "Zwiebel", plantPoints = 1.0),
+            CookLogPlant(cookLogId = 2, ingredientId = null, name = "Zwiebel", plantPoints = 1.0),
+            CookLogPlant(cookLogId = 2, ingredientId = null, name = "Lauch", plantPoints = 1.0),
+        )
 
-        assertEquals(mapOf(monday to 2.25), weeklyPlantPoints(entries, lines, withMixes, contents))
+        assertEquals(mapOf(monday to 2.0), weeklyPlantPoints(entries, plants))
+    }
+
+    @Test
+    fun theSnapshotsPointsCount_theHighestForAPlantLoggedWithDifferentOnes() {
+        // Ingredient 1 was ¼ on Monday and 1 by Wednesday.
+        val entries = listOf(entry(1, monday), entry(2, monday.plusDays(2)))
+
+        assertEquals(mapOf(monday to 1.25), weeklyPlantPoints(entries, plants(1, 1L to 0.25, 2L to 0.25) + plants(2, 1L to 1.0)))
     }
 
     @Test
@@ -69,20 +64,10 @@ class WeeklyPlantPointsTest {
         assertTrue(plantPointsGoalReached(35.0))
     }
 
-    private fun lines(recipeId: Long, vararg ingredientIds: Long) = ingredientIds.mapIndexed { position, id ->
-        RecipeLine(recipeId = recipeId, position = position, amount = 100.0, unit = LineUnit.Grams, ingredientId = id)
+    private fun plants(cookLogId: Long, vararg points: Pair<Long, Double>) = points.map { (id, value) ->
+        CookLogPlant(cookLogId = cookLogId, ingredientId = id, name = "Zutat $id", plantPoints = value)
     }
 
-    private fun entry(recipeId: Long?, cookedOn: LocalDate) =
-        CookLog(recipeId = recipeId, cookedOn = cookedOn, title = "", stats = RecipeStats(99.0, 0.0, 0.0))
-
-    private fun ingredient(id: Long, points: PlantPoints) = Ingredient(
-        id = id,
-        name = "Zutat $id",
-        fdcId = null,
-        usdaDescription = null,
-        nutrition = Nutrition(),
-        storeSection = StoreSection.OTHER,
-        plantPoints = points,
-    )
+    private fun entry(id: Long, cookedOn: LocalDate) =
+        CookLog(id = id, recipeId = 10, cookedOn = cookedOn, title = "", stats = RecipeStats(99.0, 0.0, 0.0))
 }

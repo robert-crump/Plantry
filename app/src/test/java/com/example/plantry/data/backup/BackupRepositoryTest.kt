@@ -1,6 +1,7 @@
 package com.example.plantry.data.backup
 
 import com.example.plantry.data.CookLog
+import com.example.plantry.data.CookLogPlant
 import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
@@ -77,7 +78,7 @@ class BackupRepositoryTest {
         assertTrue(json.replace(Regex("\\s+"), "").contains("\"photos\":[\"AQID/w==\",\"BA==\"]"))
         assertTrue(json.contains("\"photos\": []"))
         assertFalse(json.contains("\"photo\":"))
-        assertTrue(json.contains("\"formatVersion\": 3"))
+        assertTrue(json.contains("\"formatVersion\": 4"))
         assertTrue(json.contains("\"dish\": \"MAIN\""))
         assertFalse(json.contains("\"reviewed\""))
         assertFalse(json.contains("\"origin\""))
@@ -116,7 +117,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 3,", "\"formatVersion\": 4,")
+        val newer = source.export().replace("\"formatVersion\": 4,", "\"formatVersion\": 5,")
 
         val error = readError(newer)
 
@@ -151,6 +152,42 @@ class BackupRepositoryTest {
         target.repository.import(target.repository.read(format1))
 
         assertEquals(source.store.data.copy(components = emptyList()), target.store.data)
+    }
+
+    @Test
+    fun cookLogPlants_areWrittenWithTheirEntry() = runTest {
+        val cookLog = Json.parseToJsonElement(source.export()).jsonObject.getValue("cookLog").jsonArray.map { it.jsonObject }
+
+        assertEquals(listOf(1, 0, 2), cookLog.map { it.getValue("plants").jsonArray.size })
+        assertEquals(
+            """{"ingredientId":null,"name":"Paprika","plantPoints":1.0}""",
+            cookLog[2].getValue("plants").jsonArray.first().toString(),
+        )
+    }
+
+    @Test
+    fun read_takesTheCookLogPlantsOfAFormat3FileFromTheRecipes() = runTest {
+        val file = Json.parseToJsonElement(source.export()).jsonObject
+        val cookLog = JsonArray(file.getValue("cookLog").jsonArray.map { JsonObject(it.jsonObject - "plants") })
+        val format3 = JsonObject(file + ("formatVersion" to JsonPrimitive(3)) + ("cookLog" to cookLog)).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(format3))
+
+        // Curry's plants as it is now; Chili has none worth points, the deleted recipe's entry none at all.
+        val backfilled = listOf(CookLogPlant(cookLogId = 1, ingredientId = 3, name = "Süßkartoffel", plantPoints = 1.0))
+        assertEquals(source.store.data.copy(cookLogPlants = backfilled), target.store.data)
+    }
+
+    @Test
+    fun read_cookLogPlantOfAnIngredientNotInTheFile_readsAsDeleted() = runTest {
+        val file = Json.parseToJsonElement(source.export()).jsonObject
+        val text = file.toString().replace(""""ingredientId":14,"name":"Himbeeren"""", """"ingredientId":99,"name":"Himbeeren"""")
+        val target = Device()
+
+        target.repository.import(target.repository.read(text))
+
+        assertEquals(null, target.store.data.cookLogPlants.single { it.name == "Himbeeren" }.ingredientId)
     }
 
     @Test
@@ -376,6 +413,12 @@ class BackupRepositoryTest {
                 IngredientUnit(6, PieceUnit.CAN, 240.0),
             ),
             components = listOf(MixComponent(13, 14), MixComponent(13, 15)),
+            // As logged: Süßkartoffel was ¼ then, Paprika was deleted since.
+            cookLogPlants = listOf(
+                CookLogPlant(cookLogId = 1, ingredientId = 3, name = "Süßkartoffel", plantPoints = 0.25),
+                CookLogPlant(cookLogId = 3, ingredientId = null, name = "Paprika", plantPoints = 1.0),
+                CookLogPlant(cookLogId = 3, ingredientId = 14, name = "Himbeeren", plantPoints = 1.0),
+            ),
         )
     }
 

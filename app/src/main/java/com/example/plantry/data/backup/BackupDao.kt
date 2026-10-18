@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import com.example.plantry.data.CookLog
+import com.example.plantry.data.CookLogPlant
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAlias
 import com.example.plantry.data.IngredientUnit
@@ -41,6 +42,9 @@ abstract class BackupDao : BackupStore {
     @Query("SELECT * FROM cook_log ORDER BY id")
     abstract suspend fun getCookLog(): List<CookLog>
 
+    @Query("SELECT * FROM cook_log_plants ORDER BY cookLogId, id")
+    abstract suspend fun getCookLogPlants(): List<CookLogPlant>
+
     @Query("SELECT * FROM ingredient_aliases ORDER BY wording")
     abstract suspend fun getAliases(): List<IngredientAlias>
 
@@ -57,6 +61,8 @@ abstract class BackupDao : BackupStore {
         planned = getPlanned(),
         units = getUnits(),
         components = getComponents(),
+        // Their row ids aren't part of the backup.
+        cookLogPlants = getCookLogPlants().map { it.copy(id = 0) },
     )
 
     /** All or nothing: a file with broken references (e.g. an alias pointing nowhere) changes nothing. */
@@ -64,6 +70,7 @@ abstract class BackupDao : BackupStore {
     override suspend fun replaceAll(snapshot: BackupSnapshot) {
         deleteAliases()
         deletePlanned()
+        deleteCookLogPlants()
         deleteCookLog()
         deleteLines()
         deleteRecipes()
@@ -77,6 +84,7 @@ abstract class BackupDao : BackupStore {
         insertRecipes(snapshot.recipes)
         insertLines(snapshot.lines)
         insertCookLog(snapshot.cookLog)
+        insertCookLogPlants(snapshot.cookLogPlants)
         insertPlanned(snapshot.planned)
     }
 
@@ -88,6 +96,9 @@ abstract class BackupDao : BackupStore {
 
     @Query("DELETE FROM cook_log")
     protected abstract suspend fun deleteCookLog()
+
+    @Query("DELETE FROM cook_log_plants")
+    protected abstract suspend fun deleteCookLogPlants()
 
     @Query("DELETE FROM recipe_ingredients")
     protected abstract suspend fun deleteLines()
@@ -124,6 +135,9 @@ abstract class BackupDao : BackupStore {
 
     @Insert
     protected abstract suspend fun insertCookLog(entries: List<CookLog>)
+
+    @Insert
+    protected abstract suspend fun insertCookLogPlants(plants: List<CookLogPlant>)
 
     @Insert
     protected abstract suspend fun insertPlanned(entries: List<PlannedRecipe>)

@@ -1,5 +1,6 @@
 package com.example.plantry.ui.suggest
 
+import com.example.plantry.data.CookLogPlant
 import com.example.plantry.data.LineUnit
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
@@ -58,7 +59,7 @@ class SuggestionCardTest {
         val lines = listOf(line(1, 0, spinach.id), line(1, 1, chili.id))
 
         assertEquals(1.25, SuggestionCard.of(recipe(1), lines, ingredients).newPlantPoints, 1e-9)
-        val week = WeekPlants(setOf(spinach.id), ingredients, emptyMap())
+        val week = WeekPlants(listOf(CookLogPlant(ingredientId = spinach.id, name = "Spinat", plantPoints = 1.0)), ingredients, emptyMap())
         assertEquals(0.25, SuggestionCard.of(recipe(1), lines, ingredients, week = week).newPlantPoints, 1e-9)
     }
 

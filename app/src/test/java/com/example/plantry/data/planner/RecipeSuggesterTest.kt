@@ -1,5 +1,6 @@
 package com.example.plantry.data.planner
 
+import com.example.plantry.data.CookLogPlant
 import com.example.plantry.data.Dish
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.Recipe
@@ -64,7 +65,7 @@ class RecipeSuggesterTest {
         val spinach = ingredient(2, "Spinat").copy(plantPoints = PlantPoints.ONE)
         val beans = ingredient(3, "Bohnen").copy(plantPoints = PlantPoints.ONE)
         val ingredients = listOf(tofu, spinach, beans)
-        val week = WeekPlants(setOf(spinach.id), ingredients.associateBy { it.id }, emptyMap())
+        val week = WeekPlants(listOf(CookLogPlant(ingredientId = spinach.id, name = "Spinat", plantPoints = 1.0)), ingredients.associateBy { it.id }, emptyMap())
         val lines = listOf(
             line(1, 100.0).copy(ingredientId = spinach.id),
             line(1, 100.0).copy(position = 1, ingredientId = beans.id),
@@ -102,8 +103,9 @@ class RecipeSuggesterTest {
     fun boostWanted_fridayToSundayUnderTheGoal() {
         val thursday = LocalDate.of(2026, 10, 15)
         val ingredients = (1L..30L).associateWith { ingredient(it, "Zutat $it").copy(plantPoints = PlantPoints.ONE) }
-        val under = WeekPlants((1L..29L).toSet(), ingredients, emptyMap())
-        val reached = WeekPlants((1L..30L).toSet(), ingredients, emptyMap())
+        fun plants(count: Long) = (1L..count).map { CookLogPlant(ingredientId = it, name = "Zutat $it", plantPoints = 1.0) }
+        val under = WeekPlants(plants(29), ingredients, emptyMap())
+        val reached = WeekPlants(plants(30), ingredients, emptyMap())
 
         assertFalse(RecipeSuggester.boostWanted(thursday, under))
         assertTrue(RecipeSuggester.boostWanted(thursday.plusDays(1), under))

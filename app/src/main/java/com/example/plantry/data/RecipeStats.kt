@@ -40,11 +40,22 @@ data class RecipeStats(
 }
 
 /** What a cooking log entry keeps of its recipe, so later edits or deletion don't change it. */
-data class RecipeSnapshot(val title: String, val stats: RecipeStats) {
+data class RecipeSnapshot(
+    val title: String,
+    val stats: RecipeStats,
+    /** The recipe's plants, see [CookLogPlant.of]. */
+    val plants: List<CookLogPlant> = emptyList(),
+) {
     companion object {
         /** Lines are matched to [recipe] by id. */
-        fun of(recipe: Recipe, lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>, contents: MixContents = emptyMap()) =
-            RecipeSnapshot(recipe.title, RecipeStats.of(recipe, lines.filter { it.recipeId == recipe.id }, ingredients, contents))
+        fun of(recipe: Recipe, lines: List<RecipeLine>, ingredients: Map<Long, Ingredient>, contents: MixContents = emptyMap()): RecipeSnapshot {
+            val recipeLines = lines.filter { it.recipeId == recipe.id }
+            return RecipeSnapshot(
+                recipe.title,
+                RecipeStats.of(recipe, recipeLines, ingredients, contents),
+                CookLogPlant.of(recipeLines.map { it.ingredientId }, ingredients, contents),
+            )
+        }
 
         /** The current snapshot of a stored recipe; null if it doesn't exist. */
         suspend fun load(recipeId: Long, recipes: RecipeDao, ingredients: IngredientDao): RecipeSnapshot? {

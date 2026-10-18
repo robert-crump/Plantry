@@ -82,7 +82,7 @@ data class SuggestionCard(
             lines: List<RecipeLine>,
             ingredients: Map<Long, Ingredient>,
             contents: MixContents = emptyMap(),
-            week: WeekPlants = WeekPlants(emptySet(), ingredients, contents),
+            week: WeekPlants = WeekPlants(emptyList(), ingredients, contents),
         ): SuggestionCard {
             val recipeLines = lines.filter { it.recipeId == recipe.id }
             return SuggestionCard(

@@ -39,6 +39,41 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate2To3_backfillsEachEntrysPlantsFromItsRecipeAsItIsNow() {
+        helper.createDatabase(DB_NAME, 2).use { db ->
+            fun ingredient(id: Int, name: String, points: String) = db.execSQL(
+                "INSERT INTO ingredients (id, name, storeSection, plantPoints, kcal, protein, carbs, sugar, fat, fibre) " +
+                    "VALUES ($id, '$name', 'OTHER', '$points', 0, 0, 0, 0, 0, 0)",
+            )
+            ingredient(1, "Zwiebel", "ONE")
+            ingredient(2, "Kreuzkümmel", "QUARTER")
+            ingredient(3, "Salz", "ZERO")
+            ingredient(4, "Himbeeren", "ONE")
+            ingredient(5, "Erdbeeren", "ONE")
+            // A mix of 4 and 5; its own point is ignored.
+            ingredient(6, "Beerenmischung", "ONE")
+            db.execSQL("INSERT INTO mix_components (mixId, componentId) VALUES (6, 4), (6, 5)")
+            db.execSQL("INSERT INTO recipes (id, title, source, page, servings, cookingTimeMinutes, modified, dish) VALUES (1, 'Dal', '', NULL, 2, 30, 0, 'MAIN'), (2, 'Porridge', '', NULL, 1, 10, 0, 'BREAKFAST')")
+            // Dal has Zwiebel twice, Porridge the mix and one of its berries.
+            listOf(1 to 1, 1 to 2, 1 to 3, 1 to 1, 2 to 6, 2 to 4).forEachIndexed { i, (recipe, ingredient) ->
+                db.execSQL("INSERT INTO recipe_ingredients (id, recipeId, position, amount, unit, ingredientId, wording) VALUES (${i + 1}, $recipe, $i, 100, 'G', $ingredient, NULL)")
+            }
+            db.execSQL(
+                "INSERT INTO cook_log (id, recipeId, cookedOn, title, plantPoints, proteinPerPortion, carbsPerPortion, kcalPerPortion, fibrePerPortion) " +
+                    "VALUES (1, 1, 20000, 'Dal', 1.25, 0, 0, NULL, NULL), (2, 2, 20001, 'Porridge', 2, 0, 0, NULL, NULL), (3, NULL, 20002, 'Gelöscht', 3, 0, 0, NULL, NULL)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 3, true).use { db ->
+            val plants = mutableListOf<String>()
+            db.query("SELECT cookLogId, ingredientId, name, plantPoints FROM cook_log_plants ORDER BY cookLogId, ingredientId").use {
+                while (it.moveToNext()) plants += "${it.getLong(0)} ${it.getLong(1)} ${it.getString(2)} ${it.getDouble(3)}"
+            }
+            assertEquals(listOf("1 1 Zwiebel 1.0", "1 2 Kreuzkümmel 0.25", "2 4 Himbeeren 1.0", "2 5 Erdbeeren 1.0"), plants)
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }
