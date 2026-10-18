@@ -1,11 +1,8 @@
 package com.example.plantry.ui.cooklog
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,7 +28,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Swipe
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,18 +42,16 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,17 +59,17 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -100,11 +95,13 @@ import com.example.plantry.ui.theme.highlightGreen
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 class CookingViewModel(
     private val repository: CookLogRepository,
@@ -155,6 +152,11 @@ class CookingViewModel(
         viewModelScope.launch { repository.delete(log.id) }
     }
 
+    /** Undoes [delete]: the entry comes back with its id and the recipe as it was when logged. */
+    fun restore(log: CookLog) {
+        viewModelScope.launch { repository.restore(log) }
+    }
+
     /** Logs a planned recipe on its planned day (today if still ahead) and takes it off Geplant; [onDone] gets what to undo. */
     fun done(item: PlannedItem, onDone: (Cooked) -> Unit) {
         viewModelScope.launch { plannedRepository.done(item.planned)?.let(onDone) }
@@ -185,8 +187,14 @@ class CookingViewModel(
         viewModelScope.launch { plannedRepository.undoPlan(recipeId, previous) }
     }
 
-    fun unplan(recipeId: Long) {
-        viewModelScope.launch { plannedRepository.remove(recipeId) }
+    /** Takes the recipe off Geplant; [onDone] gets the entry, for [restorePlan]. */
+    fun unplan(recipeId: Long, onDone: (PlannedRecipe) -> Unit) {
+        viewModelScope.launch { plannedRepository.remove(recipeId)?.let(onDone) }
+    }
+
+    /** Undoes [unplan]: back on Geplant for the same day, which the evening reminder sees again. */
+    fun restorePlan(planned: PlannedRecipe) {
+        viewModelScope.launch { plannedRepository.restore(planned) }
     }
 }
 
@@ -346,17 +354,22 @@ fun CookingScreen(
                             item(key = "planned-title") { SectionTitle(stringResource(R.string.planned_title)) }
                             if (swipeHint) item(key = "planned-hint") { SwipeHint() }
                             items(plannedItems, key = { "planned-${it.recipeId}" }) { item ->
+                                val doneMessage = stringResource(R.string.planned_logged, item.snapshot.title)
+                                val removedMessage = stringResource(R.string.planned_removed, item.snapshot.title)
                                 PlannedCard(
                                     item,
-                                    today = today,
                                     onClick = { onRecipeClick(item.recipeId) },
                                     onSwiped = viewModel::swipeHintSeen,
                                     onDone = {
                                         viewModel.done(item) { cooked ->
-                                            showUndo(loggedMessage) { viewModel.undoCook(cooked) }
+                                            showUndo(doneMessage) { viewModel.undoCook(cooked) }
                                         }
                                     },
-                                    onRemove = { viewModel.unplan(item.recipeId) },
+                                    onRemove = {
+                                        viewModel.unplan(item.recipeId) { removed ->
+                                            showUndo(removedMessage) { viewModel.restorePlan(removed) }
+                                        }
+                                    },
                                 )
                             }
                         }
@@ -368,12 +381,15 @@ fun CookingScreen(
                                 WeekHeader(cookWeekLabel(monday, today, locale, thisWeek, lastWeek), weeklyPlantPoints[monday])
                             }
                             items(week, key = { it.id }) { entry ->
+                                val deletedMessage = stringResource(R.string.cook_history_deleted, entry.title)
                                 HistoryRow(
                                     entry,
-                                    today = today,
                                     // A deleted recipe has nothing to open.
                                     onClick = entry.recipeId?.let { id -> { onRecipeClick(id) } },
-                                    onDelete = { viewModel.delete(entry) },
+                                    onDelete = {
+                                        viewModel.delete(entry)
+                                        showUndo(deletedMessage) { viewModel.restore(entry) }
+                                    },
                                 )
                             }
                         }
@@ -436,24 +452,22 @@ private fun SwipeHint() {
 
 /**
  * A gray card with a planned recipe: its planned day as a date badge, the name (wrapping) and its
- * current stats. Swiped right it asks to log the recipe as cooked (on its planned day, today if
- * that is still ahead), swiped left to take it off Geplant; [onSwiped] runs on either swipe.
+ * current stats. Swiped right it is logged as cooked ([onDone]), swiped left taken off Geplant
+ * ([onRemove]); [onSwiped] runs on either swipe.
  */
 @Composable
 private fun PlannedCard(
     item: PlannedItem,
-    today: LocalDate,
     onClick: () -> Unit,
     onSwiped: () -> Unit,
     onDone: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    var confirm by rememberSaveable { mutableStateOf<SwipeAction?>(null) }
     val shape = RoundedCornerShape(16.dp)
     SwipeActionBox(
         onSwipe = {
             onSwiped()
-            confirm = it
+            if (it == SwipeAction.DONE) onDone() else onRemove()
         },
         doneEnabled = true,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -482,42 +496,21 @@ private fun PlannedCard(
             }
         }
     }
-    when (confirm) {
-        SwipeAction.DELETE -> ConfirmDialog(
-            title = null,
-            text = stringResource(R.string.planned_remove_confirm, item.snapshot.title),
-            confirmLabel = stringResource(R.string.planned_remove),
-            onConfirm = onRemove,
-            onDismiss = { confirm = null },
-        )
-        SwipeAction.DONE -> ConfirmDialog(
-            title = stringResource(R.string.planned_done_title),
-            text = stringResource(
-                R.string.planned_done_confirm,
-                item.snapshot.title,
-                formatPlannedDate(minOf(item.planned.plannedOn, today), today, currentLocale()),
-            ),
-            confirmLabel = stringResource(R.string.planned_done),
-            onConfirm = onDone,
-            onDismiss = { confirm = null },
-        )
-        null -> Unit
-    }
 }
 
-/** Swiping a row right to left asks to delete it, left to right (Geplant only) to log it as cooked. */
+/** Swiping a row right to left deletes it, left to right (Geplant only) logs it as cooked. */
 private enum class SwipeAction { DELETE, DONE }
 
 /** How far a row has to be dragged (of its width) to act. */
 private const val SwipeFraction = 0.4f
 
 /**
- * Letting go of [content] dragged right to left past [SwipeFraction] of its width calls [onSwipe]
- * with [SwipeAction.DELETE], left to right (if [doneEnabled]) with [SwipeAction.DONE]; a quick
- * flick alone doesn't. It springs back either way, as the caller asks before acting. The
- * background turns red (delete) or green (done) and its icon grows once letting go will act.
+ * Like Gmail: [content] dragged right to left past [SwipeFraction] of its width, or flicked, slides
+ * off and calls [onSwipe] with [SwipeAction.DELETE], left to right (if [doneEnabled]) with
+ * [SwipeAction.DONE]; the caller acts at once and offers an undo. The background is red (delete) or
+ * green (done) from the first pixel, its icon centred in the uncovered strip; crossing the
+ * threshold, either way, ticks and pops the icon.
  */
-@Suppress("DEPRECATION") // confirmValueChange is the only way to veto a dismissing flick.
 @Composable
 private fun SwipeActionBox(
     onSwipe: (SwipeAction) -> Unit,
@@ -526,71 +519,54 @@ private fun SwipeActionBox(
     shape: Shape = RectangleShape,
     content: @Composable () -> Unit,
 ) {
-    var width by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
-    val currentOnSwipe by rememberUpdatedState(onSwipe)
-    // Not saveable on purpose: it never rests swiped, so there is nothing to restore.
-    val state = remember {
-        SwipeToDismissBoxState(
-            SwipeToDismissBoxValue.Settled,
-            density,
-            // Never settles swiped, so the row springs back while the caller asks; this also keeps
-            // a flick, which targets the next anchor from any distance, from acting.
-            confirmValueChange = { it == SwipeToDismissBoxValue.Settled },
-            positionalThreshold = { it * SwipeFraction },
-        )
-    }
+    val haptics = LocalHapticFeedback.current
+    // Not saveable on purpose: a row brought back by undo has the same key and must start settled.
+    val state = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, density, positionalThreshold = { it * SwipeFraction }) }
     val armed = state.targetValue != SwipeToDismissBoxValue.Settled
+    LaunchedEffect(state) {
+        snapshotFlow { state.targetValue != SwipeToDismissBoxValue.Settled }
+            .drop(1)
+            .collect { haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) }
+    }
     val done = state.dismissDirection == SwipeToDismissBoxValue.StartToEnd
     SwipeToDismissBox(
         state = state,
-        modifier = modifier
-            .onSizeChanged { width = it.width }
-            // Watches the gesture without consuming it and acts on release, not when the
-            // threshold is crossed (confirmValueChange is also asked mid-drag).
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
-                    while (awaitPointerEvent(PointerEventPass.Initial).changes.any { it.pressed }) Unit
-                    val offset = state.requireOffset()
-                    if (abs(offset) >= width * SwipeFraction) {
-                        currentOnSwipe(if (offset < 0) SwipeAction.DELETE else SwipeAction.DONE)
-                    }
-                }
-            },
+        modifier = modifier,
         enableDismissFromStartToEnd = doneEnabled,
+        onDismiss = { onSwipe(if (it == SwipeToDismissBoxValue.StartToEnd) SwipeAction.DONE else SwipeAction.DELETE) },
         backgroundContent = {
-            val armedColor = if (done) highlightGreen else MaterialTheme.colorScheme.error
-            val color by animateColorAsState(
-                if (armed) armedColor else MaterialTheme.colorScheme.surfaceContainerHighest,
-                label = "swipe background",
-            )
-            val scale by animateFloatAsState(if (armed) 1.4f else 1f, label = "swipe icon")
+            val scale by animateFloatAsState(if (armed) 1.2f else 1f, label = "swipe icon")
             Box(
-                Modifier.fillMaxSize().clip(shape).background(color).padding(horizontal = 24.dp),
-                contentAlignment = if (done) Alignment.CenterStart else Alignment.CenterEnd,
+                Modifier.fillMaxSize().clip(shape).background(if (done) highlightGreen else MaterialTheme.colorScheme.error),
             ) {
                 Icon(
                     if (done) Icons.Filled.Check else Icons.Filled.Delete,
                     contentDescription = null,
-                    tint = when {
-                        !armed -> MaterialTheme.colorScheme.onSurfaceVariant
-                        // The surface colour contrasts with both the light and the dark green.
-                        done -> MaterialTheme.colorScheme.surface
-                        else -> MaterialTheme.colorScheme.onError
-                    },
-                    modifier = Modifier.scale(scale),
+                    // The surface colour contrasts with both the light and the dark green.
+                    tint = if (done) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onError,
+                    modifier = Modifier
+                        .align(if (done) Alignment.CenterStart else Alignment.CenterEnd)
+                        // Read while placing, so dragging doesn't recompose.
+                        .offset {
+                            val strip = abs(runCatching { state.requireOffset() }.getOrDefault(0f))
+                            val inset = ((strip - SwipeIconSize.toPx()) / 2).roundToInt()
+                            IntOffset(if (done) inset else -inset, 0)
+                        }
+                        .size(SwipeIconSize)
+                        .scale(scale),
                 )
             }
         },
     ) { content() }
 }
 
-/** Dragging the row right to left past [SwipeFraction] of its width asks to delete the entry. */
+private val SwipeIconSize = 24.dp
+
+/** Dragging the row right to left past [SwipeFraction] of its width deletes the entry ([onDelete]). */
 @Composable
-private fun HistoryRow(entry: CookLog, today: LocalDate, onClick: (() -> Unit)?, onDelete: () -> Unit) {
-    var confirmDelete by rememberSaveable { mutableStateOf(false) }
-    SwipeActionBox(onSwipe = { confirmDelete = true }, doneEnabled = false) {
+private fun HistoryRow(entry: CookLog, onClick: (() -> Unit)?, onDelete: () -> Unit) {
+    SwipeActionBox(onSwipe = { onDelete() }, doneEnabled = false) {
         Row(
             Modifier
                 .fillMaxWidth()
@@ -614,36 +590,6 @@ private fun HistoryRow(entry: CookLog, today: LocalDate, onClick: (() -> Unit)?,
             }
         }
     }
-    if (confirmDelete) {
-        ConfirmDialog(
-            title = null,
-            text = stringResource(R.string.cook_history_delete_confirm, entry.title, formatPlannedDate(entry.cookedOn, today, currentLocale())),
-            confirmLabel = stringResource(R.string.action_delete),
-            onConfirm = onDelete,
-            onDismiss = { confirmDelete = false },
-        )
-    }
-}
-
-/** Asks before a swipe acts; [onConfirm] runs after the dialog closes. */
-@Composable
-private fun ConfirmDialog(title: String?, text: String, confirmLabel: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = title?.let { { Text(it) } },
-        text = { Text(text) },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onDismiss()
-                    onConfirm()
-                },
-            ) { Text(confirmLabel) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-        },
-    )
 }
 
 /** Day number over the abbreviated month in the device locale, e.g. "23" over "Okt". */
