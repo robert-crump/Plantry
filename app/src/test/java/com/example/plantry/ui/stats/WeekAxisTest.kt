@@ -34,6 +34,25 @@ class WeekAxisTest {
     }
 
     @Test
+    fun dailyBars_inAWeek_areLabelledByWeekday() {
+        val axis = dayAxis(StatsPeriod(StatsRange.WEEK, LocalDate.of(2026, 10, 12)), german)
+
+        assertEquals(7f, axis.length)
+        assertEquals(listOf("M", "D", "M", "D", "F", "S", "S"), axis.labels.map { it.text })
+        assertEquals(6f to 7f, axis.spans.last())
+    }
+
+    @Test
+    fun dailyBars_inAMonth_haveASlotPerDay_labelledAsTheWeeklyOnes() {
+        val period = StatsPeriod(StatsRange.MONTH, LocalDate.of(2026, 10, 1))
+        val axis = dayAxis(period, german)
+
+        assertEquals(31, axis.spans.size)
+        assertEquals(30f to 31f, axis.spans.last())
+        assertEquals(weekAxis(period, german).labels, axis.labels)
+    }
+
+    @Test
     fun periodTitles() {
         assertEquals("Oktober 2026", formatPeriodTitle(StatsPeriod(StatsRange.MONTH, LocalDate.of(2026, 10, 1)), german))
         assertEquals("Aug–Okt 2026", formatPeriodTitle(StatsPeriod(StatsRange.QUARTER, LocalDate.of(2026, 8, 1)), german))

@@ -553,4 +553,20 @@
     <string name="stats_plant_points_chart">Balkendiagramm der Pflanzenpunkte pro Woche, Ziel %1$d. %2$s</string>
     <!-- One week in the chart description: %1$s the week, %2$d its points -->
     <string name="stats_chart_week">%1$s: %2$d</string>
+    <string name="stats_protein_title">Protein</string>
+    <string name="stats_fibre_title">Ballaststoffe</string>
+    <!-- Follows a nutrient's average in large type; %1$s is the nutrient, e.g. "Protein" -->
+    <string name="stats_grams_per_day">g %1$s pro Tag (Ø)</string>
+    <!-- Follows a tapped day's amount in large type; %1$s is the nutrient -->
+    <string name="stats_grams">g %1$s</string>
+    <!-- %1$d days with entries, %2$d grams in total; the quantity is %1$d -->
+    <plurals name="stats_logged_days">
+        <item quantity="one">An %1$d Tag geloggt, insgesamt %2$d g</item>
+        <item quantity="other">An %1$d Tagen geloggt, insgesamt %2$d g</item>
+    </plurals>
+    <string name="stats_no_entries">Keine Einträge</string>
+    <!-- %1$s is the nutrient, %2$s the days, e.g. "Mo, 12. Okt: 64, Di, 13. Okt: 48" -->
+    <string name="stats_nutrient_chart">Balkendiagramm: %1$s in Gramm pro Tag. %2$s</string>
+    <!-- %1$s is the nutrient, %2$s the weeks with their daily average -->
+    <string name="stats_nutrient_chart_weekly">Balkendiagramm: %1$s in Gramm pro Tag, Durchschnitt je Woche. %2$s</string>
 </resources>

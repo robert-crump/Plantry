@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.filled.Grass
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -43,6 +44,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -57,13 +60,18 @@ import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.planner.WeeklyPlantPointsGoal
+import com.example.plantry.data.stats.NutrientBar
+import com.example.plantry.data.stats.NutrientStats
 import com.example.plantry.data.stats.PlantPointsStats
 import com.example.plantry.data.stats.StatsCalendar
 import com.example.plantry.data.stats.StatsPeriod
 import com.example.plantry.data.stats.StatsRange
 import com.example.plantry.data.stats.WeekPoints
+import com.example.plantry.data.stats.dailyNutrient
 import com.example.plantry.ui.cooklog.cookMonthLabel
 import com.example.plantry.ui.cooklog.cookWeekLabel
+import com.example.plantry.ui.cooklog.formatPlannedDate
+import com.example.plantry.ui.cooklog.ProteinIcon
 import com.example.plantry.ui.cooklog.weeklyPlantPoints
 import com.example.plantry.ui.currentLocale
 import kotlinx.coroutines.flow.SharingStarted
@@ -76,15 +84,31 @@ import java.util.Locale
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/** What the Statistik screen draws from: the first entry's date (null without entries) and each week's plant points by its Monday. */
-data class StatsData(val firstEntry: LocalDate?, val weeklyPlantPoints: Map<LocalDate, Double>)
+/**
+ * What the Statistik screen draws from: the first entry's date (null without entries), each week's
+ * plant points by its Monday, and each day's logged protein and fibre, see [dailyNutrient].
+ */
+data class StatsData(
+    val firstEntry: LocalDate?,
+    val weeklyPlantPoints: Map<LocalDate, Double>,
+    val dailyProtein: Map<LocalDate, Double> = emptyMap(),
+    val dailyFibre: Map<LocalDate, Double> = emptyMap(),
+)
 
 class StatsViewModel(repository: CookLogRepository) : ViewModel() {
     /** Null until loaded, so the empty state doesn't flash. */
     val data: StateFlow<StatsData?> = combine(repository.observeHistory(), repository.observePlants()) { entries, plants ->
-        StatsData(entries.minOfOrNull { it.cookedOn }, weeklyPlantPoints(entries, plants))
+        StatsData(
+            entries.minOfOrNull { it.cookedOn },
+            weeklyPlantPoints(entries, plants),
+            dailyNutrient(entries) { it.proteinPerPortion },
+            dailyNutrient(entries) { it.fibrePerPortion },
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
+
+/** The charts on the Statistik screen; one bar among them can be selected. */
+private enum class StatsChart { PLANT_POINTS, PROTEIN, FIBRE }
 
 /**
  * Statistik, opened from Speiseplan: a Woche / Monat / 3 Monate toggle and the period title with
@@ -124,7 +148,9 @@ fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
         var range by rememberSaveable { mutableStateOf(StatsRange.WEEK) }
         var offset by rememberSaveable(range) { mutableIntStateOf(0) }
         val period = calendar.current(range).plus(offset.toLong())
-        var selected by rememberSaveable(range, offset) { mutableStateOf<Int?>(null) }
+        var selected by rememberSaveable(range, offset) { mutableStateOf<Pair<StatsChart, Int>?>(null) }
+        fun selectedIn(chart: StatsChart) = selected?.takeIf { it.first == chart }?.second
+        fun select(chart: StatsChart): (Int?) -> Unit = { index -> selected = index?.let { chart to it } }
         val canBack = calendar.canStepBack(period)
         val canForward = calendar.canStepForward(period)
 
@@ -161,8 +187,28 @@ fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
                 PlantPointsStats.of(period, today, stats.firstEntry, stats.weeklyPlantPoints),
                 period,
                 today,
-                selected,
-                onSelect = { selected = it },
+                selectedIn(StatsChart.PLANT_POINTS),
+                onSelect = select(StatsChart.PLANT_POINTS),
+            )
+            NutrientCard(
+                stringResource(R.string.stats_protein_title),
+                ProteinIcon,
+                stringResource(R.string.stats_protein_title),
+                NutrientStats.of(period, stats.dailyProtein),
+                period,
+                today,
+                selectedIn(StatsChart.PROTEIN),
+                onSelect = select(StatsChart.PROTEIN),
+            )
+            NutrientCard(
+                stringResource(R.string.stats_fibre_title),
+                rememberVectorPainter(Icons.Filled.Grass),
+                stringResource(R.string.stats_fibre_title),
+                NutrientStats.of(period, stats.dailyFibre),
+                period,
+                today,
+                selectedIn(StatsChart.FIBRE),
+                onSelect = select(StatsChart.FIBRE),
             )
         }
     }
@@ -244,14 +290,14 @@ internal fun formatPeriodTitle(period: StatsPeriod, locale: Locale): String {
 }
 
 @Composable
-private fun StatsCard(title: String, content: @Composable () -> Unit) {
+private fun StatsCard(title: String, icon: Painter, content: @Composable () -> Unit) {
     Card(
         Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Filled.Eco, contentDescription = null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(icon, contentDescription = null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                 Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
             }
             content()
@@ -261,7 +307,7 @@ private fun StatsCard(title: String, content: @Composable () -> Unit) {
 
 @Composable
 private fun PlantPointsCard(stats: PlantPointsStats, period: StatsPeriod, today: LocalDate, selected: Int?, onSelect: (Int?) -> Unit) {
-    StatsCard(stringResource(R.string.stats_plant_points_title)) {
+    StatsCard(stringResource(R.string.stats_plant_points_title), rememberVectorPainter(Icons.Filled.Eco)) {
         if (period.range == StatsRange.WEEK) {
             WeekProgress(stats.weeks.single())
         } else {
@@ -354,26 +400,85 @@ private fun WeeklyBars(stats: PlantPointsStats, period: StatsPeriod, today: Loca
     )
 }
 
-/** Where a period's weekly bars sit: each week's span on the axis, its length and its labels. */
-internal class WeekAxis(val length: Float, val spans: List<Pair<Float, Float>>, val labels: List<AxisLabel>)
+/**
+ * A logged nutrient in grams, e.g. "64 g Protein pro Tag (Ø)" over the days with entries and a bar
+ * per day (3 Monate: per week); the headline shows the tapped bar instead. [unit] is e.g. "Protein".
+ */
+@Composable
+private fun NutrientCard(
+    title: String,
+    icon: Painter,
+    unit: String,
+    stats: NutrientStats,
+    period: StatsPeriod,
+    today: LocalDate,
+    selected: Int?,
+    onSelect: (Int?) -> Unit,
+) {
+    val locale = currentLocale()
+    val thisWeek = stringResource(R.string.cook_week_this)
+    val lastWeek = stringResource(R.string.cook_week_last)
+    val weekly = period.range == StatsRange.QUARTER
+    fun barLabel(bar: NutrientBar) =
+        if (weekly) cookWeekLabel(bar.start, today, locale, thisWeek, lastWeek) else formatPlannedDate(bar.start, today, locale)
+
+    StatsCard(title, icon) {
+        val tapped = selected?.let { stats.bars.getOrNull(it) }?.takeIf { it.value != null }
+        val perDay = stringResource(R.string.stats_grams_per_day, unit)
+        if (tapped != null) {
+            BigNumber(tapped.value!!.roundToInt().toString(), if (weekly) perDay else stringResource(R.string.stats_grams, unit))
+            Summary(barLabel(tapped))
+        } else {
+            BigNumber(stats.average?.roundToInt()?.toString() ?: "–", perDay)
+            Summary(
+                if (stats.days == 0) {
+                    stringResource(R.string.stats_no_entries)
+                } else {
+                    pluralStringResource(R.plurals.stats_logged_days, stats.days, stats.days, stats.total.roundToInt())
+                },
+            )
+        }
+        val description = stringResource(
+            if (weekly) R.string.stats_nutrient_chart_weekly else R.string.stats_nutrient_chart,
+            unit,
+            stats.bars.filter { it.value != null }.map { bar ->
+                stringResource(R.string.stats_chart_week, barLabel(bar), bar.value!!.roundToInt())
+            }.joinToString(", "),
+        )
+        val axis = remember(period, locale) { dayAxis(period, locale) }
+        BarChart(
+            bars = stats.bars.mapIndexed { index, bar ->
+                val (start, end) = axis.spans[index]
+                ChartBar(start, end, bar.value)
+            },
+            axisLength = axis.length,
+            labels = axis.labels,
+            description = description,
+            selected = selected,
+            onSelect = onSelect,
+        )
+    }
+}
+
+/** Where a period's bars sit: each bar's span on the axis, its length and its labels. */
+internal class PeriodAxis(val length: Float, val spans: List<Pair<Float, Float>>, val labels: List<AxisLabel>)
 
 /**
  * Monat: the month's days, each week over its days in the month, labelled 1, 5, 10 … and the last day
  * with ticks. 3 Monate: a slot per week, each with a dot, the month's name at its first week.
  */
-internal fun weekAxis(period: StatsPeriod, locale: Locale): WeekAxis {
+internal fun weekAxis(period: StatsPeriod, locale: Locale): PeriodAxis {
     val weeks = period.weeks
     return when (period.range) {
         StatsRange.MONTH -> {
             val days = period.end.dayOfMonth
-            val labelled = (listOf(1) + (5..25 step 5) + days).distinct()
-            WeekAxis(
+            PeriodAxis(
                 days.toFloat(),
                 weeks.map { monday -> (monday.dayOfMonth - 1f) to min(monday.dayOfMonth + 6, days).toFloat() },
-                labelled.map { AxisLabel(it - 0.5f, it.toString(), AxisMark.TICK) },
+                monthDayLabels(days),
             )
         }
-        else -> WeekAxis(
+        else -> PeriodAxis(
             weeks.size.toFloat(),
             weeks.indices.map { it.toFloat() to it + 1f },
             weeks.mapIndexed { index, monday ->
@@ -383,6 +488,26 @@ internal fun weekAxis(period: StatsPeriod, locale: Locale): WeekAxis {
         )
     }
 }
+
+/** Woche: a slot per day labelled "M D M D F S S". Monat: a slot per day, labelled as in [weekAxis]. 3 Monate: [weekAxis]. */
+internal fun dayAxis(period: StatsPeriod, locale: Locale): PeriodAxis = when (period.range) {
+    StatsRange.WEEK -> PeriodAxis(
+        7f,
+        (0 until 7).map { it.toFloat() to it + 1f },
+        (0 until 7).map { day ->
+            AxisLabel(day + 0.5f, period.start.plusDays(day.toLong()).dayOfWeek.getDisplayName(TextStyle.NARROW_STANDALONE, locale))
+        },
+    )
+    StatsRange.MONTH -> {
+        val days = period.end.dayOfMonth
+        PeriodAxis(days.toFloat(), (0 until days).map { it.toFloat() to it + 1f }, monthDayLabels(days))
+    }
+    StatsRange.QUARTER -> weekAxis(period, locale)
+}
+
+/** 1, 5, 10 … 25 and the last of a month's [days], each with a tick. */
+private fun monthDayLabels(days: Int): List<AxisLabel> =
+    (listOf(1) + (5..25 step 5) + days).distinct().map { AxisLabel(it - 0.5f, it.toString(), AxisMark.TICK) }
 
 /** A big number with its unit inline, e.g. "24" and "Pflanzenpunkte pro Woche (Ø)". */
 @Composable
