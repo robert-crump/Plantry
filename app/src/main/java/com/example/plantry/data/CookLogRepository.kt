@@ -30,9 +30,4 @@ class CookLogRepository(
     }
 
     suspend fun delete(id: Long) = dao.deleteById(id)
-
-    /** Re-inserts a deleted entry with its original id (undo). */
-    suspend fun restore(log: CookLog) {
-        dao.insert(log)
-    }
 }

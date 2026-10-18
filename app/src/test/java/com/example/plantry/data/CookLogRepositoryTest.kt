@@ -69,17 +69,6 @@ class CookLogRepositoryTest {
         assertNull(repository.log(recipeId = 99, date = today))
         assertEquals(emptyList<CookLog>(), dao.logs.value)
     }
-
-    @Test
-    fun restore_putsEntryBackWithItsId() = runTest {
-        val id = repository.log(recipeId = 1, date = today)!!
-        val log = dao.logs.value.single()
-        repository.delete(id)
-
-        repository.restore(log)
-
-        assertEquals(listOf(log), dao.logs.value)
-    }
 }
 
 /** In-memory [CookLogDao]; history ordering is covered by the instrumented CookLogDaoTest. */

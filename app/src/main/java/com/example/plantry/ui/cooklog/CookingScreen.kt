@@ -1,8 +1,13 @@
 package com.example.plantry.ui.cooklog
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,32 +25,38 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Swipe
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxState
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -63,10 +74,13 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -92,6 +106,7 @@ import com.example.plantry.ui.FastScrollbar
 import com.example.plantry.ui.SnackbarBelowFab
 import com.example.plantry.ui.currentLocale
 import com.example.plantry.ui.theme.highlightGreen
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -102,6 +117,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.sign
 
 class CookingViewModel(
     private val repository: CookLogRepository,
@@ -148,18 +164,17 @@ class CookingViewModel(
         return (plans != seenPlans).also { seenPlans = plans }
     }
 
-    fun delete(log: CookLog) {
-        viewModelScope.launch { repository.delete(log.id) }
+    /** Takes the [planned] recipes off Geplant and deletes the history [entries]; confirmed, so no undo. */
+    fun delete(planned: List<PlannedItem>, entries: List<CookLog>) {
+        viewModelScope.launch {
+            planned.forEach { plannedRepository.remove(it.recipeId) }
+            entries.forEach { repository.delete(it.id) }
+        }
     }
 
-    /** Undoes [delete]: the entry comes back with its id and the recipe as it was when logged. */
-    fun restore(log: CookLog) {
-        viewModelScope.launch { repository.restore(log) }
-    }
-
-    /** Logs a planned recipe on its planned day (today if still ahead) and takes it off Geplant; [onDone] gets what to undo. */
-    fun done(item: PlannedItem, onDone: (Cooked) -> Unit) {
-        viewModelScope.launch { plannedRepository.done(item.planned)?.let(onDone) }
+    /** Logs each planned recipe on its planned day (today if still ahead) and takes it off Geplant; confirmed, so no undo. */
+    fun done(items: List<PlannedItem>) {
+        viewModelScope.launch { items.forEach { plannedRepository.done(it.planned) } }
     }
 
     /** "Kocheintrag": logs the recipe on [date] and takes it off Geplant; [onDone] gets what to undo. */
@@ -186,17 +201,10 @@ class CookingViewModel(
     fun undoPlan(recipeId: Long, previous: PlannedRecipe?) {
         viewModelScope.launch { plannedRepository.undoPlan(recipeId, previous) }
     }
-
-    /** Takes the recipe off Geplant; [onDone] gets the entry, for [restorePlan]. */
-    fun unplan(recipeId: Long, onDone: (PlannedRecipe) -> Unit) {
-        viewModelScope.launch { plannedRepository.remove(recipeId)?.let(onDone) }
-    }
-
-    /** Undoes [unplan]: back on Geplant for the same day, which the evening reminder sees again. */
-    fun restorePlan(planned: PlannedRecipe) {
-        viewModelScope.launch { plannedRepository.restore(planned) }
-    }
 }
+
+/** What the selection bar asks to confirm. */
+private enum class SelectionAction { DONE, DELETE }
 
 /** A recipe and day picked on "Vorschlag" or "Planen", to plan with an undo snackbar. */
 data class JustPlanned(val recipeId: Long, val title: String, val date: LocalDate)
@@ -211,7 +219,8 @@ data class JustLogged(val recipeId: Long, val date: LocalDate)
  * down, opens "Planen" ([onPlan], pick a recipe, then a day from today), "Vorschlag" and
  * "Kocheintrag" ([onLog], pick a recipe, then a day up to today). [justPlanned] is planned once with
  * an undo snackbar, then [onJustPlannedShown] clears it; [justLogged] is logged once, then
- * [onJustLoggedShown] clears it.
+ * [onJustLoggedShown] clears it. A long press selects a card or row, like Gmail: taps then toggle,
+ * and a bar on top offers "Gekocht" (Geplant only) and "Löschen", each confirmed in a dialog.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -263,8 +272,62 @@ fun CookingScreen(
         }
     }
 
+    // Ids of the selected Geplant recipes and history entries; whatever has disappeared since is ignored.
+    var selectedPlanned by rememberSaveable { mutableStateOf(emptySet<Long>()) }
+    var selectedLogs by rememberSaveable { mutableStateOf(emptySet<Long>()) }
+    val selectedItems = planned.orEmpty().filter { it.recipeId in selectedPlanned }
+    val selectedEntries = entries.orEmpty().filter { it.id in selectedLogs }
+    val selectionCount = selectedItems.size + selectedEntries.size
+    val selecting = selectionCount > 0
+    var confirm by rememberSaveable { mutableStateOf<SelectionAction?>(null) }
+    fun clearSelection() {
+        selectedPlanned = emptySet()
+        selectedLogs = emptySet()
+    }
+    BackHandler(enabled = selecting, onBack = ::clearSelection)
+
     var fabVisible by rememberSaveable { mutableStateOf(true) }
     var fabMenuOpen by rememberSaveable { mutableStateOf(false) }
+
+    fun togglePlanned(recipeId: Long) {
+        fabMenuOpen = false
+        selectedPlanned = if (recipeId in selectedPlanned) selectedPlanned - recipeId else selectedPlanned + recipeId
+    }
+
+    fun toggleLog(id: Long) {
+        fabMenuOpen = false
+        selectedLogs = if (id in selectedLogs) selectedLogs - id else selectedLogs + id
+    }
+
+    if (selecting) {
+        when (confirm) {
+            SelectionAction.DONE -> ConfirmDialog(
+                title = selectedItems.singleOrNull()?.let { stringResource(R.string.planned_done_title, it.snapshot.title) }
+                    ?: pluralStringResource(R.plurals.planned_done_several_title, selectionCount, selectionCount),
+                confirmLabel = stringResource(R.string.planned_done_action),
+                onConfirm = {
+                    viewModel.done(selectedItems)
+                    confirm = null
+                    clearSelection()
+                },
+                onDismiss = { confirm = null },
+            )
+            SelectionAction.DELETE -> ConfirmDialog(
+                title = (selectedItems.map { it.snapshot.title } + selectedEntries.map { it.title }).singleOrNull()
+                    ?.let { stringResource(R.string.cook_delete_one_title, it) }
+                    ?: pluralStringResource(R.plurals.cook_delete_title, selectionCount, selectionCount),
+                text = stringResource(R.string.cook_delete_message),
+                confirmLabel = stringResource(R.string.action_delete),
+                onConfirm = {
+                    viewModel.delete(selectedItems, selectedEntries)
+                    confirm = null
+                    clearSelection()
+                },
+                onDismiss = { confirm = null },
+            )
+            null -> {}
+        }
+    }
     // Only actual scrolling counts, so dragging a list too short to scroll leaves the FAB alone.
     // Any scrolling closes the menu.
     val hideFab = remember {
@@ -278,12 +341,23 @@ fun CookingScreen(
     }
     SnackbarBelowFab(snackbar) { fabLift ->
         Scaffold(
-            topBar = { TopAppBar(title = { Text(stringResource(R.string.cooking_title)) }) },
+            topBar = {
+                if (selecting) {
+                    SelectionTopBar(
+                        selectionCount,
+                        onClose = ::clearSelection,
+                        onDone = if (selectedEntries.isEmpty()) ({ confirm = SelectionAction.DONE }) else null,
+                        onDelete = { confirm = SelectionAction.DELETE },
+                    )
+                } else {
+                    TopAppBar(title = { Text(stringResource(R.string.cooking_title)) })
+                }
+            },
             floatingActionButton = {
                 FabMenu(
                     expanded = fabMenuOpen,
                     onExpandedChange = { fabMenuOpen = it },
-                    visible = fabVisible,
+                    visible = fabVisible && !selecting,
                     actions = listOf(
                         FabMenuAction(R.string.plan_action, Icons.Filled.CalendarMonth, onPlan),
                         FabMenuAction(R.string.suggest_action, Icons.Filled.AutoAwesome, onSuggest),
@@ -354,22 +428,14 @@ fun CookingScreen(
                             item(key = "planned-title") { SectionTitle(stringResource(R.string.planned_title)) }
                             if (swipeHint) item(key = "planned-hint") { SwipeHint() }
                             items(plannedItems, key = { "planned-${it.recipeId}" }) { item ->
-                                val doneMessage = stringResource(R.string.planned_logged, item.snapshot.title)
-                                val removedMessage = stringResource(R.string.planned_removed, item.snapshot.title)
                                 PlannedCard(
                                     item,
-                                    onClick = { onRecipeClick(item.recipeId) },
+                                    selected = item.recipeId in selectedPlanned,
+                                    swipeEnabled = !selecting,
+                                    onClick = { if (selecting) togglePlanned(item.recipeId) else onRecipeClick(item.recipeId) },
+                                    onLongClick = { togglePlanned(item.recipeId) },
                                     onSwiped = viewModel::swipeHintSeen,
-                                    onDone = {
-                                        viewModel.done(item) { cooked ->
-                                            showUndo(doneMessage) { viewModel.undoCook(cooked) }
-                                        }
-                                    },
-                                    onRemove = {
-                                        viewModel.unplan(item.recipeId) { removed ->
-                                            showUndo(removedMessage) { viewModel.restorePlan(removed) }
-                                        }
-                                    },
+                                    onDone = { viewModel.done(listOf(item)) },
                                 )
                             }
                         }
@@ -381,15 +447,12 @@ fun CookingScreen(
                                 WeekHeader(cookWeekLabel(monday, today, locale, thisWeek, lastWeek), weeklyPlantPoints[monday])
                             }
                             items(week, key = { it.id }) { entry ->
-                                val deletedMessage = stringResource(R.string.cook_history_deleted, entry.title)
                                 HistoryRow(
                                     entry,
+                                    selected = entry.id in selectedLogs,
                                     // A deleted recipe has nothing to open.
-                                    onClick = entry.recipeId?.let { id -> { onRecipeClick(id) } },
-                                    onDelete = {
-                                        viewModel.delete(entry)
-                                        showUndo(deletedMessage) { viewModel.restore(entry) }
-                                    },
+                                    onClick = if (selecting) ({ toggleLog(entry.id) }) else entry.recipeId?.let { id -> { onRecipeClick(id) } },
+                                    onLongClick = { toggleLog(entry.id) },
                                 )
                             }
                         }
@@ -436,7 +499,7 @@ private fun WeekHeader(text: String, plantPoints: Double?) {
     }
 }
 
-/** "Nach links wischen zum Entfernen, …" under the Geplant title, until the first swipe. */
+/** "Wischen zum Abhaken · Gedrückt halten zum Auswählen" under the Geplant title, until the first swipe. */
 @Composable
 private fun SwipeHint() {
     Row(
@@ -450,41 +513,104 @@ private fun SwipeHint() {
     }
 }
 
+/** The bar replacing the app bar while entries are selected; [onDone] is null unless only Geplant entries are. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SelectionTopBar(count: Int, onClose: () -> Unit, onDone: (() -> Unit)?, onDelete: () -> Unit) {
+    TopAppBar(
+        title = { Text(pluralStringResource(R.plurals.cook_selected, count, count)) },
+        navigationIcon = {
+            IconButton(onClick = onClose) { Icon(Icons.Filled.Close, stringResource(R.string.cook_selection_clear)) }
+        },
+        actions = {
+            if (onDone != null) {
+                IconButton(onClick = onDone) { Icon(Icons.Filled.Check, stringResource(R.string.planned_done_action)) }
+            }
+            IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, stringResource(R.string.action_delete)) }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    )
+}
+
+@Composable
+private fun ConfirmDialog(
+    title: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    text: String? = null,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = text?.let { { Text(it) } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
 /**
- * A gray card with a planned recipe: its planned day as a date badge, the name (wrapping) and its
- * current stats. Swiped right it is logged as cooked ([onDone]), swiped left taken off Geplant
- * ([onRemove]); [onSwiped] runs on either swipe.
+ * A gray card with a planned recipe: its planned day as a date badge (a check while [selected]),
+ * the name (wrapping) and its current stats. Swiped either way, unless [swipeEnabled] is off, it
+ * asks whether the recipe was cooked and logs it ([onDone]) or springs back; [onSwiped] runs on
+ * each swipe.
  */
 @Composable
-private fun PlannedCard(
+internal fun PlannedCard(
     item: PlannedItem,
+    selected: Boolean,
+    swipeEnabled: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onSwiped: () -> Unit,
     onDone: () -> Unit,
-    onRemove: () -> Unit,
 ) {
     val shape = RoundedCornerShape(16.dp)
-    SwipeActionBox(
+    // Held at the edge from the swipe until the dialog is cancelled, or after "Gekocht" until the card is gone.
+    var held by remember { mutableStateOf(false) }
+    var asking by remember { mutableStateOf(false) }
+    if (asking) {
+        ConfirmDialog(
+            title = stringResource(R.string.planned_done_title, item.snapshot.title),
+            confirmLabel = stringResource(R.string.planned_done_action),
+            onConfirm = {
+                asking = false
+                onDone()
+            },
+            onDismiss = {
+                asking = false
+                held = false
+            },
+        )
+    }
+    DoneSwipeBox(
+        held = held,
+        enabled = swipeEnabled,
         onSwipe = {
             onSwiped()
-            if (it == SwipeAction.DONE) onDone() else onRemove()
+            held = true
+            asking = true
         },
-        doneEnabled = true,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         shape = shape,
     ) {
         Card(
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .semantics { this.selected = selected }
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
             shape = shape,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+            colors = CardDefaults.cardColors(
+                containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
         ) {
             Row(
                 Modifier.padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.Top,
             ) {
-                DateBadge(item.planned.plannedOn)
+                DateBadge(item.planned.plannedOn, selected)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         item.snapshot.title,
@@ -498,103 +624,140 @@ private fun PlannedCard(
     }
 }
 
-/** Swiping a row right to left deletes it, left to right (Geplant only) logs it as cooked. */
-private enum class SwipeAction { DELETE, DONE }
+/** How far the finger has to drag (of the card's width) to act. */
+private const val SwipeFraction = 0.6f
 
-/** How far a row has to be dragged (of its width) to act. */
-private const val SwipeFraction = 0.4f
+/** How far the card moves per finger movement, so it feels heavy. */
+private const val SwipeResistance = 0.6f
 
 /**
- * Like Gmail: [content] dragged right to left past [SwipeFraction] of its width, or flicked, slides
- * off and calls [onSwipe] with [SwipeAction.DELETE], left to right (if [doneEnabled]) with
- * [SwipeAction.DONE]; the caller acts at once and offers an undo. The background is red (delete) or
- * green (done) from the first pixel, its icon centred in the uncovered strip; crossing the
- * threshold, either way, ticks and pops the icon.
+ * [content] dragged either way follows the finger at [SwipeResistance] over a green background with
+ * a check centred in the uncovered strip. Let go after the finger travelled [SwipeFraction] of its
+ * width, it slides to the edge and calls [onSwipe], then stays there while [held]; let go earlier,
+ * it springs back. A flick counts for nothing. Crossing the threshold, either way, ticks and pops
+ * the icon.
  */
 @Composable
-private fun SwipeActionBox(
-    onSwipe: (SwipeAction) -> Unit,
-    doneEnabled: Boolean,
+private fun DoneSwipeBox(
+    held: Boolean,
+    enabled: Boolean,
+    onSwipe: () -> Unit,
     modifier: Modifier = Modifier,
     shape: Shape = RectangleShape,
     content: @Composable () -> Unit,
 ) {
-    val density = LocalDensity.current
     val haptics = LocalHapticFeedback.current
-    // Not saveable on purpose: a row brought back by undo has the same key and must start settled.
-    val state = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, density, positionalThreshold = { it * SwipeFraction }) }
-    val armed = state.targetValue != SwipeToDismissBoxValue.Settled
-    LaunchedEffect(state) {
-        snapshotFlow { state.targetValue != SwipeToDismissBoxValue.Settled }
-            .drop(1)
-            .collect { haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) }
+    val scope = rememberCoroutineScope()
+    // Not saveable on purpose: a card coming back has the same key and must start settled. Set right
+    // away while dragging, so a quick swipe is judged by where it really ended.
+    var offset by remember { mutableFloatStateOf(0f) }
+    var settling by remember { mutableStateOf<Job?>(null) }
+    fun settle(to: Float, then: () -> Unit = {}) {
+        settling?.cancel()
+        settling = scope.launch {
+            animate(offset, to) { value, _ -> offset = value }
+            then()
+        }
     }
-    val done = state.dismissDirection == SwipeToDismissBoxValue.StartToEnd
-    SwipeToDismissBox(
-        state = state,
-        modifier = modifier,
-        enableDismissFromStartToEnd = doneEnabled,
-        onDismiss = { onSwipe(if (it == SwipeToDismissBoxValue.StartToEnd) SwipeAction.DONE else SwipeAction.DELETE) },
-        backgroundContent = {
+    var width by remember { mutableIntStateOf(0) }
+    var dragging by remember { mutableStateOf(false) }
+    val armed by remember { derivedStateOf { width > 0 && abs(offset) >= width * SwipeFraction * SwipeResistance } }
+    val direction by remember { derivedStateOf { sign(offset) } }
+    LaunchedEffect(Unit) {
+        snapshotFlow { armed }
+            .drop(1)
+            .collect { if (dragging) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) }
+    }
+    LaunchedEffect(held) {
+        if (!held && offset != 0f) settle(0f)
+    }
+    val dragState = rememberDraggableState { delta ->
+        offset = (offset + delta * SwipeResistance).coerceIn(-width.toFloat(), width.toFloat())
+    }
+    Box(
+        modifier
+            .onSizeChanged { width = it.width }
+            .draggable(
+                dragState,
+                Orientation.Horizontal,
+                enabled = enabled && !held,
+                onDragStarted = {
+                    settling?.cancel()
+                    dragging = true
+                },
+                onDragStopped = {
+                    dragging = false
+                    if (armed) settle(sign(offset) * width, onSwipe) else settle(0f)
+                },
+            ),
+    ) {
+        if (direction != 0f) {
             val scale by animateFloatAsState(if (armed) 1.2f else 1f, label = "swipe icon")
-            Box(
-                Modifier.fillMaxSize().clip(shape).background(if (done) highlightGreen else MaterialTheme.colorScheme.error),
-            ) {
+            val right = direction > 0
+            Box(Modifier.matchParentSize().clip(shape).background(highlightGreen)) {
                 Icon(
-                    if (done) Icons.Filled.Check else Icons.Filled.Delete,
+                    Icons.Filled.Check,
                     contentDescription = null,
                     // The surface colour contrasts with both the light and the dark green.
-                    tint = if (done) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onError,
+                    tint = MaterialTheme.colorScheme.surface,
                     modifier = Modifier
-                        .align(if (done) Alignment.CenterStart else Alignment.CenterEnd)
+                        .align(if (right) Alignment.CenterStart else Alignment.CenterEnd)
                         // Read while placing, so dragging doesn't recompose.
                         .offset {
-                            val strip = abs(runCatching { state.requireOffset() }.getOrDefault(0f))
-                            val inset = ((strip - SwipeIconSize.toPx()) / 2).roundToInt()
-                            IntOffset(if (done) inset else -inset, 0)
+                            val inset = ((abs(offset) - SwipeIconSize.toPx()) / 2).roundToInt()
+                            IntOffset(if (right) inset else -inset, 0)
                         }
                         .size(SwipeIconSize)
                         .scale(scale),
                 )
             }
-        },
-    ) { content() }
+        }
+        Box(Modifier.offset { IntOffset(offset.roundToInt(), 0) }) { content() }
+    }
 }
 
 private val SwipeIconSize = 24.dp
 
-/** Dragging the row right to left past [SwipeFraction] of its width deletes the entry ([onDelete]). */
+/** A history entry, its date badge a check while [selected]; [onClick] is null when there is nothing to open. */
 @Composable
-private fun HistoryRow(entry: CookLog, onClick: (() -> Unit)?, onDelete: () -> Unit) {
-    SwipeActionBox(onSwipe = { onDelete() }, doneEnabled = false) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 64.dp)
-                .background(MaterialTheme.colorScheme.surface)
-                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            DateBadge(entry.cookedOn)
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    entry.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                RecipeStatsRow(entry.stats)
-            }
+private fun HistoryRow(entry: CookLog, selected: Boolean, onClick: (() -> Unit)?, onLongClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
+            .semantics { this.selected = selected }
+            .combinedClickable(onClick = onClick ?: {}, onLongClick = onLongClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        DateBadge(entry.cookedOn, selected)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                entry.title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            RecipeStatsRow(entry.stats)
         }
     }
 }
 
-/** Day number over the abbreviated month in the device locale, e.g. "23" over "Okt". */
+/** Day number over the abbreviated month in the device locale, e.g. "23" over "Okt"; a check in a circle while [selected]. */
 @Composable
-private fun DateBadge(date: LocalDate) {
+private fun DateBadge(date: LocalDate, selected: Boolean) {
+    if (selected) {
+        Box(
+            Modifier.size(44.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+        }
+        return
+    }
     Column(
         Modifier
             .size(44.dp)
