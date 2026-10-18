@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Kitchen
-import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -95,7 +95,7 @@ object SuggestionsRoute
 
 /**
  * Saved-state keys with which "Vorschlag" and "Planen" hand the recipe and day (epoch day) to plan
- * back to the screen they were opened from, Kochen or Rezepte.
+ * back to the screen they were opened from, Speiseplan or Rezepte.
  */
 private const val JUST_PLANNED_ID = "justPlannedId"
 private const val JUST_PLANNED_TITLE = "justPlannedTitle"
@@ -105,7 +105,7 @@ private const val JUST_PLANNED_DAY = "justPlannedDay"
 @Serializable
 data class RecipeSearchRoute(val mode: RecipeSearchMode)
 
-/** Saved-state keys with which "Kocheintrag" hands the picked recipe and day (epoch day) back to Kochen. */
+/** Saved-state keys with which "Kocheintrag" hands the picked recipe and day (epoch day) back to Speiseplan. */
 private const val JUST_LOGGED_ID = "justLoggedId"
 private const val JUST_LOGGED_DAY = "justLoggedDay"
 
@@ -190,7 +190,7 @@ private enum class TopLevelDestination(
     @StringRes val label: Int,
     val icon: ImageVector,
 ) {
-    COOKING(CookingRoute, R.string.nav_cooking, Icons.Filled.Restaurant),
+    COOKING(CookingRoute, R.string.nav_cooking, Icons.Filled.CalendarMonth),
     RECIPES(RecipeListRoute(), R.string.nav_recipes, Icons.AutoMirrored.Filled.MenuBook),
     INGREDIENTS(IngredientListRoute, R.string.nav_ingredients, Icons.Filled.Kitchen),
     SETTINGS(SettingsRoute, R.string.nav_settings, Icons.Filled.Settings),
@@ -240,7 +240,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
     val showBackupReminder = backupReminder && !backupReminderDismissed && currentTopLevel != null
     val scope = rememberCoroutineScope()
 
-    // A notification's recipe, on top of Kochen; if it is gone by now, Kochen stays.
+    // A notification's recipe, on top of Speiseplan; if it is gone by now, Speiseplan stays.
     LaunchedEffect(openRecipeId) {
         if (openRecipeId != null && recipeRepository.getRecipe(openRecipeId) != null) {
             navController.navigate(RecipeDetailRoute(openRecipeId))
@@ -348,7 +348,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         onPicked = { recipe, date ->
                             when (mode) {
                                 RecipeSearchMode.Log -> navController.previousBackStackEntry?.savedStateHandle?.let { handle ->
-                                    // The day first: Kochen reacts to the id.
+                                    // The day first: Speiseplan reacts to the id.
                                     handle[JUST_LOGGED_DAY] = date.toEpochDay()
                                     handle[JUST_LOGGED_ID] = recipe.id
                                 }
@@ -517,7 +517,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
 }
 
 /** The tab this entry is the first screen of; the recipe list filtered by an ingredient is a sub-screen. */
-/** Hands a recipe and day to plan back to Kochen or Rezepte, which plans it with an undo snackbar. */
+/** Hands a recipe and day to plan back to Speiseplan or Rezepte, which plans it with an undo snackbar. */
 private fun NavBackStackEntry.handOverPlan(recipeId: Long, title: String, date: LocalDate) {
     // Title and day first: the screen reacts to the id.
     savedStateHandle[JUST_PLANNED_TITLE] = title

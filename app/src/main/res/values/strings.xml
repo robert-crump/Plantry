@@ -161,7 +161,7 @@
     <string name="cooked_logged">Als gekocht eingetragen</string>
     <string name="cooked_never">Noch nie gekocht</string>
     <string name="cooked_last_on">Zuletzt: %1$s</string>
-    <string name="cooking_title">Kochen</string>
+    <string name="cooking_title">Speiseplan</string>
     <string name="cook_history_empty">Noch nichts gekocht. Tippe auf „+“, um ein Rezept zu planen, dir eines vorschlagen zu lassen oder einen Kocheintrag zu machen.</string>
     <string name="cook_history_delete_confirm">Eintrag „%1$s“ vom %2$s löschen?</string>
     <string name="cook_log_action">Kocheintrag</string>
@@ -363,7 +363,7 @@
     <string name="error_positive_decimal">Bitte eine Zahl größer 0 eingeben</string>
 
     <!-- Navigation -->
-    <string name="nav_cooking">Kochen</string>
+    <string name="nav_cooking">Speiseplan</string>
     <string name="nav_recipes">Rezepte</string>
     <string name="nav_ingredients">Zutaten</string>
 

@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        /** The recipe a notification opens instead of Kochen. */
+        /** The recipe a notification opens instead of Speiseplan. */
         const val EXTRA_RECIPE_ID = "openRecipeId"
 
         // The scrims androidx.activity uses by default.

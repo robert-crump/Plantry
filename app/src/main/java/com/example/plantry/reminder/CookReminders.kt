@@ -141,7 +141,7 @@ class CookReminders(
             context,
             kind.requestCode + OPEN_REQUEST_OFFSET,
             Intent(context, MainActivity::class.java)
-                // A fresh start lands on Kochen, the start destination, or on the recipe it is given.
+                // A fresh start lands on Speiseplan, the start destination, or on the recipe it is given.
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 .apply { if (openRecipeId != null) putExtra(MainActivity.EXTRA_RECIPE_ID, openRecipeId) },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -193,7 +193,7 @@ class CookReminders(
                     .addAction(Notification.Action.Builder(null, context.getString(R.string.action_no_tomorrow), no).build())
                     .build()
             }
-            // No Ja: it can't tell which one was cooked; tapping the notification opens Kochen for that.
+            // No Ja: it can't tell which one was cooked; tapping the notification opens Speiseplan for that.
             is ReminderContent.Several ->
                 builder
                     .setContentText(context.getString(R.string.reminder_several_text, content.titles.joinToString(", ")))

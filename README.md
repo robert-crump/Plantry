@@ -4,7 +4,7 @@ Android app (Jetpack Compose) for planning a weekly menu of home-cooked recipes.
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/cooking.png" width="200" alt="Kochen: this week's planned recipes and the cooking history with plant points per week"></td>
+    <td><img src="docs/screenshots/cooking.png" width="200" alt="Speiseplan: this week's planned recipes and the cooking history with plant points per week"></td>
     <td><img src="docs/screenshots/suggestions.png" width="200" alt="Zufallsrezept: suggested main dishes and a plant-points boost"></td>
     <td><img src="docs/screenshots/recipes.png" width="200" alt="Rezepte: the recipe list with filter chips and nutrition per recipe"></td>
     <td><img src="docs/screenshots/recipe.png" width="200" alt="Rezept: a recipe's times, servings, source and ingredients"></td>

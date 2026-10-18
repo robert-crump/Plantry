@@ -28,7 +28,7 @@ class PlannedRepository(
     fun observePlanned(recipeId: Long): Flow<PlannedRecipe?> =
         observe().map { all -> all.firstOrNull { it.recipeId == recipeId } }
 
-    /** How often [plan] was called since the app started, so Kochen can tell that something new is on Geplant. */
+    /** How often [plan] was called since the app started, so Speiseplan can tell that something new is on Geplant. */
     private val _plans = MutableStateFlow(0)
     val plans: StateFlow<Int> = _plans.asStateFlow()
 

@@ -14,7 +14,7 @@ data class RecipeStats(
     /** Null in cooking log entries logged before fibre was snapshotted. */
     val fibrePerPortion: Double? = null,
 ) {
-    /** Rounded to whole numbers for compact display, e.g. on Kochen. */
+    /** Rounded to whole numbers for compact display, e.g. on Speiseplan. */
     val roundedPlantPoints: Int get() = plantPoints.roundToInt()
     val roundedProtein: Int get() = proteinPerPortion.roundToInt()
     val roundedCarbs: Int get() = carbsPerPortion.roundToInt()

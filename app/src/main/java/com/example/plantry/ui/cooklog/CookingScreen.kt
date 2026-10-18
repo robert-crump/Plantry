@@ -171,7 +171,7 @@ class CookingViewModel(
 
     /**
      * "Vorschlag" and "Planen": puts the recipe on Geplant for [date], or moves it there; [onDone]
-     * gets the entry it replaced, for [undoPlan]. Counts as seen, since Kochen is already showing.
+     * gets the entry it replaced, for [undoPlan]. Counts as seen, since Speiseplan is already showing.
      */
     fun plan(recipeId: Long, date: LocalDate, onDone: (PlannedRecipe?) -> Unit) {
         viewModelScope.launch {
@@ -197,7 +197,7 @@ data class JustPlanned(val recipeId: Long, val title: String, val date: LocalDat
 data class JustLogged(val recipeId: Long, val date: LocalDate)
 
 /**
- * The Kochen tab: Geplant on top as cards (hidden when empty), then the cooking history under
+ * The Speiseplan tab: Geplant on top as cards (hidden when empty), then the cooking history under
  * "Verlauf", newest first, in Monday–Sunday weeks with sticky headers showing the week's plant
  * points, each row with its own date badge. History rows show the recipe as it was when logged. A "+" FAB, hidden while scrolling
  * down, opens "Planen" ([onPlan], pick a recipe, then a day from today), "Vorschlag" and
@@ -308,7 +308,7 @@ fun CookingScreen(
                     end = padding.calculateEndPadding(layoutDirection),
                     bottom = padding.calculateBottomPadding() + 88.dp,
                 )
-                // Runs each time Kochen is shown: a new plan brings Geplant into view, otherwise the
+                // Runs each time Speiseplan is shown: a new plan brings Geplant into view, otherwise the
                 // scroll position is kept.
                 LaunchedEffect(Unit) {
                     if (viewModel.takeNewPlans()) listState.scrollToItem(0)

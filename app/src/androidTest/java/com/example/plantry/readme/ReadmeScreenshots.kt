@@ -71,14 +71,14 @@ class ReadmeScreenshots {
         captureIngredient()
     }
 
-    /** Kochen: Geplant and the cooking history. */
+    /** Speiseplan: Geplant and the cooking history. */
     private fun captureCooking() {
         launchCooking().use {
             screenshots.capture(compose, "cooking")
         }
     }
 
-    /** Zufallsrezept, opened from Kochen's action menu. */
+    /** Zufallsrezept, opened from Speiseplan's action menu. */
     private fun captureSuggestions() {
         launchCooking().use {
             compose.onAllNodesWithContentDescription(string(R.string.cook_actions_open)).onFirst().performClick()
@@ -92,7 +92,7 @@ class ReadmeScreenshots {
     /** The recipe list, then one recipe's detail. */
     private fun captureRecipes() {
         launchCooking().use {
-            // The bottom bar's tab: Kochen has no other "Rezepte" text.
+            // The bottom bar's tab: Speiseplan has no other "Rezepte" text.
             compose.onAllNodesWithText(string(R.string.nav_recipes)).onFirst().performClick()
             waitForText(RECIPE)
             screenshots.capture(compose, "recipes")
@@ -114,7 +114,7 @@ class ReadmeScreenshots {
         }
     }
 
-    /** Kochen, once the seeder has imported the fixture: today's planned recipe is on it. */
+    /** Speiseplan, once the seeder has imported the fixture: today's planned recipe is on it. */
     private fun launchCooking(): ActivityScenario<MainActivity> {
         val scenario = ActivityScenario.launch(MainActivity::class.java)
         waitForText(PLANNED_TODAY, SEED_TIMEOUT_MS)

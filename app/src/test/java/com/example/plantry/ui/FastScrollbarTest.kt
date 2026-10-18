@@ -46,7 +46,7 @@ class FastScrollbarTest {
 
     @Test
     fun mixedKnownSizes_fractionAndTargetAreInverses() {
-        // Kochen-like: a tall Geplant card, a week header, history rows; 1000 px viewport.
+        // Speiseplan-like: a tall Geplant card, a week header, history rows; 1000 px viewport.
         val known = mapOf(0 to 600, 1 to 60, 2 to 120, 3 to 120, 4 to 60, 5 to 120, 6 to 120, 7 to 120)
         val sizes = ItemSizes(known + (8 until 30).associateWith { 120 }, 30)
         // 600 + 60 + 120 + 120 + 60 + 120 * 25 = 3960, scroll range 2960.
