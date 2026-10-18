@@ -519,4 +519,38 @@
     <string name="about_source_usda">USDA FoodData Central</string>
     <string name="about_source_usda_summary">Nährwerte aus SR Legacy (April 2018), gemeinfrei (CC0 1.0). U.S. Department of Agriculture, Agricultural Research Service. FoodData Central, 2019. fdc.nal.usda.gov</string>
     <string name="about_version">Version %1$s</string>
+    <!-- Statistik -->
+    <string name="stats_title">Statistik</string>
+    <string name="stats_range_week">Woche</string>
+    <string name="stats_range_month">Monat</string>
+    <string name="stats_range_quarter">3 Monate</string>
+    <string name="stats_previous">Vorheriger Zeitraum</string>
+    <string name="stats_next">Nächster Zeitraum</string>
+    <string name="stats_today">Zurück zu heute</string>
+    <string name="stats_empty">Noch keine Einträge. Logge gekochte Rezepte, um Statistiken zu sehen.</string>
+    <string name="stats_plant_points_title">Pflanzenpunkte</string>
+    <!-- %1$d is the weekly plant points goal; follows the week's points in large type -->
+    <string name="stats_week_of_goal">von %1$d Pflanzenpunkten</string>
+    <string name="stats_week_so_far">bisher</string>
+    <string name="stats_goal_reached">Ziel erreicht</string>
+    <!-- Follows the average in large type -->
+    <plurals name="stats_plant_points_per_week">
+        <item quantity="one">Pflanzenpunkt pro Woche (Ø)</item>
+        <item quantity="other">Pflanzenpunkte pro Woche (Ø)</item>
+    </plurals>
+    <!-- Follows a tapped week's points in large type -->
+    <plurals name="stats_plant_points">
+        <item quantity="one">Pflanzenpunkt</item>
+        <item quantity="other">Pflanzenpunkte</item>
+    </plurals>
+    <!-- %1$d weeks of %2$d reached the goal; the quantity is %2$d -->
+    <plurals name="stats_goal_weeks">
+        <item quantity="one">Ziel in %1$d von %2$d Woche erreicht</item>
+        <item quantity="other">Ziel in %1$d von %2$d Wochen erreicht</item>
+    </plurals>
+    <string name="stats_no_finished_week">Noch keine abgeschlossene Woche</string>
+    <!-- %1$d is the goal, %2$s the weeks, e.g. "5.–11. Okt: 23, 12.–18. Okt: 31" -->
+    <string name="stats_plant_points_chart">Balkendiagramm der Pflanzenpunkte pro Woche, Ziel %1$d. %2$s</string>
+    <!-- One week in the chart description: %1$s the week, %2$d its points -->
+    <string name="stats_chart_week">%1$s: %2$d</string>
 </resources>

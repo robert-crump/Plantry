@@ -82,6 +82,8 @@ import com.example.plantry.ui.settings.BackupViewModel
 import com.example.plantry.ui.settings.AboutScreen
 import com.example.plantry.ui.settings.SettingsScreen
 import com.example.plantry.ui.settings.SettingsViewModel
+import com.example.plantry.ui.stats.StatsScreen
+import com.example.plantry.ui.stats.StatsViewModel
 import com.example.plantry.ui.suggest.SuggestionsScreen
 import com.example.plantry.ui.suggest.SuggestionsViewModel
 import kotlinx.coroutines.launch
@@ -183,6 +185,9 @@ data class IngredientCreateRoute(
         units = unitNames.zip(unitGrams).mapNotNull { (unit, grams) -> IngredientUnit.perUnit(PieceUnit.valueOf(unit), grams) },
     )
 }
+
+@Serializable
+object StatsRoute
 
 @Serializable
 object SettingsRoute
@@ -330,6 +335,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         onSuggest = { navController.navigate(SuggestionsRoute) },
                         onPlan = { navController.navigate(RecipeSearchRoute(RecipeSearchMode.Plan)) },
                         onLog = { navController.navigate(RecipeSearchRoute(RecipeSearchMode.Log)) },
+                        onStats = { navController.navigate(StatsRoute) },
                         justPlanned = justPlannedId?.let { JustPlanned(it, justPlannedTitle, LocalDate.ofEpochDay(justPlannedDay)) },
                         onJustPlannedShown = {
                             // Reset, not removed: removing would leave the collected flows on the old value.
@@ -379,6 +385,9 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                             navController.popBackStack()
                         },
                     )
+                }
+                composable<StatsRoute> {
+                    StatsScreen(viewModel = viewModel { StatsViewModel(cookLogRepository) }, onBack = { navController.popBackStack() })
                 }
                 composable<RecipeListRoute> { entry ->
                     val ingredientId = entry.toRoute<RecipeListRoute>().ingredientId

@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -218,6 +219,7 @@ data class JustLogged(val recipeId: Long, val date: LocalDate)
  * an undo snackbar, then [onJustPlannedShown] clears it; [justLogged] is logged once, then
  * [onJustLoggedShown] clears it. A long press selects a card or row, like Gmail: taps then toggle,
  * and a bar on top offers "Gekocht" (Geplant only) and "Löschen", each confirmed in a dialog.
+ * Outside selection, the top bar's chart icon opens Statistik ([onStats]).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -227,6 +229,7 @@ fun CookingScreen(
     onSuggest: () -> Unit,
     onPlan: () -> Unit,
     onLog: () -> Unit,
+    onStats: () -> Unit,
     justPlanned: JustPlanned?,
     onJustPlannedShown: () -> Unit,
     justLogged: JustLogged?,
@@ -347,7 +350,12 @@ fun CookingScreen(
                         onDelete = { confirm = SelectionAction.DELETE },
                     )
                 } else {
-                    TopAppBar(title = { Text(stringResource(R.string.cooking_title)) })
+                    TopAppBar(
+                        title = { Text(stringResource(R.string.cooking_title)) },
+                        actions = {
+                            IconButton(onClick = onStats) { Icon(Icons.Filled.BarChart, stringResource(R.string.stats_title)) }
+                        },
+                    )
                 }
             },
             floatingActionButton = {
