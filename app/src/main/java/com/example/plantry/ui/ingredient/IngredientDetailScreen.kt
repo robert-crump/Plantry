@@ -932,7 +932,8 @@ private fun UnitDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(if (initial == null) R.string.ingredient_unit_add else R.string.ingredient_unit_edit)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Scrolls, so the keyboard can't hide a field when the dialog doesn't fit above it.
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ExposedDropdownMenuBox(expanded = unitsExpanded, onExpandedChange = { unitsExpanded = it }) {
                     OutlinedTextField(
                         value = unit?.let { stringResource(it.label) }.orEmpty(),
