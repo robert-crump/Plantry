@@ -92,7 +92,7 @@ fun NewIngredientMatch(
 
 /**
  * Searches the bundled USDA data for another entry; [results] is null while it is loading.
- * [onWithoutUsda] switches to entering the package's values instead.
+ * [onWithoutUsda], if given, switches to entering the package's values instead.
  */
 @Composable
 fun UsdaPickerDialog(
@@ -100,7 +100,7 @@ fun UsdaPickerDialog(
     results: List<UsdaFood>?,
     onQueryChange: (String) -> Unit,
     onPick: (UsdaFood) -> Unit,
-    onWithoutUsda: () -> Unit,
+    onWithoutUsda: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -134,7 +134,9 @@ fun UsdaPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onWithoutUsda) { Text(stringResource(R.string.new_ingredient_without_usda)) }
+            if (onWithoutUsda != null) {
+                TextButton(onClick = onWithoutUsda) { Text(stringResource(R.string.new_ingredient_without_usda)) }
+            }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )

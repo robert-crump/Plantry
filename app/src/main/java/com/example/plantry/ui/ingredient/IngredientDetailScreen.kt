@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenu
@@ -86,17 +87,24 @@ import com.example.plantry.data.StoreSection
 import com.example.plantry.data.openfoodfacts.OffLookup
 import com.example.plantry.data.openfoodfacts.OffProduct
 import com.example.plantry.data.openfoodfacts.ProductLookup
+import com.example.plantry.data.usda.UsdaCatalog
+import com.example.plantry.data.usda.UsdaFood
 import com.example.plantry.ui.currentLocale
+import com.example.plantry.ui.recipe.UsdaPickerDialog
 import com.example.plantry.ui.settings.ChoiceDialog
 import com.example.plantry.ui.settings.SettingsGroup
 import com.example.plantry.ui.settings.SettingsRow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -130,6 +138,10 @@ data class IngredientDetailUiState(
     val components: List<MixPart> = emptyList(),
     /** Set after removing or saving was refused: the recipes still using a unit the edit removed. */
     val unitInUse: List<String>? = null,
+    /** The USDA picker's search while it is open. */
+    val usdaQuery: String? = null,
+    /** The picked USDA entry while the dialog asking to overwrite the values is open. */
+    val usdaCompare: UsdaFood? = null,
 )
 
 data class DeleteCheck(val usedIn: List<String>)
@@ -151,6 +163,7 @@ class IngredientDetailViewModel(
     private val ingredientId: Long,
     private val repository: IngredientRepository,
     private val products: ProductLookup,
+    private val loadCatalog: suspend () -> UsdaCatalog,
     /** Set for an ingredient that doesn't exist yet; [ingredientId] is then unused. */
     private val seed: NewIngredientSeed? = null,
 ) : ViewModel() {
@@ -162,6 +175,14 @@ class IngredientDetailViewModel(
 
     val catalog: StateFlow<MixCatalog> = combine(repository.observeIngredients(), repository.observeContents(), ::MixCatalog)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MixCatalog())
+
+    /** Search results of the USDA picker; null while the data is loading or no picker is open. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val usdaResults: StateFlow<List<UsdaFood>?> = _state
+        .map { it.usdaQuery }
+        .distinctUntilChanged()
+        .mapLatest { query -> query?.let { loadCatalog().search(it) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     init {
         if (seed != null) {
@@ -327,6 +348,45 @@ class IngredientDetailViewModel(
         _state.update { it.copy(barcode = null) }
     }
 
+    /** Opens the USDA picker, searching for the current entry's food (USDA is in English, so not by name). */
+    fun openUsdaPicker() {
+        val current = _state.value
+        val description = current.form.pickedUsda?.description ?: current.ingredient?.usdaDescription
+        _state.update { it.copy(usdaQuery = description?.substringBefore(',').orEmpty()) }
+    }
+
+    fun onUsdaQueryChange(query: String) {
+        _state.update { it.copy(usdaQuery = query) }
+    }
+
+    fun dismissUsdaPicker() {
+        _state.update { it.copy(usdaQuery = null) }
+    }
+
+    /**
+     * Takes [food]'s values into the form. When that would overwrite values or a package label as
+     * the source, it asks first, see [applyUsda].
+     */
+    fun pickUsda(food: UsdaFood) {
+        val current = _state.value
+        val form = current.form
+        val replacesLabel = form.scannedLabel != null || (form.pickedUsda == null && current.ingredient?.labelSource != null)
+        if (form.hasNutrition || replacesLabel) {
+            _state.update { it.copy(usdaQuery = null, usdaCompare = food) }
+        } else {
+            _state.update { it.copy(usdaQuery = null, form = it.form.withUsda(food)) }
+        }
+    }
+
+    /** Writes the asked-about USDA values into the form; [save] still has to persist them. */
+    fun applyUsda() {
+        _state.update { state -> state.usdaCompare?.let { state.copy(form = state.form.withUsda(it), usdaCompare = null) } ?: state }
+    }
+
+    fun dismissUsdaCompare() {
+        _state.update { it.copy(usdaCompare = null) }
+    }
+
     /** Opens the delete dialog, which either confirms or lists the recipes that block it. */
     fun requestDelete() {
         viewModelScope.launch {
@@ -441,6 +501,27 @@ fun IngredientDetailScreen(
             }
             null -> Unit
         }
+        state.usdaQuery?.let { query ->
+            val results by viewModel.usdaResults.collectAsStateWithLifecycle()
+            UsdaPickerDialog(
+                query = query,
+                results = results,
+                onQueryChange = viewModel::onUsdaQueryChange,
+                onPick = viewModel::pickUsda,
+                onWithoutUsda = null,
+                onDismiss = viewModel::dismissUsdaPicker,
+            )
+        }
+        state.usdaCompare?.let { food ->
+            NutritionCompareDialog(
+                title = stringResource(R.string.usda_compare_title),
+                intro = stringResource(R.string.ingredient_usda_source, food.description, food.fdcId),
+                values = Nutrient.entries.associateWith { food.nutrition[it] },
+                current = form,
+                onApply = viewModel::applyUsda,
+                onDismiss = viewModel::dismissUsdaCompare,
+            )
+        }
         if (state.confirmDiscard) {
             val keepEditing = {
                 viewModel.dismissDiscard()
@@ -490,17 +571,27 @@ fun IngredientDetailScreen(
                 numeric = false,
                 imeAction = ImeAction.Done,
             )
+            // An unsaved pick or scan shows as the source already.
+            val label = form.scannedLabel ?: ingredient.labelSource.takeIf { form.pickedUsda == null }
+            val usdaFdcId = form.pickedUsda?.fdcId ?: ingredient.fdcId.takeIf { form.scannedLabel == null }
+            val usdaDescription = form.pickedUsda?.description ?: ingredient.usdaDescription
             Text(
-                if (ingredient.labelSource != null) {
-                    stringResource(R.string.ingredient_label_source, ingredient.labelSource.labelProduct, ingredient.labelSource.labelBarcode)
-                } else if (ingredient.fdcId != null && ingredient.usdaDescription != null) {
-                    stringResource(R.string.ingredient_usda_source, ingredient.usdaDescription, ingredient.fdcId)
+                if (label != null) {
+                    stringResource(R.string.ingredient_label_source, label.labelProduct, label.labelBarcode)
+                } else if (usdaFdcId != null && usdaDescription != null) {
+                    stringResource(R.string.ingredient_usda_source, usdaDescription, usdaFdcId)
                 } else {
                     stringResource(R.string.ingredient_no_usda_source)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (editing) {
+                TextButton(onClick = viewModel::openUsdaPicker) {
+                    Icon(Icons.Filled.Search, contentDescription = null)
+                    Text(stringResource(R.string.new_ingredient_pick), Modifier.padding(start = 8.dp))
+                }
+            }
 
             SectionTitle(R.string.ingredient_section_properties)
             PropertiesGroup(
@@ -551,19 +642,37 @@ fun IngredientDetailScreen(
     }
 }
 
-/** Old → new per value; values the scan lacks keep the old one. The name is never touched. */
 @Composable
-private fun BarcodeCompareDialog(product: OffProduct, current: IngredientForm, onApply: () -> Unit, onDismiss: () -> Unit) {
+private fun BarcodeCompareDialog(product: OffProduct, current: IngredientForm, onApply: () -> Unit, onDismiss: () -> Unit) =
+    NutritionCompareDialog(
+        title = stringResource(R.string.barcode_compare_title),
+        intro = foundText(product),
+        values = product.nutrition,
+        current = current,
+        onApply = onApply,
+        onDismiss = onDismiss,
+    )
+
+/** Old → new per value; values missing from [values] keep the old one. The name is never touched. */
+@Composable
+private fun NutritionCompareDialog(
+    title: String,
+    intro: String,
+    values: Map<Nutrient, Double>,
+    current: IngredientForm,
+    onApply: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     val locale = currentLocale()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.barcode_compare_title)) },
+        title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(foundText(product), style = MaterialTheme.typography.bodyMedium)
+                Text(intro, style = MaterialTheme.typography.bodyMedium)
                 Nutrient.entries.forEach { nutrient ->
                     val old = current.nutrition[nutrient].orEmpty().ifBlank { "–" }
-                    val new = product.nutrition[nutrient]
+                    val new = values[nutrient]
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(stringResource(nutrient.label), Modifier.weight(1f))
                         Text(

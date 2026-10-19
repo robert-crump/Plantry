@@ -13,6 +13,7 @@ import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.openfoodfacts.OffProduct
+import com.example.plantry.data.usda.UsdaFood
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -256,5 +257,25 @@ class IngredientFormTest {
             listOf("Stück", "Scheiben", "Zehen", "Bund", "Stangen", "Dosen", "Packungen", "TL", "EL", "Tassen"),
             PieceUnit.entries.map { it.plural },
         )
+    }
+
+    private val tangerine = UsdaFood(169105, "Tangerines, (mandarin oranges), raw", Nutrition(53.0, 0.81, 13.34, 1.8, 0.31, 0.0))
+
+    @Test
+    fun withUsda_replacesEveryValue_andGoesIntoTheDraft() {
+        val form = valid.copy(scannedLabel = LabelSource("Bio Süßkartoffel", "4000000000001")).withUsda(tangerine)
+
+        assertEquals(Nutrient.entries.associateWith { formatDecimal(tangerine.nutrition[it]) }, form.nutrition)
+        assertNull(form.scannedLabel)
+        assertEquals("Süßkartoffel", form.name)
+        assertEquals(tangerine, form.toDraft()!!.pickedUsda)
+    }
+
+    @Test
+    fun hasNutrition_onlyForValuesOtherThanBlankOrZero() {
+        assertFalse(IngredientForm.from(ingredient.copy(nutrition = Nutrition())).hasNutrition)
+        assertFalse(valid.copy(nutrition = Nutrient.entries.associateWith { "" }).hasNutrition)
+        assertTrue(valid.hasNutrition)
+        assertTrue(valid.copy(nutrition = Nutrient.entries.associateWith { "" } + (Nutrient.KCAL to "abc")).hasNutrition)
     }
 }

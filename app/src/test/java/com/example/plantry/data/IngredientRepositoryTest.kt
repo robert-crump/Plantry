@@ -380,6 +380,30 @@ class IngredientRepositoryTest {
         assertEquals(listOf("Curry", "Risotto"), repository.delete(id))
         assertEquals("Reis, gekocht", repository.getIngredient(id)?.name)
     }
+
+    @Test
+    fun update_withPickedUsda_replacesTheLabelSource() = runTest {
+        val id = repository.createFromLabel("Reis", riceDry.nutrition, LabelSource("Basmati Reis", "4000000000001"))
+
+        repository.update(id, draft(repository.getIngredient(id)!!).copy(pickedUsda = riceCooked))
+
+        val updated = repository.getIngredient(id)!!
+        assertEquals(riceCooked.fdcId, updated.fdcId)
+        assertEquals(riceCooked.description, updated.usdaDescription)
+        assertNull(updated.labelSource)
+    }
+
+    @Test
+    fun create_aPickedUsdaEntryReplacesTheSeedsSource() = runTest {
+        val seed = NewIngredientSeed("Reis", riceDry.nutrition, labelSource = LabelSource("Basmati Reis", "4000000000001"))
+
+        val id = repository.create(seed, decided.copy(name = "Reis", nutrition = riceCooked.nutrition, pickedUsda = riceCooked))
+
+        val ingredient = repository.getIngredient(id)!!
+        assertEquals(riceCooked.fdcId, ingredient.fdcId)
+        assertEquals(riceCooked.description, ingredient.usdaDescription)
+        assertNull(ingredient.labelSource)
+    }
 }
 
 private class FakeIngredientDao : IngredientDao {

@@ -305,6 +305,7 @@
     <string name="barcode_value_missing">Nicht gefunden – bitte von der Packung eintragen</string>
     <string name="barcode_update">Nährwerte per Barcode aktualisieren</string>
     <string name="barcode_compare_title">Nährwerte vom Barcode</string>
+    <string name="usda_compare_title">Nährwerte aus USDA</string>
     <string name="barcode_compare_change">%1$s → %2$s</string>
     <string name="barcode_compare_missing">%1$s (nicht gefunden)</string>
     <string name="usda_search_loading">USDA-Daten werden geladen …</string>

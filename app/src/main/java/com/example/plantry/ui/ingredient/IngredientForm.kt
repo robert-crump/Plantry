@@ -14,6 +14,7 @@ import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.openfoodfacts.OffProduct
+import com.example.plantry.data.usda.UsdaFood
 import java.math.BigDecimal
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -28,6 +29,8 @@ data class IngredientForm(
     val units: List<IngredientUnit> = emptyList(),
     /** The package applied from a barcode scan; replaces the USDA reference on save. */
     val scannedLabel: LabelSource? = null,
+    /** The USDA entry picked to replace the nutrition; replaces the source on save. */
+    val pickedUsda: UsdaFood? = null,
     /** What the ingredient contains ("Enthält"): stored ones by id, then those added; while there are any, it is a mix. */
     val components: List<MixPart> = emptyList(),
 ) {
@@ -59,6 +62,17 @@ data class IngredientForm(
     fun withScanned(product: OffProduct) = copy(
         nutrition = nutrition + product.nutrition.mapValues { formatDecimal(it.value) },
         scannedLabel = product.labelSource,
+        pickedUsda = null,
+    )
+
+    /** Whether any nutrient holds something other than blank or 0, which picking a USDA entry would overwrite. */
+    val hasNutrition: Boolean get() = nutrition.values.any { it.isNotBlank() && it.toDecimalOrNull() != 0.0 }
+
+    /** Replaces every value with [food]'s; the name stays as it is. */
+    fun withUsda(food: UsdaFood) = copy(
+        nutrition = Nutrient.entries.associateWith { formatDecimal(food.nutrition[it]) },
+        scannedLabel = null,
+        pickedUsda = food,
     )
 
     fun errors() = IngredientFormErrors(
@@ -78,6 +92,7 @@ data class IngredientForm(
             plantPoints = plantPoints,
             units = units,
             scannedLabel = scannedLabel,
+            pickedUsda = pickedUsda,
             components = components,
         )
     }

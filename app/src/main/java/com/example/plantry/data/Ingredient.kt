@@ -6,6 +6,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.plantry.data.claude.IngredientProposal
 import com.example.plantry.data.openfoodfacts.OffProduct
+import com.example.plantry.data.usda.UsdaFood
 
 @Entity(tableName = "ingredients")
 data class Ingredient(
@@ -118,6 +119,8 @@ data class IngredientDraft(
     val units: List<IngredientUnit> = emptyList(),
     /** Set after nutrition was taken from a scanned package: replaces the USDA reference on save. */
     val scannedLabel: LabelSource? = null,
+    /** Set after nutrition was taken from a picked USDA entry: replaces the source on save. */
+    val pickedUsda: UsdaFood? = null,
     /** What the ingredient contains ("Enthält"); replaces the stored components on save. */
     val components: List<MixPart> = emptyList(),
 )

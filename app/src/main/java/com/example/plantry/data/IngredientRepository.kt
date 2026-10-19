@@ -33,21 +33,17 @@ class IngredientRepository(private val dao: IngredientDao) {
 
     /**
      * Creates the ingredient from [seed] with the user's values in [draft] (which also holds the
-     * nutrition, as the user may have edited it) and returns its id. A scanned label in the draft
-     * replaces the seed's source.
+     * nutrition, as the user may have edited it) and returns its id. A scanned label or picked USDA
+     * entry in the draft replaces the seed's source.
      */
     suspend fun create(seed: NewIngredientSeed, draft: IngredientDraft): Long {
-        val label = draft.scannedLabel ?: seed.labelSource
-        val scanned = draft.scannedLabel != null
+        val sourced = seed.toIngredient().withSource(draft)
         val id = dao.insertWithUnits(
-            Ingredient(
+            sourced.copy(
                 name = draft.name.trim(),
-                fdcId = if (scanned) null else seed.fdcId,
-                usdaDescription = if (scanned) null else seed.usdaDescription,
                 nutrition = draft.nutrition,
                 storeSection = draft.storeSection,
                 plantPoints = draft.plantPoints,
-                labelSource = label,
             ),
             draft.units,
         )
@@ -76,15 +72,15 @@ class IngredientRepository(private val dao: IngredientDao) {
     }
 
     /**
-     * Saves the user's edits. A [IngredientDraft.scannedLabel] becomes the source and clears the USDA reference. Recipes
-     * using one of the ingredient's units follow a changed weight right away.
+     * Saves the user's edits. A [IngredientDraft.scannedLabel] or [IngredientDraft.pickedUsda] becomes the source,
+     * replacing the previous one. Recipes using one of the ingredient's units follow a changed weight right away.
      *
      * Nothing is saved when the edit would remove a unit a recipe line still uses; returns the
      * titles of those recipes then, empty once saved.
      */
     suspend fun update(id: Long, draft: IngredientDraft): List<String> {
         val existing = dao.getById(id) ?: return emptyList()
-        val sourced = draft.scannedLabel?.let { existing.copy(fdcId = null, usdaDescription = null, labelSource = it) } ?: existing
+        val sourced = existing.withSource(draft)
         val usedIn = dao.updateUnlessUnitInUse(
             sourced.copy(
                 name = draft.name.trim(),
@@ -113,6 +109,13 @@ class IngredientRepository(private val dao: IngredientDao) {
             emptyList()
         }
         dao.replaceComponents(mixId, ids)
+    }
+
+    /** Takes the draft's scanned label or picked USDA entry as the source; without either, keeps this one's. */
+    private fun Ingredient.withSource(draft: IngredientDraft): Ingredient {
+        draft.scannedLabel?.let { return copy(fdcId = null, usdaDescription = null, labelSource = it) }
+        draft.pickedUsda?.let { return copy(fdcId = it.fdcId, usdaDescription = it.description, labelSource = null) }
+        return this
     }
 
     private fun byName(name: String, storeSection: StoreSection) = Ingredient(

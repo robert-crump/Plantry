@@ -513,7 +513,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                     val route = entry.toRoute<IngredientCreateRoute>()
                     val seed = route.toSeed()
                     IngredientDetailScreen(
-                        viewModel = viewModel { IngredientDetailViewModel(0, ingredientRepository, app.productLookup, seed) },
+                        viewModel = viewModel { IngredientDetailViewModel(0, ingredientRepository, app.productLookup, app.loadUsdaCatalog, seed) },
                         onBack = { navController.popBackStack() },
                         onCreated = { id ->
                             if (route.forRecipe) {
@@ -532,7 +532,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                 composable<IngredientDetailRoute> { entry ->
                     val ingredientId = entry.toRoute<IngredientDetailRoute>().ingredientId
                     IngredientDetailScreen(
-                        viewModel = viewModel { IngredientDetailViewModel(ingredientId, ingredientRepository, app.productLookup) },
+                        viewModel = viewModel { IngredientDetailViewModel(ingredientId, ingredientRepository, app.productLookup, app.loadUsdaCatalog) },
                         onBack = { navController.popBackStack() },
                         leaveRequested = leaveRequested,
                         onLeaveCancelled = stopReturning,
