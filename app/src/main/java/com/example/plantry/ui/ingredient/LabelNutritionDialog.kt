@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -58,7 +59,7 @@ fun LabelNutritionDialog(
                         onValueChange = { form = form.copy(name = it) },
                         label = { Text(stringResource(R.string.new_ingredient_name)) },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -86,7 +87,10 @@ fun LabelNutritionDialog(
                             else -> null
                         },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal,
+                            imeAction = if (nutrient == Nutrient.entries.last()) ImeAction.Done else ImeAction.Next,
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

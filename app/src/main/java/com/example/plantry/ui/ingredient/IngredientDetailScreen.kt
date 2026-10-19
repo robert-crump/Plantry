@@ -64,6 +64,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -487,6 +488,7 @@ fun IngredientDetailScreen(
                 label = R.string.ingredient_name,
                 error = if (errors?.name == true) R.string.error_name_required else null,
                 numeric = false,
+                imeAction = ImeAction.Done,
             )
             Text(
                 if (ingredient.labelSource != null) {
@@ -533,6 +535,7 @@ fun IngredientDetailScreen(
                             } else {
                                 null
                             },
+                            imeAction = if (nutrient == Nutrient.entries.last()) ImeAction.Done else ImeAction.Next,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -860,6 +863,7 @@ private fun UnitDialog(
                     onValueChange = { grams = it },
                     label = if (inPackage) R.string.ingredient_piece_package_grams_field else R.string.ingredient_piece_grams_field,
                     error = if (grams.isNotBlank() && form.gramsInvalid) R.string.error_positive_decimal else null,
+                    imeAction = if (inPackage) ImeAction.Next else ImeAction.Done,
                 )
                 if (inPackage) {
                     FormField(
@@ -867,6 +871,7 @@ private fun UnitDialog(
                         onValueChange = { count = it },
                         label = R.string.ingredient_piece_count_field,
                         error = if (count.isNotBlank() && form.countInvalid) R.string.error_positive_number else null,
+                        imeAction = ImeAction.Done,
                     )
                     if (result != null) {
                         Text(
@@ -1008,9 +1013,10 @@ private fun Field(
     modifier: Modifier = Modifier.fillMaxWidth(),
     @StringRes error: Int? = null,
     numeric: Boolean = true,
+    imeAction: ImeAction = ImeAction.Default,
 ) {
     if (editing) {
-        FormField(value, onValueChange, label, modifier, error, numeric)
+        FormField(value, onValueChange, label, modifier, error, numeric, imeAction)
     } else {
         Column(modifier.padding(vertical = 4.dp)) {
             Text(
@@ -1031,6 +1037,8 @@ private fun FormField(
     modifier: Modifier = Modifier.fillMaxWidth(),
     @StringRes error: Int? = null,
     numeric: Boolean = true,
+    /** Next moves to the following field, Done closes the keyboard. */
+    imeAction: ImeAction = ImeAction.Default,
 ) {
     OutlinedTextField(
         value = value,
@@ -1042,6 +1050,7 @@ private fun FormField(
         keyboardOptions = KeyboardOptions(
             keyboardType = if (numeric) KeyboardType.Decimal else KeyboardType.Text,
             capitalization = if (numeric) KeyboardCapitalization.None else KeyboardCapitalization.Sentences,
+            imeAction = imeAction,
         ),
         modifier = modifier,
     )
