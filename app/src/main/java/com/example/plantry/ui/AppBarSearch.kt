@@ -17,6 +17,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 
 /** A borderless search field for a top app bar's title; the keyboard's search key hides the keyboard. */
 @Composable
@@ -28,7 +29,7 @@ fun AppBarSearchField(query: String, onQueryChange: (String) -> Unit, placeholde
         modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
         placeholder = { Text(placeholder) },
         singleLine = true,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
         colors = TextFieldDefaults.colors(
             focusedContainerColor = Color.Transparent,
