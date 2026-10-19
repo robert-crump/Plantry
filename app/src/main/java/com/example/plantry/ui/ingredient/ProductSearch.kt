@@ -86,7 +86,11 @@ fun ProductSearchDialog(
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            TextButton(onClick = onSearch, enabled = state.query.isNotBlank() && !state.searching) {
+                Text(stringResource(R.string.action_search))
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
