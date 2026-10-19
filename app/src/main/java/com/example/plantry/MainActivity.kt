@@ -11,6 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.plantry.data.settings.ThemeMode
+import com.example.plantry.ui.CapitalizeOnFocus
 import com.example.plantry.ui.PlantryNavHost
 import com.example.plantry.ui.theme.PlantryTheme
 
@@ -41,7 +42,9 @@ class MainActivity : ComponentActivity() {
                 )
             }
             PlantryTheme(darkTheme = darkTheme) {
-                PlantryNavHost(openRecipeId)
+                CapitalizeOnFocus {
+                    PlantryNavHost(openRecipeId)
+                }
             }
         }
     }
