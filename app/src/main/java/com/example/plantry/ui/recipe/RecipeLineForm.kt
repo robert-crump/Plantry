@@ -34,10 +34,14 @@ data class RecipeLineForm(
     val units: List<IngredientUnit> = emptyList(),
     /** The grams of [missingUnit]; its unit is ignored, as the line's unit decides it. */
     val definition: UnitForm = UnitForm(),
+    /** The unit is a proposal, which picking an ingredient replaces; until the user picks one, see [newLine]. */
+    val proposeUnit: Boolean = false,
+    /** An ingredient was picked at some point; a new line shows its amount and unit from then on. */
+    val picked: Boolean = false,
 ) {
     fun withAmount(amount: String) = copy(amount = amount)
 
-    fun withUnit(unit: LineUnit) = copy(unit = unit)
+    fun withUnit(unit: LineUnit) = copy(unit = unit, proposeUnit = false)
 
     fun withWording(wording: String) = copy(wording = wording)
 
@@ -59,11 +63,20 @@ data class RecipeLineForm(
         return withIngredient(id, names[id] ?: return this, units[id].orEmpty())
     }
 
-    fun withIngredient(ingredient: Ingredient, units: List<IngredientUnit>) = withIngredient(ingredient.id, ingredient.name, units)
+    fun withIngredient(ingredient: Ingredient, units: List<IngredientUnit>, usual: LineUnit? = null) =
+        withIngredient(ingredient.id, ingredient.name, units, usual)
 
-    /** A negative [id] is a new ingredient proposed by Claude, see [RecipeForm.newIngredients]. */
-    fun withIngredient(id: Long, name: String, units: List<IngredientUnit> = emptyList()) =
-        copy(ingredientQuery = name, ingredientId = id, units = units)
+    /**
+     * A negative [id] is a new ingredient proposed by Claude, see [RecipeForm.newIngredients]. A
+     * proposed unit becomes the [usual] one of the ingredient, else its first own unit, else g.
+     */
+    fun withIngredient(id: Long, name: String, units: List<IngredientUnit> = emptyList(), usual: LineUnit? = null) = copy(
+        ingredientQuery = name,
+        ingredientId = id,
+        units = units,
+        unit = if (proposeUnit) usual ?: units.firstOrNull()?.let { LineUnit.Of(it.unit) } ?: LineUnit.Grams else unit,
+        picked = true,
+    )
 
     /** g, ml, the units of the selected ingredient, then all other units. */
     fun unitOptions(): List<LineUnit> {
@@ -121,6 +134,9 @@ data class RecipeLineForm(
     companion object {
         /** The units that come in packages of several, e.g. 20 Scheiben in 750 g Toast. */
         val PACKAGE_UNITS = setOf(PieceUnit.PIECE, PieceUnit.SLICE, PieceUnit.PACKET)
+
+        /** A line being added: the ingredient comes first, the unit is proposed for it. */
+        fun newLine() = RecipeLineForm(proposeUnit = true)
 
         fun from(line: RecipeIngredientDraft, ingredientName: String, units: List<IngredientUnit> = emptyList()) =
             from(RecipeFormLine.from(line), ingredientName, units)

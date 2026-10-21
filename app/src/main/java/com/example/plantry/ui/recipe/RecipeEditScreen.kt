@@ -33,6 +33,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.verticalScroll
@@ -80,6 +83,7 @@ import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.LineAmount
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.LineUnit
+import com.example.plantry.data.UsualUnits
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientAliases
 import com.example.plantry.data.IngredientSuggestions
@@ -290,6 +294,11 @@ class RecipeEditViewModel(
         combine(storedUnits, _state.map { it.form.newIngredients }.distinctUntilChanged()) { stored, new ->
             stored + new.mapValues { (id, ingredient) -> ingredient.proposal.units(id) }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /** The unit proposed for each ingredient in a new line, see [UsualUnits]. */
+    val usualUnits: StateFlow<Map<Long, LineUnit>> = repository.observeAllLines()
+        .map(UsualUnits::of)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     /** Sources of other recipes matching what is typed into the source field. */
     val sourceSuggestions: StateFlow<List<String>> = combine(
@@ -576,7 +585,7 @@ class RecipeEditViewModel(
     }
 
     fun addLine() {
-        _state.update { it.copy(lineEditor = LineEditorState(index = null)) }
+        _state.update { it.copy(lineEditor = LineEditorState(index = null, RecipeLineForm.newLine())) }
     }
 
     fun editLine(index: Int) {
@@ -625,7 +634,13 @@ class RecipeEditViewModel(
         // In the order shown before applying: a line that got its ingredient leaves the top block, the next one there follows.
         val order = state.form.checklistOrder(ingredientSections.value)
         val next = editor.index?.takeIf { editor.toNextProblem }?.let { form.nextProblem(it, order) }
-        _state.update { it.copy(form = form, lineEditor = next?.let { index -> lineEditor(form, index) }) }
+        // An added line is followed by the next one to add, until the user cancels.
+        val nextEditor = if (editor.index == null) {
+            LineEditorState(index = null, RecipeLineForm.newLine())
+        } else {
+            next?.let { index -> lineEditor(form, index) }
+        }
+        _state.update { it.copy(form = form, lineEditor = nextEditor) }
     }
 
     fun dismissLineEditor() {
@@ -693,6 +708,7 @@ fun RecipeEditScreen(
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     val ingredientNames by viewModel.ingredientNames.collectAsStateWithLifecycle()
     val ingredientUnits by viewModel.ingredientUnits.collectAsStateWithLifecycle()
+    val usualUnits by viewModel.usualUnits.collectAsStateWithLifecycle()
     val ingredientSections by viewModel.ingredientSections.collectAsStateWithLifecycle()
     val sourceSuggestions by viewModel.sourceSuggestions.collectAsStateWithLifecycle()
     val photoSource = rememberPhotoSource(viewModel::onPhoto)
@@ -746,11 +762,13 @@ fun RecipeEditScreen(
             )
         },
     ) { padding ->
+        // The scan button and the photos scroll away with the form.
         Column(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .imePadding(),
+                .imePadding()
+                .verticalScroll(rememberScrollState()),
         ) {
             if (viewModel.isNew && !isScan) {
                 Row(
@@ -775,7 +793,7 @@ fun RecipeEditScreen(
             }
             val shownPages = state.shownPages
             if (shownPages.isNotEmpty()) {
-                // Fixed above the form like a scan's photo; "x" removes a page when saved.
+                // "x" removes a page when saved.
                 PhotoRoll(
                     shownPages.map { state.pages[it] },
                     onOpen = { openPage = it },
@@ -786,7 +804,6 @@ fun RecipeEditScreen(
             }
             // A scan shows the photo only until it is read; the review works from the fields alone.
             if (!isScan || !showForm) {
-                // Fixed above the form, so the page stays in view while correcting the lines.
                 PhotoSection(
                     state = state,
                     onRead = viewModel::readPhoto,
@@ -795,10 +812,7 @@ fun RecipeEditScreen(
             }
             if (showForm) {
                 Column(
-                    Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
+                    Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     if (showFields) {
@@ -974,6 +988,7 @@ fun RecipeEditScreen(
                     editor.index?.let { form.nextProblem(it, form.checklistOrder(ingredientSections)) } != null,
                 suggestions = suggestions,
                 ingredientUnits = ingredientUnits,
+                usualUnits = usualUnits,
                 onChange = viewModel::onLineFormChange,
                 onApply = viewModel::applyLine,
                 onDismiss = viewModel::dismissLineEditor,
@@ -1320,6 +1335,7 @@ private fun LineEditorDialog(
     hasNextProblem: Boolean,
     suggestions: List<Ingredient>,
     ingredientUnits: Map<Long, List<IngredientUnit>>,
+    usualUnits: Map<Long, LineUnit>,
     onChange: (RecipeLineForm.() -> RecipeLineForm) -> Unit,
     onApply: () -> Unit,
     onDismiss: () -> Unit,
@@ -1341,25 +1357,13 @@ private fun LineEditorDialog(
                 Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FormField(
-                        value = form.amount,
-                        onValueChange = { onChange { withAmount(it) } },
-                        label = R.string.recipe_line_amount_field,
-                        error = if (errors?.amount == true) R.string.error_positive_decimal else null,
-                        keyboardType = KeyboardType.Decimal,
-                        imeAction = ImeAction.Next,
-                        modifier = Modifier.weight(1f),
-                    )
-                    UnitField(
-                        unit = form.unit,
-                        options = form.unitOptions(),
-                        onSelect = { onChange { withUnit(it) } },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                form.resolved()?.calculation?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // A new line asks for the ingredient first and shows the amount once one was picked.
+                val adding = editor.index == null
+                val showAmount = !adding || form.picked
+                val ingredientFocus = remember { FocusRequester() }
+                val amountFocus = remember { FocusRequester() }
+                LaunchedEffect(form.picked) {
+                    if (adding) (if (form.picked) amountFocus else ingredientFocus).requestFocus()
                 }
                 FormField(
                     value = form.ingredientQuery,
@@ -1368,12 +1372,17 @@ private fun LineEditorDialog(
                     error = if (errors?.ingredient == true) R.string.error_ingredient_required else null,
                     capitalize = true,
                     imeAction = ImeAction.Next,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(ingredientFocus),
                 )
                 suggestions.forEach { ingredient ->
                     ListItem(
                         headlineContent = { Text(ingredient.name) },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable { onChange { withIngredient(ingredient, ingredientUnits[ingredient.id].orEmpty()) } },
+                        modifier = Modifier.clickable {
+                            onChange { withIngredient(ingredient, ingredientUnits[ingredient.id].orEmpty(), usualUnits[ingredient.id]) }
+                        },
                     )
                 }
                 if (form.ingredientId == null && form.ingredientQuery.isNotBlank() && suggestions.isEmpty()) {
@@ -1418,18 +1427,44 @@ private fun LineEditorDialog(
                         )
                     }
                 }
-                form.missingUnit?.let { unit ->
-                    MissingUnitFields(unit, form, errors, onChange)
+                if (showAmount) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FormField(
+                            value = form.amount,
+                            onValueChange = { onChange { withAmount(it) } },
+                            label = R.string.recipe_line_amount_field,
+                            error = if (errors?.amount == true) R.string.error_positive_decimal else null,
+                            keyboardType = KeyboardType.Decimal,
+                            // Adding goes on to the next line from the amount; the wording is optional.
+                            imeAction = if (adding) ImeAction.Done else ImeAction.Next,
+                            onImeAction = if (adding) onApply else null,
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(amountFocus),
+                        )
+                        UnitField(
+                            unit = form.unit,
+                            options = form.unitOptions(),
+                            onSelect = { onChange { withUnit(it) } },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    form.resolved()?.calculation?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    form.missingUnit?.let { unit ->
+                        MissingUnitFields(unit, form, errors, onChange)
+                    }
+                    FormField(
+                        value = form.wording,
+                        onValueChange = { onChange { withWording(it) } },
+                        label = R.string.recipe_line_text,
+                        hint = R.string.recipe_line_text_hint,
+                        capitalize = true,
+                        imeAction = if (hasNextProblem) ImeAction.Go else ImeAction.Done,
+                        onImeAction = onApply,
+                    )
                 }
-                FormField(
-                    value = form.wording,
-                    onValueChange = { onChange { withWording(it) } },
-                    label = R.string.recipe_line_text,
-                    hint = R.string.recipe_line_text_hint,
-                    capitalize = true,
-                    imeAction = if (hasNextProblem) ImeAction.Go else ImeAction.Done,
-                    onImeAction = onApply,
-                )
             }
         },
         confirmButton = {
@@ -1525,7 +1560,7 @@ private fun UnitField(unit: LineUnit, options: List<LineUnit>, onSelect: (LineUn
             onValueChange = {},
             readOnly = true,
             singleLine = true,
-            label = { Text(stringResource(R.string.recipe_line_unit)) },
+            label = { Text(stringResource(R.string.recipe_line_unit), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -1566,7 +1601,8 @@ private fun FormField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(stringResource(label)) },
+        // One line, so an empty field doesn't grow with a wrapped label once it loses focus.
+        label = { Text(stringResource(label), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         isError = error != null,
         supportingText = supporting?.let { { Text(it) } },
         singleLine = true,

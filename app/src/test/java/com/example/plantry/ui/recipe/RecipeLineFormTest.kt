@@ -93,6 +93,47 @@ class RecipeLineFormTest {
     }
 
     @Test
+    fun aNewLine_takesTheUsualUnitOfThePickedIngredient() {
+        val form = RecipeLineForm.newLine().withIngredient(toast, listOf(slice), usual = LineUnit.Grams)
+
+        assertEquals(LineUnit.Grams, form.unit)
+    }
+
+    @Test
+    fun aNewLine_withoutAUsualUnit_takesTheIngredientsFirstUnit_elseG() {
+        assertEquals(sliceUnit, RecipeLineForm.newLine().withIngredient(toast, listOf(slice)).unit)
+        assertEquals(LineUnit.Grams, RecipeLineForm.newLine().withIngredient(sweetPotato, emptyList()).unit)
+    }
+
+    @Test
+    fun aNewLine_proposesAgainForAnotherIngredient_untilTheUnitIsPickedByHand() {
+        val proposed = RecipeLineForm.newLine().withIngredient(toast, listOf(slice))
+        assertEquals(LineUnit.Milliliters, proposed.withIngredient(sweetPotato, emptyList(), usual = LineUnit.Milliliters).unit)
+
+        val picked = proposed.withUnit(LineUnit.Grams)
+        assertEquals(LineUnit.Grams, picked.withIngredient(sweetPotato, emptyList(), usual = LineUnit.Milliliters).unit)
+    }
+
+    @Test
+    fun anExistingLine_keepsItsUnitWhenAnIngredientIsPicked() {
+        val line = RecipeFormLine(2.0, sliceUnit, ingredientId = null, wording = null, ingredientName = "Toast")
+
+        val form = RecipeLineForm.from(line, null).withIngredient(toast, emptyList(), usual = LineUnit.Grams)
+
+        assertEquals(sliceUnit, form.unit)
+    }
+
+    @Test
+    fun aNewLine_showsItsAmountOnceAnIngredientWasPicked_evenIfUnlinkedAgain() {
+        val form = RecipeLineForm.newLine()
+        assertFalse(form.picked)
+
+        val picked = form.withIngredient(toast, listOf(slice))
+        assertTrue(picked.picked)
+        assertTrue(picked.withIngredientQuery("Vollkorn").picked)
+    }
+
+    @Test
     fun aMissingUnit_needsValidGramsBeforeTheLineApplies() {
         val form = RecipeLineForm(amount = "2").withIngredient(toast, emptyList()).withUnit(sliceUnit)
 

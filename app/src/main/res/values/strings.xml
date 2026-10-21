@@ -100,7 +100,7 @@
     <string name="recipe_line_open">Zutat öffnen</string>
     <string name="recipe_line_amount">%1$s · %2$s</string>
     <string name="recipe_line_add">Zutat hinzufügen</string>
-    <string name="recipe_line_new">Neue Zeile</string>
+    <string name="recipe_line_new">Zutat hinzufügen</string>
     <string name="recipe_line_edit">Zeile bearbeiten</string>
     <string name="recipe_line_remove">Zeile entfernen</string>
     <string name="recipe_line_move_up">Nach oben verschieben</string>
@@ -114,7 +114,7 @@
     <string name="recipe_line_unit_grams">Gramm</string>
     <string name="recipe_line_unit_package_grams">Packung (g)</string>
     <string name="recipe_line_unit_package_count">Anzahl</string>
-    <string name="recipe_line_ingredient">Zutat aus deiner Tabelle</string>
+    <string name="recipe_line_ingredient">Verknüpfte Zutat</string>
     <string name="recipe_line_no_match">Keine passende Zutat in deiner Tabelle.</string>
     <string name="recipe_line_uncertain">Unsicher – bitte prüfen</string>
     <string name="recipe_line_problem_ingredient">Zutat fehlt</string>
