@@ -1358,7 +1358,7 @@ private fun LineEditorDialog(
                         onImeAction = if (adding) onApply else null,
                         enabled = amountEnabled,
                         modifier = Modifier
-                            .weight(0.3f)
+                            .weight(0.35f)
                             .focusRequester(amountFocus),
                     )
                     UnitField(
@@ -1366,7 +1366,7 @@ private fun LineEditorDialog(
                         options = form.unitOptions(),
                         onSelect = { onChange { withUnit(it) } },
                         enabled = amountEnabled,
-                        modifier = Modifier.weight(0.7f),
+                        modifier = Modifier.weight(0.65f),
                     )
                 }
                 form.resolved()?.calculation?.let {
