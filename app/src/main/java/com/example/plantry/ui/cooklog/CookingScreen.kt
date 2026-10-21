@@ -55,6 +55,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -115,6 +116,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -159,10 +161,12 @@ class CookingViewModel(
 
     private var seenPlans = plannedRepository.plans.value
 
-    /** Whether something was planned (on another screen) since the last call. */
-    fun takeNewPlans(): Boolean {
+    /** The recipes on Geplant if something was planned (on another screen) since the last call, else null. */
+    suspend fun takeNewPlans(): Set<Long>? {
         val plans = plannedRepository.plans.value
-        return (plans != seenPlans).also { seenPlans = plans }
+        if (plans == seenPlans) return null
+        seenPlans = plans
+        return plannedRepository.observe().first().mapTo(mutableSetOf()) { it.recipeId }
     }
 
     /** Takes the [planned] recipes off Geplant and deletes the history [entries]; confirmed, so no undo. */
@@ -261,11 +265,14 @@ fun CookingScreen(
         }
     }
 
+    // Recipes just planned; Geplant scrolls into view once it shows them.
+    var scrollToPlanned by remember { mutableStateOf<Set<Long>?>(null) }
+
     LaunchedEffect(justPlanned) {
         val planned = justPlanned ?: return@LaunchedEffect
         onJustPlannedShown()
         viewModel.plan(planned.recipeId, planned.date) { previous ->
-            scope.launch { listState.scrollToItem(0) }
+            scrollToPlanned = setOf(planned.recipeId)
             showUndo(plannedMessage) { viewModel.undoPlan(planned.recipeId, previous) }
         }
     }
@@ -407,7 +414,18 @@ fun CookingScreen(
                 // Runs each time Speiseplan is shown: a new plan brings Geplant into view, otherwise the
                 // scroll position is kept.
                 LaunchedEffect(Unit) {
-                    if (viewModel.takeNewPlans()) listState.scrollToItem(0)
+                    viewModel.takeNewPlans()?.let { scrollToPlanned = it }
+                }
+                // Requested with the composition that first shows the new plans, so the next layout
+                // starts at Geplant. scrollToItem would lay out the old items first: with Geplant still
+                // empty it lands on "Verlauf", which the list then keeps in place as Geplant appears above.
+                scrollToPlanned?.let { recipeIds ->
+                    if (plannedItems.map { it.recipeId }.containsAll(recipeIds)) {
+                        SideEffect {
+                            listState.requestScrollToItem(0)
+                            scrollToPlanned = null
+                        }
+                    }
                 }
                 val plannedLabel = stringResource(R.string.planned_title)
                 val thisWeek = stringResource(R.string.cook_week_this)
