@@ -1559,6 +1559,7 @@ private fun UnitField(unit: LineUnit, options: List<LineUnit>, onSelect: (LineUn
             value = LineAmount.word(unit),
             onValueChange = {},
             readOnly = true,
+            textStyle = MaterialTheme.typography.bodyLarge,
             singleLine = true,
             label = { Text(stringResource(R.string.recipe_line_unit), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -1601,7 +1602,9 @@ private fun FormField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        // One line, so an empty field doesn't grow with a wrapped label once it loses focus.
+        // The size of the label, also in a dialog's smaller text style: an empty field showing its
+        // label is as high as a filled one. On one line, so a wrapped label doesn't grow it either.
+        textStyle = MaterialTheme.typography.bodyLarge,
         label = { Text(stringResource(label), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         isError = error != null,
         supportingText = supporting?.let { { Text(it) } },
