@@ -12,6 +12,7 @@ import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.LineUnit
 import com.example.plantry.data.MixComponent
 import com.example.plantry.data.PlantPoints
+import com.example.plantry.data.Price
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
@@ -78,7 +79,7 @@ class BackupRepositoryTest {
         assertTrue(json.replace(Regex("\\s+"), "").contains("\"photos\":[\"AQID/w==\",\"BA==\"]"))
         assertTrue(json.contains("\"photos\": []"))
         assertFalse(json.contains("\"photo\":"))
-        assertTrue(json.contains("\"formatVersion\": 4"))
+        assertTrue(json.contains("\"formatVersion\": 5"))
         assertTrue(json.contains("\"dish\": \"MAIN\""))
         assertFalse(json.contains("\"reviewed\""))
         assertFalse(json.contains("\"origin\""))
@@ -117,7 +118,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 4,", "\"formatVersion\": 5,")
+        val newer = source.export().replace("\"formatVersion\": 5,", "\"formatVersion\": 6,")
 
         val error = readError(newer)
 
@@ -152,6 +153,27 @@ class BackupRepositoryTest {
         target.repository.import(target.repository.read(format1))
 
         assertEquals(source.store.data.copy(components = emptyList()), target.store.data)
+    }
+
+    @Test
+    fun price_isWrittenPerKgWithItsDate_bothNullWithout() = runTest {
+        val ingredients = Json.parseToJsonElement(source.export()).jsonObject.getValue("ingredients").jsonArray.map { it.jsonObject }
+
+        val prices = ingredients.associate { it.getValue("id").toString() to (it.getValue("pricePerKg").toString() to it.getValue("priceDate").toString()) }
+        assertEquals("2.49" to "\"2026-03-14\"", prices["5"])
+        assertEquals("null" to "null", prices["1"])
+    }
+
+    @Test
+    fun read_importsAFormat4FileWithoutPrices() = runTest {
+        val file = Json.parseToJsonElement(source.export()).jsonObject
+        val ingredients = JsonArray(file.getValue("ingredients").jsonArray.map { JsonObject(it.jsonObject - "pricePerKg" - "priceDate") })
+        val format4 = JsonObject(file + ("formatVersion" to JsonPrimitive(4)) + ("ingredients" to ingredients)).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(format4))
+
+        assertEquals(source.store.data.copy(ingredients = source.store.data.ingredients.map { it.copy(price = null) }), target.store.data)
     }
 
     @Test
@@ -379,6 +401,7 @@ class BackupRepositoryTest {
                 ),
                 ingredient(id = 5, name = "Reis, trocken").copy(
                     storeSection = StoreSection.DRY_GOODS,
+                    price = Price(2.49, LocalDate.of(2026, 3, 14)),
                 ),
                 ingredient(id = 6, name = "Kichererbsen (Dose)").copy(
                     labelSource = LabelSource("Bio Kichererbsen (Alnatura)", "4104420208117"),

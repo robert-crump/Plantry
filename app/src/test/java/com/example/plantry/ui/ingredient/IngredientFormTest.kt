@@ -11,6 +11,7 @@ import com.example.plantry.data.Nutrition
 import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PlantPoints
+import com.example.plantry.data.Price
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.openfoodfacts.OffProduct
 import com.example.plantry.data.usda.UsdaFood
@@ -19,6 +20,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalDate
 import java.util.Locale
 
 class IngredientFormTest {
@@ -136,6 +138,24 @@ class IngredientFormTest {
     @Test
     fun blankName_isAnError() {
         assertTrue(valid.copy(name = " ").errors().name)
+    }
+
+    @Test
+    fun price_goesFromTheIngredientThroughTheFormIntoTheDraft() {
+        val priced = ingredient.copy(price = Price(2.99, LocalDate.of(2026, 3, 14)))
+
+        assertEquals(2.99, IngredientForm.from(priced).toDraft()?.pricePerKg)
+        assertNull(valid.toDraft()?.pricePerKg)
+    }
+
+    @Test
+    fun priceForm_acceptsCommaDotAndZero_rejectsBlankAndNegative() {
+        assertEquals(3.98, PriceForm("3,98").toPricePerKg())
+        assertEquals(3.98, PriceForm(" 3.98 ").toPricePerKg())
+        assertEquals(0.0, PriceForm("0").toPricePerKg())
+        assertFalse(PriceForm("").isValid)
+        assertFalse(PriceForm("-1").isValid)
+        assertFalse(PriceForm("abc").isValid)
     }
 
     @Test

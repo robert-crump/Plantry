@@ -33,6 +33,8 @@ data class IngredientForm(
     val pickedUsda: UsdaFood? = null,
     /** What the ingredient contains ("Enthält"): stored ones by id, then those added; while there are any, it is a mix. */
     val components: List<MixPart> = emptyList(),
+    /** Null for none; already validated by [PriceForm] in its dialog. */
+    val pricePerKg: Double? = null,
 ) {
     val isMix: Boolean get() = components.isNotEmpty()
 
@@ -94,6 +96,7 @@ data class IngredientForm(
             scannedLabel = scannedLabel,
             pickedUsda = pickedUsda,
             components = components,
+            pricePerKg = pricePerKg,
         )
     }
 
@@ -105,7 +108,20 @@ data class IngredientForm(
             plantPoints = ingredient.plantPoints,
             units = units.sortedBy { it.unit },
             components = components,
+            pricePerKg = ingredient.price?.pricePerKg,
         )
+    }
+}
+
+/** Raw input of the price dialog: € per kg (or l), 0 allowed. */
+data class PriceForm(val perKg: String = "") {
+    val isValid: Boolean get() = toPricePerKg() != null
+
+    /** The price, or null while invalid. */
+    fun toPricePerKg(): Double? = perKg.toDecimalOrNull()?.takeIf { it >= 0 }
+
+    companion object {
+        fun from(pricePerKg: Double?) = PriceForm(pricePerKg?.let(::formatDecimal).orEmpty())
     }
 }
 

@@ -55,6 +55,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -82,6 +83,7 @@ import com.example.plantry.data.Mixes
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PlantPoints
+import com.example.plantry.data.Price
 import com.example.plantry.data.NewIngredientSeed
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.openfoodfacts.OffLookup
@@ -90,6 +92,8 @@ import com.example.plantry.data.openfoodfacts.ProductLookup
 import com.example.plantry.data.usda.UsdaCatalog
 import com.example.plantry.data.usda.UsdaFood
 import com.example.plantry.ui.currentLocale
+import com.example.plantry.ui.formatEuros
+import com.example.plantry.ui.formatPriceDate
 import com.example.plantry.ui.recipe.UsdaPickerDialog
 import com.example.plantry.ui.settings.ChoiceDialog
 import com.example.plantry.ui.settings.SettingsGroup
@@ -110,6 +114,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.LocalDate
 
 data class IngredientDetailUiState(
     /** Null until the ingredient is loaded. */
@@ -601,6 +606,8 @@ fun IngredientDetailScreen(
                 onStoreSection = { onChange { copy(storeSection = it) } },
                 onPlantPoints = { onChange { copy(plantPoints = it) } },
                 onComponents = { onChange { copy(components = it) } },
+                storedPrice = ingredient.price,
+                onPrice = { onChange { copy(pricePerKg = it) } },
                 editable = editing,
             )
 
@@ -720,7 +727,7 @@ private fun DeleteDialog(name: String, usedIn: List<String>, onConfirm: () -> Un
     }
 }
 
-private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_INFO, COMPONENTS }
+private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_INFO, COMPONENTS, PRICE }
 
 /**
  * One line per property with its current value; when [editable], tapping opens a radio dialog that
@@ -736,6 +743,10 @@ private fun PropertiesGroup(
     onStoreSection: (StoreSection) -> Unit,
     onPlantPoints: (PlantPoints) -> Unit,
     onComponents: (List<MixPart>) -> Unit,
+    /** The saved price, whose date the row shows while the form's price is unchanged. */
+    storedPrice: Price?,
+    /** Null removes the price. */
+    onPrice: (Double?) -> Unit,
     editable: Boolean,
 ) {
     var dialog by rememberSaveable { mutableStateOf<PropertyDialog?>(null) }
@@ -795,6 +806,14 @@ private fun PropertiesGroup(
                 )
             }
         }
+        add {
+            SettingsRow(
+                icon = null,
+                title = stringResource(R.string.ingredient_price),
+                summary = priceSummary(form.pricePerKg, storedPrice),
+                onClick = if (editable) ({ dialog = PropertyDialog.PRICE }) else null,
+            )
+        }
     }
     SettingsGroup(*rows.toTypedArray(), horizontalPadding = 0.dp)
 
@@ -823,9 +842,71 @@ private fun PropertiesGroup(
             onConfirm = { onComponents(it); dismiss() },
             onDismiss = dismiss,
         )
+        PropertyDialog.PRICE -> PriceDialog(
+            pricePerKg = form.pricePerKg,
+            onConfirm = { onPrice(it); dismiss() },
+            onDismiss = dismiss,
+        )
         null -> Unit
     }
 }
+
+/**
+ * "3,98 €/kg · Stand 03/2026", marked when outdated; without the date while [pricePerKg] differs
+ * from [stored], as saving dates it today.
+ */
+@Composable
+private fun priceSummary(pricePerKg: Double?, stored: Price?): String {
+    pricePerKg ?: return stringResource(R.string.ingredient_price_none)
+    val euros = formatEuros(pricePerKg)
+    val dated = stored?.takeIf { it.pricePerKg == pricePerKg } ?: return stringResource(R.string.ingredient_price_unsaved, euros)
+    val outdated = dated.isOutdated(LocalDate.now())
+    return stringResource(
+        if (outdated) R.string.ingredient_price_summary_outdated else R.string.ingredient_price_summary,
+        euros,
+        formatPriceDate(dated.priceDate),
+    )
+}
+
+/** The price per kg; OK stays disabled while invalid, and "Preis entfernen" is there while it has one. */
+@Composable
+private fun PriceDialog(pricePerKg: Double?, onConfirm: (Double?) -> Unit, onDismiss: () -> Unit) {
+    var form by rememberSaveable(stateSaver = PriceFormSaver) { mutableStateOf(PriceForm.from(pricePerKg)) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ingredient_price)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    stringResource(R.string.ingredient_price_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FormField(
+                    value = form.perKg,
+                    onValueChange = { form = PriceForm(it) },
+                    label = R.string.ingredient_price_field,
+                    error = if (form.perKg.isNotBlank() && !form.isValid) R.string.error_non_negative_decimal else null,
+                    imeAction = ImeAction.Done,
+                )
+                if (pricePerKg != null) {
+                    TextButton(onClick = { onConfirm(null) }) {
+                        Icon(Icons.Filled.Delete, contentDescription = null)
+                        Text(stringResource(R.string.ingredient_price_remove), Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { form.toPricePerKg()?.let(onConfirm) }, enabled = form.isValid) {
+                Text(stringResource(R.string.action_ok))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+private val PriceFormSaver = Saver<PriceForm, String>(save = { it.perKg }, restore = ::PriceForm)
 
 /**
  * One row per unit with its weight; when [editable], tapping a row edits it, its bin removes it,

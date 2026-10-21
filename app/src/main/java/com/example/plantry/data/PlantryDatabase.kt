@@ -19,12 +19,14 @@ import com.example.plantry.data.backup.BackupDao
         Recipe::class, Ingredient::class, IngredientUnit::class, RecipeIngredient::class, CookLog::class,
         IngredientAlias::class, PlannedRecipe::class, MixComponent::class, CookLogPlant::class,
     ],
-    version = 3,
+    version = 4,
     autoMigrations = [
         // Adds the mix components ("Enthält").
         AutoMigration(from = 1, to = 2),
         // Adds each cooking log entry's plants, filled from the recipes as they are now.
         AutoMigration(from = 2, to = 3, spec = PlantryDatabase.BackfillCookLogPlants::class),
+        // Adds the ingredient price; existing ingredients have none.
+        AutoMigration(from = 3, to = 4),
     ],
 )
 @TypeConverters(Converters::class)

@@ -74,6 +74,24 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate3To4_keepsIngredientsWithoutAPrice() {
+        helper.createDatabase(DB_NAME, 3).use { db ->
+            db.execSQL(
+                "INSERT INTO ingredients (id, name, storeSection, plantPoints, kcal, protein, carbs, sugar, fat, fibre) " +
+                    "VALUES (1, 'Zucchini', 'PRODUCE', 'ONE', 17, 1.2, 3.1, 2.5, 0.3, 1)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 4, true).use { db ->
+            db.query("SELECT name, pricePerKg, priceDate FROM ingredients").use {
+                it.moveToFirst()
+                assertEquals("Zucchini", it.getString(0))
+                assertEquals(listOf(true, true), listOf(it.isNull(1), it.isNull(2)))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }

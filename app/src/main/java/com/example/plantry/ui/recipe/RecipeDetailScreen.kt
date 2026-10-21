@@ -73,10 +73,12 @@ import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeHighlight
 import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.RecipePhotoRepository
+import com.example.plantry.data.RecipePrice
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.nutritionLines
+import com.example.plantry.data.priceLines
 import com.example.plantry.data.resolve
 import com.example.plantry.ui.HideOnScrollFab
 import com.example.plantry.ui.ShowMoreToggle
@@ -99,6 +101,7 @@ data class RecipeDetailUiState(
     val recipe: Recipe,
     val lines: List<ShownLine>,
     val nutrition: RecipeNutrition,
+    val price: RecipePrice,
     val stats: RecipeStats,
     val highlights: Set<RecipeHighlight>,
     /** The day it is planned for; null while it isn't on Geplant. */
@@ -143,6 +146,7 @@ class RecipeDetailViewModel(
                 nutritionLines(lines, byId),
                 recipe.servings,
             ),
+            price = RecipePrice.calculate(priceLines(lines, byId), recipe.servings, clock()),
             stats = stats,
             highlights = RecipeHighlight.of(stats, hasLines = lines.isNotEmpty()),
             plannedOn = planned?.plannedOn,
@@ -203,6 +207,7 @@ fun RecipeDetailScreen(
     // The photo open over the whole screen, by its index in the roll.
     var openPhoto by rememberSaveable { mutableStateOf<Int?>(null) }
     var choosingPhotoSource by rememberSaveable { mutableStateOf(false) }
+    var showPrice by rememberSaveable { mutableStateOf(false) }
     val photoRoll = rememberLazyListState()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -269,7 +274,12 @@ fun RecipeDetailScreen(
                 HighlightTags(detail.highlights, Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp))
             }
             // Without lines a 0 would say nothing.
-            MetadataCard(current, plantPoints = detail.stats.roundedPlantPoints.takeIf { detail.lines.isNotEmpty() })
+            MetadataCard(
+                current,
+                plantPoints = detail.stats.roundedPlantPoints.takeIf { detail.lines.isNotEmpty() },
+                price = detail.price.takeIf { detail.lines.isNotEmpty() },
+                onPriceClick = { showPrice = true },
+            )
 
             DetailCard {
                 SectionTitle(R.string.recipe_section_lines)
@@ -300,6 +310,18 @@ fun RecipeDetailScreen(
         val shown = photos.orEmpty()
         openPhoto?.takeIf { it in shown.indices }?.let { page ->
             PhotoViewer(shown, page, onPageChange = { openPhoto = it }, onClose = { openPhoto = null })
+        }
+
+        if (showPrice) {
+            PriceSheet(
+                detail.price,
+                current.servings,
+                onIngredientClick = {
+                    showPrice = false
+                    onIngredientClick(it)
+                },
+                onDismiss = { showPrice = false },
+            )
         }
 
         if (choosingPhotoSource) {
@@ -396,11 +418,17 @@ private fun DetailCard(content: @Composable () -> Unit) {
 }
 
 /**
- * The same for every Art: Arbeitszeit | Gesamtzeit, Portionen | Pflanzenpunkte, Art in the left half,
+ * The same for every Art: Arbeitszeit | Gesamtzeit, Portionen | Pflanzenpunkte, Art | Preis pro Portion,
  * then Quelle at full width. [plantPoints] null shows "—".
  */
 @Composable
-private fun MetadataCard(recipe: Recipe, plantPoints: Int?) {
+private fun MetadataCard(
+    recipe: Recipe,
+    plantPoints: Int?,
+    /** Null without lines, which shows "—"; tapping the cell opens the [PriceSheet]. */
+    price: RecipePrice?,
+    onPriceClick: () -> Unit,
+) {
     DetailCard {
         Column(
             Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
@@ -418,7 +446,16 @@ private fun MetadataCard(recipe: Recipe, plantPoints: Int?) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 MetadataCell(R.string.recipe_dish, Modifier.weight(1f)) { MetadataValue(stringResource(recipe.dish.label)) }
-                Spacer(Modifier.weight(1f))
+                if (price == null) {
+                    MetadataCell(R.string.recipe_price, Modifier.weight(1f)) { MetadataValue(stringResource(R.string.recipe_time_none)) }
+                } else {
+                    MetadataCell(
+                        R.string.recipe_price,
+                        Modifier
+                            .weight(1f)
+                            .clickable(onClickLabel = stringResource(R.string.recipe_price_open), onClick = onPriceClick),
+                    ) { PricePerPortion(price) }
+                }
             }
             MetadataCell(R.string.recipe_source, Modifier.fillMaxWidth()) { MetadataValue(sourceLabel(recipe)) }
         }

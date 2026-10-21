@@ -13,6 +13,7 @@ import com.example.plantry.data.Mixes
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.PlantPoints
+import com.example.plantry.data.Price
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
@@ -56,9 +57,10 @@ data class BackupFile(
          * ([BackupIngredient.contains]); a format-1 file reads as one without mixes. 3 has several
          * photos per recipe ([BackupRecipe.photos]); an earlier file's one photo is the first page.
          * 4 keeps each cooking log entry's plants ([BackupCookLog.plants]); an earlier file's entries
-         * take them from their recipes as in the file, like the database migration.
+         * take them from their recipes as in the file, like the database migration. 5 adds the
+         * ingredient price ([BackupIngredient.pricePerKg]); an earlier file's ingredients have none.
          */
-        const val FORMAT_VERSION = 4
+        const val FORMAT_VERSION = 5
 
         /** The oldest format since the restart; still read. */
         private const val FIRST_FORMAT_VERSION = 1
@@ -141,6 +143,9 @@ data class BackupIngredient(
     val units: List<BackupUnit>,
     /** The ids of the ingredients a mix contains ("Enthält"); empty for anything else and in format 1. */
     @EncodeDefault val contains: List<Long> = emptyList(),
+    /** Both null without a price, and before format 5; [priceDate] is ISO-8601. */
+    @EncodeDefault val pricePerKg: Double? = null,
+    @EncodeDefault val priceDate: String? = null,
 )
 
 /** [packageGrams] and [packageCount] are both null unless the unit was entered as a package. */
@@ -326,6 +331,8 @@ private fun Ingredient.toBackup(units: List<IngredientUnit>, contains: List<Long
     labelBarcode = labelSource?.labelBarcode,
     units = units.map { BackupUnit(it.unit, it.gramsPerUnit, it.packageGrams, it.packageCount) },
     contains = contains,
+    pricePerKg = price?.pricePerKg,
+    priceDate = price?.priceDate?.toString(),
 )
 
 private fun BackupIngredient.toEntity() = Ingredient(
@@ -337,6 +344,7 @@ private fun BackupIngredient.toEntity() = Ingredient(
     storeSection = storeSection,
     plantPoints = plantPoints,
     labelSource = if (labelProduct != null && labelBarcode != null) LabelSource(labelProduct, labelBarcode) else null,
+    price = if (pricePerKg != null && priceDate != null) Price(pricePerKg, LocalDate.parse(priceDate)) else null,
 )
 
 private fun Recipe.toBackup(photos: List<String>, lines: List<RecipeIngredient>) = BackupRecipe(

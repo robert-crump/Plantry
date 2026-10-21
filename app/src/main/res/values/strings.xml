@@ -42,6 +42,21 @@
     <string name="recipe_servings">Portionen</string>
     <string name="recipe_plant_points">Pflanzenpunkte</string>
     <string name="recipe_active_time">Arbeitszeit</string>
+    <string name="recipe_price">Preis pro Portion</string>
+    <string name="recipe_price_value">ca. %1$s €</string>
+    <string name="recipe_price_below">&lt; 0,10 €</string>
+    <string name="recipe_price_gaps">Preis unvollständig oder veraltet</string>
+    <string name="recipe_price_open">Preis aufschlüsseln</string>
+    <plurals name="recipe_price_total">
+        <item quantity="one">%1$s € für das ganze Rezept mit %2$d Portion. Ein grober Schätzwert aus den Preisen der Zutaten.</item>
+        <item quantity="other">%1$s € für das ganze Rezept mit %2$d Portionen. Ein grober Schätzwert aus den Preisen der Zutaten.</item>
+    </plurals>
+    <string name="recipe_price_none">Noch keine Zutat dieses Rezepts hat einen Preis.</string>
+    <string name="recipe_price_costs">Kosten je Zutat</string>
+    <string name="recipe_price_missing">Ohne Preis</string>
+    <string name="recipe_price_missing_hint">Zutaten unter 5 g zählen nicht. Ohne Gewicht: Die Zutat hat die Einheit der Zeile nicht.</string>
+    <string name="recipe_price_outdated">Veraltet (älter als 2 Jahre)</string>
+    <string name="recipe_price_outdated_date">Stand %1$s</string>
     <string name="recipe_total_time">Gesamtzeit</string>
     <string name="recipe_active_time_minutes">Arbeitszeit (Min.)</string>
     <string name="recipe_total_time_minutes">Gesamtzeit (Min.)</string>
@@ -338,6 +353,14 @@
     <string name="ingredient_component_remove">%1$s entfernen</string>
     <string name="ingredient_component_create">„%1$s“ neu anlegen</string>
     <string name="ingredient_contained_in">Enthalten in</string>
+    <string name="ingredient_price">Preis</string>
+    <string name="ingredient_price_none">Kein Preis</string>
+    <string name="ingredient_price_unsaved">%1$s €/kg</string>
+    <string name="ingredient_price_summary">%1$s €/kg · Stand %2$s</string>
+    <string name="ingredient_price_summary_outdated">%1$s €/kg · Stand %2$s · veraltet</string>
+    <string name="ingredient_price_field">€ pro kg bzw. l</string>
+    <string name="ingredient_price_hint">Der Grundpreis vom Preisschild, z. B. „1 kg = 3,98 €“. Er bekommt beim Speichern das heutige Datum.</string>
+    <string name="ingredient_price_remove">Preis entfernen</string>
     <string name="ingredient_section_units">Einheiten</string>
     <string name="ingredient_units_hint">Damit Rezepte die Menge auch in Einheiten angeben können, z. B. „4 Scheiben“ oder „2 EL“. g und ml gehen immer. Bei Dosen, die abgegossen werden, zählt das Abtropfgewicht.</string>
     <string name="ingredient_no_units">Keine</string>

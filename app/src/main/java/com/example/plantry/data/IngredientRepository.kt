@@ -4,8 +4,13 @@ import com.example.plantry.data.claude.IngredientProposal
 import com.example.plantry.data.usda.UsdaFood
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 
-class IngredientRepository(private val dao: IngredientDao) {
+class IngredientRepository(
+    private val dao: IngredientDao,
+    /** The date a new or changed price is saved with. */
+    private val today: () -> LocalDate = LocalDate::now,
+) {
 
     fun observeIngredients(): Flow<List<Ingredient>> = dao.observeAll()
 
@@ -44,6 +49,7 @@ class IngredientRepository(private val dao: IngredientDao) {
                 nutrition = draft.nutrition,
                 storeSection = draft.storeSection,
                 plantPoints = draft.plantPoints,
+                price = priced(null, draft),
             ),
             draft.units,
         )
@@ -87,6 +93,7 @@ class IngredientRepository(private val dao: IngredientDao) {
                 nutrition = draft.nutrition,
                 storeSection = draft.storeSection,
                 plantPoints = draft.plantPoints,
+                price = priced(existing.price, draft),
             ),
             draft.units,
         )
@@ -110,6 +117,10 @@ class IngredientRepository(private val dao: IngredientDao) {
         }
         dao.replaceComponents(mixId, ids)
     }
+
+    /** The draft's price: [stored] while unchanged, so it keeps its date, else dated today. */
+    private fun priced(stored: Price?, draft: IngredientDraft): Price? =
+        draft.pricePerKg?.let { perKg -> stored?.takeIf { it.pricePerKg == perKg } ?: Price(perKg, today()) }
 
     /** Takes the draft's scanned label or picked USDA entry as the source; without either, keeps this one's. */
     private fun Ingredient.withSource(draft: IngredientDraft): Ingredient {

@@ -12,11 +12,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalDate
 
 class IngredientRepositoryTest {
 
     private val dao = FakeIngredientDao()
-    private val repository = IngredientRepository(dao)
+    private var today = LocalDate.of(2026, 10, 21)
+    private val repository = IngredientRepository(dao, today = { today })
 
     private val riceCooked = UsdaFood(
         fdcId = 168878,
@@ -330,6 +332,35 @@ class IngredientRepositoryTest {
         assertEquals(StoreSection.DRY_GOODS, updated.storeSection)
         assertEquals(PlantPoints.QUARTER, updated.plantPoints)
         assertEquals(168878L, updated.fdcId)
+    }
+
+    @Test
+    fun create_datesThePriceToday() = runTest {
+        val id = repository.create(NewIngredientSeed("Zucchini", Nutrition()), decided.copy(name = "Zucchini", pricePerKg = 2.99))
+
+        assertEquals(Price(2.99, today), repository.getIngredient(id)!!.price)
+    }
+
+    @Test
+    fun update_anUnchangedPriceKeepsItsDate_aChangedOneIsDatedToday() = runTest {
+        val id = repository.create(NewIngredientSeed("Zucchini", Nutrition()), decided.copy(name = "Zucchini", pricePerKg = 2.99))
+        val created = today
+        today = today.plusMonths(3)
+
+        repository.update(id, decided.copy(name = "Zucchini", pricePerKg = 2.99))
+        assertEquals(Price(2.99, created), repository.getIngredient(id)!!.price)
+
+        repository.update(id, decided.copy(name = "Zucchini", pricePerKg = 3.49))
+        assertEquals(Price(3.49, today), repository.getIngredient(id)!!.price)
+    }
+
+    @Test
+    fun update_withoutAPrice_removesIt() = runTest {
+        val id = repository.create(NewIngredientSeed("Zucchini", Nutrition()), decided.copy(name = "Zucchini", pricePerKg = 2.99))
+
+        repository.update(id, decided.copy(name = "Zucchini"))
+
+        assertNull(repository.getIngredient(id)!!.price)
     }
 
     private fun proposal(food: UsdaFood, name: String) = IngredientProposal(

@@ -1,5 +1,5 @@
 {
-    "formatVersion": 4,
+    "formatVersion": 5,
     "settings": {
         "scanModel": "opus",
         "cooldownDays": 21
@@ -29,7 +29,9 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 1.49,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 2,
@@ -55,7 +57,9 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 7.9,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 3,
@@ -74,7 +78,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": null,
+            "priceDate": null
         },
         {
             "id": 4,
@@ -93,7 +99,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 1.29,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 5,
@@ -112,7 +120,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 2.99,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 6,
@@ -131,7 +141,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 1.49,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 7,
@@ -157,7 +169,9 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 3.98,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 8,
@@ -176,7 +190,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 5.9,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 9,
@@ -195,7 +211,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 2.99,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 10,
@@ -221,7 +239,9 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 4.99,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 11,
@@ -240,7 +260,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 3.49,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 12,
@@ -266,7 +288,9 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 1.69,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 13,
@@ -292,7 +316,9 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 3.29,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 14,
@@ -318,7 +344,9 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 9.8,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 15,
@@ -337,7 +365,9 @@
             "plantPoints": "QUARTER",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": null,
+            "priceDate": null
         },
         {
             "id": 16,
@@ -366,7 +396,9 @@
             "labelBarcode": null,
             "contains": [
                 11
-            ]
+            ],
+            "pricePerKg": 1.98,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 17,
@@ -392,7 +424,9 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 3.16,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 18,
@@ -411,7 +445,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 3.36,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 19,
@@ -430,7 +466,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 4.38,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 20,
@@ -449,7 +487,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 3.98,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 21,
@@ -468,7 +508,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 1.58,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 22,
@@ -487,7 +529,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 3.18,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 23,
@@ -506,7 +550,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 9.9,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 24,
@@ -525,7 +571,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 19.9,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 25,
@@ -544,7 +592,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 17.9,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 26,
@@ -563,7 +613,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 9.9,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 27,
@@ -582,7 +634,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 9.9,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 28,
@@ -601,7 +655,9 @@
             "plantPoints": "QUARTER",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": null,
+            "priceDate": null
         },
         {
             "id": 29,
@@ -620,7 +676,9 @@
             "plantPoints": "QUARTER",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": null,
+            "priceDate": null
         },
         {
             "id": 30,
@@ -639,7 +697,9 @@
             "plantPoints": "QUARTER",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 19.8,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 31,
@@ -658,7 +718,9 @@
             "plantPoints": "ZERO",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 11.96,
+            "priceDate": "2024-03-02"
         },
         {
             "id": 32,
@@ -677,7 +739,9 @@
             "plantPoints": "ZERO",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 24.9,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 33,
@@ -696,7 +760,9 @@
             "plantPoints": "ZERO",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 0.65,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 34,
@@ -715,7 +781,9 @@
             "plantPoints": "ZERO",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 4.98,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 35,
@@ -741,7 +809,9 @@
                 }
             ],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 6.25,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 36,
@@ -760,7 +830,9 @@
             "plantPoints": "ZERO",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 13.25,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 37,
@@ -779,7 +851,9 @@
             "plantPoints": "ZERO",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 4.95,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 38,
@@ -798,7 +872,9 @@
             "plantPoints": "ZERO",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 9.96,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 39,
@@ -817,7 +893,9 @@
             "plantPoints": "ONE",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": 2.98,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 40,
@@ -843,7 +921,9 @@
                     "packageGrams": 500.0,
                     "packageCount": 20
                 }
-            ]
+            ],
+            "pricePerKg": 3.32,
+            "priceDate": "2026-09-26"
         },
         {
             "id": 41,
@@ -862,7 +942,9 @@
             "plantPoints": "ZERO",
             "units": [],
             "labelProduct": null,
-            "labelBarcode": null
+            "labelBarcode": null,
+            "pricePerKg": null,
+            "priceDate": null
         }
     ],
     "recipes": [

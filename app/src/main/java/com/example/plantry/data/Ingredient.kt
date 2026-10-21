@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 import com.example.plantry.data.claude.IngredientProposal
 import com.example.plantry.data.openfoodfacts.OffProduct
 import com.example.plantry.data.usda.UsdaFood
+import java.time.LocalDate
 
 @Entity(tableName = "ingredients")
 data class Ingredient(
@@ -22,6 +23,8 @@ data class Ingredient(
     val plantPoints: PlantPoints,
     /** The scanned package the nutrition was taken from, instead of USDA; see [LabelSource]. */
     @Embedded val labelSource: LabelSource? = null,
+    /** What it costs, for the estimated price per portion; see [RecipePrice]. */
+    @Embedded val price: Price? = null,
 )
 
 /**
@@ -29,6 +32,18 @@ data class Ingredient(
  * source; the barcode is no lookup key, since one ingredient stands for many brands.
  */
 data class LabelSource(val labelProduct: String, val labelBarcode: String)
+
+/**
+ * What an ingredient costs per kg (ml count as g, so also per litre), as the user entered it on
+ * [priceDate]. Never adjusted for inflation; a price older than [OUTDATED_YEARS] is outdated.
+ */
+data class Price(val pricePerKg: Double, val priceDate: LocalDate) {
+    fun isOutdated(today: LocalDate): Boolean = priceDate.plusYears(OUTDATED_YEARS).isBefore(today)
+
+    companion object {
+        const val OUTDATED_YEARS = 2L
+    }
+}
 
 /** The units an ingredient can be counted in, with their German words for one and for several. */
 enum class PieceUnit(val singular: String, val plural: String) {
@@ -123,6 +138,8 @@ data class IngredientDraft(
     val pickedUsda: UsdaFood? = null,
     /** What the ingredient contains ("Enthält"); replaces the stored components on save. */
     val components: List<MixPart> = emptyList(),
+    /** Null for none; dated today on save when it differs from the stored price. */
+    val pricePerKg: Double? = null,
 )
 
 /** A component of a mix: an existing ingredient, or (with [id] null) one created by [name] when the mix is saved. */
