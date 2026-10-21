@@ -14,12 +14,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -45,7 +44,6 @@ data class ProductSearchState(
 )
 
 /** Searches Open Food Facts by product name; picking a hit continues like a scanned barcode. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ProductSearchDialog(
     state: ProductSearchState,
@@ -75,7 +73,7 @@ fun ProductSearchDialog(
                 )
                 when {
                     state.searching -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                        LoadingIndicator()
+                        CircularProgressIndicator()
                     }
                     state.result is OffSearch.Offline -> Message(stringResource(R.string.barcode_offline))
                     state.result is OffSearch.Found && state.result.products.isEmpty() ->

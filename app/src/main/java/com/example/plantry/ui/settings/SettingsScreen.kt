@@ -28,9 +28,8 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -508,7 +507,6 @@ internal fun SettingsRow(
 private const val DISABLED_ALPHA = 0.38f
 
 /** The test runs from the row; its result replaces the summary. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ConnectionRow(state: ConnectionTestState, enabled: Boolean, onClick: () -> Unit) {
     val result = (state as? ConnectionTestState.Done)?.result
@@ -528,7 +526,7 @@ private fun ConnectionRow(state: ConnectionTestState, enabled: Boolean, onClick:
         enabled = enabled,
         onClick = onClick,
         trailing = if (state == ConnectionTestState.Running) {
-            { LoadingIndicator(Modifier.size(24.dp)) }
+            { CircularProgressIndicator(strokeWidth = 3.dp, modifier = Modifier.size(24.dp)) }
         } else {
             null
         },

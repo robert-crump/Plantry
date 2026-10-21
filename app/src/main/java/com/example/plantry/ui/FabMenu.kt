@@ -2,10 +2,20 @@ package com.example.plantry.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,17 +24,13 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FloatingActionButtonMenu
-import androidx.compose.material3.FloatingActionButtonMenuItem
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleFloatingActionButton
-import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
-import androidx.compose.material3.animateFloatingActionButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -32,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -44,11 +51,11 @@ import com.example.plantry.R
 class FabMenuAction(@StringRes val label: Int, val icon: ImageVector, val onClick: () -> Unit)
 
 /**
- * The Material 3 FAB menu: a "+" that turns into an X when tapped and shows [actions] above it, top
- * to bottom. Hidden while [visible] is false (scrolling down) unless open; back closes it. Taps
- * outside it land on [FabScrim].
+ * A FAB menu: a "+" that turns into an X when tapped and shows [actions] above it, top to bottom.
+ * Hidden while [visible] is false (scrolling down) unless open; back closes it. Taps outside it land
+ * on [FabScrim]. Built from stable parts, since material3's FloatingActionButtonMenu needs the
+ * alpha (#124).
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun FabMenu(
     expanded: Boolean,
@@ -58,35 +65,40 @@ fun FabMenu(
     modifier: Modifier = Modifier,
 ) {
     BackHandler(enabled = expanded) { onExpandedChange(false) }
-    FloatingActionButtonMenu(
-        expanded = expanded,
-        modifier = modifier,
-        button = {
-            ToggleFloatingActionButton(
-                checked = expanded,
-                onCheckedChange = onExpandedChange,
-                modifier = Modifier.animateFloatingActionButton(
-                    visible = visible || expanded,
-                    alignment = Alignment.BottomEnd,
-                ),
+    val rotation by animateFloatAsState(if (expanded) 45f else 0f, label = "fab icon")
+    Column(modifier, horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn() + expandVertically(expandFrom = Alignment.Bottom),
+            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Bottom),
+        ) {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                actions.forEach { action ->
+                    ExtendedFloatingActionButton(
+                        text = { Text(stringResource(action.label)) },
+                        icon = { Icon(action.icon, contentDescription = null) },
+                        onClick = {
+                            onExpandedChange(false)
+                            action.onClick()
+                        },
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
+        }
+        AnimatedVisibility(visible = visible || expanded, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
+            FloatingActionButton(
+                onClick = { onExpandedChange(!expanded) },
+                containerColor = if (expanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer,
+                contentColor = if (expanded) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
                 Icon(
-                    if (checkedProgress > 0.5f) Icons.Filled.Close else Icons.Filled.Add,
+                    Icons.Filled.Add,
                     contentDescription = stringResource(if (expanded) R.string.cook_actions_close else R.string.cook_actions_open),
-                    modifier = Modifier.animateIcon({ checkedProgress }),
+                    modifier = Modifier.rotate(rotation),
                 )
             }
-        },
-    ) {
-        actions.forEach { action ->
-            FloatingActionButtonMenuItem(
-                onClick = {
-                    onExpandedChange(false)
-                    action.onClick()
-                },
-                text = { Text(stringResource(action.label)) },
-                icon = { Icon(action.icon, contentDescription = null) },
-            )
         }
     }
 }

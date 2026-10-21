@@ -11,8 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -97,7 +96,6 @@ class ApiKeyEntry(
  * Asks for the Anthropic API key; saving tests it first, see [ApiKeyEntry]. With [onDelete] (a key
  * is stored) a red "Schlüssel löschen" button sits bottom left.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ApiKeyDialog(
     check: KeyCheck,
@@ -162,7 +160,7 @@ fun ApiKeyDialog(
                     if (failure != null && !failure.isKeyProblem) {
                         TextButton(onClick = { onSave(key, true) }) { Text(stringResource(R.string.settings_api_key_save_anyway)) }
                     } else if (testing) {
-                        LoadingIndicator(Modifier.padding(horizontal = 16.dp).size(24.dp))
+                        CircularProgressIndicator(strokeWidth = 3.dp, modifier = Modifier.padding(horizontal = 16.dp).size(24.dp))
                     } else {
                         TextButton(onClick = { if (key.isBlank()) blank = true else onSave(key, false) }) {
                             Text(stringResource(R.string.action_save))

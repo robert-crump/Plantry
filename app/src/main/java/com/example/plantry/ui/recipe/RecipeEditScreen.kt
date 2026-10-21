@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,7 +27,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -47,7 +46,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
@@ -1012,12 +1010,11 @@ fun RecipeEditScreen(
 }
 
 /** Progress or failure of proposing new ingredients for the scanned lines. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ProposalStatus(proposals: ProposalState, onRetry: () -> Unit) {
     when (proposals) {
         ProposalState.Loading -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            LinearWavyProgressIndicator(Modifier.fillMaxWidth())
+            LinearProgressIndicator(Modifier.fillMaxWidth())
             Text(stringResource(R.string.new_ingredient_proposing), style = MaterialTheme.typography.bodyMedium)
         }
         is ProposalState.Failed -> Column {
@@ -1033,7 +1030,6 @@ private fun ProposalStatus(proposals: ProposalState, onRetry: () -> Unit) {
 }
 
 /** The page photo, and the progress or error of reading it. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun PhotoSection(
     state: RecipeEditUiState,
@@ -1055,7 +1051,7 @@ private fun PhotoSection(
 
         when (scan) {
             ScanState.Reading -> Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                LinearWavyProgressIndicator(Modifier.fillMaxWidth())
+                LinearProgressIndicator(Modifier.fillMaxWidth())
                 Text(stringResource(R.string.scan_reading), style = MaterialTheme.typography.bodyMedium)
             }
             is ScanState.Failed -> Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {

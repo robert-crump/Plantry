@@ -3,8 +3,7 @@ package com.example.plantry.ui.ingredient
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -53,14 +52,13 @@ fun rememberBarcodeScanner(onScanned: (String) -> Unit, onUnavailable: () -> Uni
 }
 
 /** Shown while Open Food Facts is asked; dismissing it cancels the lookup. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BarcodeSearchingDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         text = {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                LoadingIndicator()
+                CircularProgressIndicator()
                 Text(stringResource(R.string.barcode_searching))
             }
         },
