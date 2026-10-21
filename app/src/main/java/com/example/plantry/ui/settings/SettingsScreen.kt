@@ -28,7 +28,6 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,6 +70,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
+import com.example.plantry.ui.LoadingIndicator
 import com.example.plantry.ui.rememberNotificationPermissionRequest
 import com.example.plantry.data.claude.ClaudeFailure
 import com.example.plantry.data.claude.ConnectionResult
@@ -526,7 +526,7 @@ private fun ConnectionRow(state: ConnectionTestState, enabled: Boolean, onClick:
         enabled = enabled,
         onClick = onClick,
         trailing = if (state == ConnectionTestState.Running) {
-            { CircularProgressIndicator(strokeWidth = 3.dp, modifier = Modifier.size(24.dp)) }
+            { LoadingIndicator(Modifier.size(24.dp)) }
         } else {
             null
         },

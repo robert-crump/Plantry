@@ -3,7 +3,6 @@ package com.example.plantry.ui.ingredient
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -16,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.example.plantry.R
 import com.example.plantry.data.openfoodfacts.OffLookup
 import com.example.plantry.data.openfoodfacts.OffProduct
+import com.example.plantry.ui.LoadingIndicator
 import com.google.mlkit.common.MlKitException
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
@@ -58,7 +58,7 @@ fun BarcodeSearchingDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         text = {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator()
+                LoadingIndicator()
                 Text(stringResource(R.string.barcode_searching))
             }
         },

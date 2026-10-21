@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -32,6 +31,7 @@ import com.example.plantry.data.claude.ClaudeFailure
 import com.example.plantry.data.claude.ConnectionResult
 import com.example.plantry.data.claude.ConnectionTester
 import com.example.plantry.data.settings.SettingsRepository
+import com.example.plantry.ui.LoadingIndicator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -160,7 +160,7 @@ fun ApiKeyDialog(
                     if (failure != null && !failure.isKeyProblem) {
                         TextButton(onClick = { onSave(key, true) }) { Text(stringResource(R.string.settings_api_key_save_anyway)) }
                     } else if (testing) {
-                        CircularProgressIndicator(strokeWidth = 3.dp, modifier = Modifier.padding(horizontal = 16.dp).size(24.dp))
+                        LoadingIndicator(Modifier.padding(horizontal = 16.dp).size(24.dp))
                     } else {
                         TextButton(onClick = { if (key.isBlank()) blank = true else onSave(key, false) }) {
                             Text(stringResource(R.string.action_save))

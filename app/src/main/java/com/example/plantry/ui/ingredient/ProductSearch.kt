@@ -18,7 +18,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -35,6 +34,7 @@ import com.example.plantry.R
 import com.example.plantry.data.Nutrient
 import com.example.plantry.data.openfoodfacts.OffProduct
 import com.example.plantry.data.openfoodfacts.OffSearch
+import com.example.plantry.ui.LoadingIndicator
 
 /** The product name search: what is typed, and the last search's result (null before the first). */
 data class ProductSearchState(
@@ -73,7 +73,7 @@ fun ProductSearchDialog(
                 )
                 when {
                     state.searching -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                        LoadingIndicator()
                     }
                     state.result is OffSearch.Offline -> Message(stringResource(R.string.barcode_offline))
                     state.result is OffSearch.Found && state.result.products.isEmpty() ->

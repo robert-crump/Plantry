@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -48,7 +47,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.MaterialTheme
@@ -106,6 +104,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapLatest
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.ui.DraggableColumn
+import com.example.plantry.ui.LinearWavyProgressIndicator
 import com.example.plantry.ui.settings.message
 import com.example.plantry.ui.settings.ChoiceDialog
 import com.example.plantry.ui.settings.SettingsGroup
@@ -1014,7 +1013,7 @@ fun RecipeEditScreen(
 private fun ProposalStatus(proposals: ProposalState, onRetry: () -> Unit) {
     when (proposals) {
         ProposalState.Loading -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            LinearProgressIndicator(Modifier.fillMaxWidth())
+            LinearWavyProgressIndicator(Modifier.fillMaxWidth())
             Text(stringResource(R.string.new_ingredient_proposing), style = MaterialTheme.typography.bodyMedium)
         }
         is ProposalState.Failed -> Column {
@@ -1051,7 +1050,7 @@ private fun PhotoSection(
 
         when (scan) {
             ScanState.Reading -> Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                LinearProgressIndicator(Modifier.fillMaxWidth())
+                LinearWavyProgressIndicator(Modifier.fillMaxWidth())
                 Text(stringResource(R.string.scan_reading), style = MaterialTheme.typography.bodyMedium)
             }
             is ScanState.Failed -> Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
