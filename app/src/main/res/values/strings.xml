@@ -130,20 +130,17 @@
     <string name="recipe_line_unit_package_grams">Packung (g)</string>
     <string name="recipe_line_unit_package_count">Anzahl</string>
     <string name="recipe_line_ingredient">Verknüpfte Zutat</string>
-    <string name="recipe_line_no_match">Keine passende Zutat in deiner Tabelle.</string>
     <string name="recipe_line_uncertain">Unsicher – bitte prüfen</string>
     <string name="recipe_line_problem_ingredient">Zutat fehlt</string>
     <string name="recipe_line_problem_grams">Menge fehlt</string>
     <string name="recipe_line_missing_unit">Neue Einheit – Gramm bestätigen</string>
-    <string name="recipe_line_resolved">Geklärt</string>
     <plurals name="recipe_lines_to_check">
         <item quantity="one">Noch %1$d Zeile prüfen</item>
         <item quantity="other">Noch %1$d Zeilen prüfen</item>
     </plurals>
     <string name="recipe_line_no_ingredient">keine Zutat</string>
     <string name="recipe_line_new_ingredient">Neue Zutat – Nährwerte bestätigen</string>
-    <string name="recipe_line_create_ingredient">Neue Zutat anlegen</string>
-    <string name="recipe_line_propose_ingredient">„%1$s“ mit Claude neu anlegen</string>
+    <string name="recipe_line_create_ingredient">„%1$s“ neu anlegen</string>
     <string name="new_ingredient_match">%1$s → %2$s (USDA)</string>
     <string name="new_ingredient_no_usda">%1$s → kein passender USDA-Eintrag gefunden</string>
     <string name="new_ingredient_label">%1$s → Nährwerte von der Packung</string>

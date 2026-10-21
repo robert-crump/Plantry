@@ -1,5 +1,8 @@
 package com.example.plantry.ui.recipe
 
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.annotation.StringRes
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -47,11 +50,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
@@ -68,7 +69,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -96,7 +96,6 @@ import com.example.plantry.data.SourceSuggestions
 import com.example.plantry.data.StoreSection
 import com.example.plantry.data.claude.ClaudeFailure
 import com.example.plantry.data.claude.ClaudeResult
-import com.example.plantry.data.claude.NewFood
 import com.example.plantry.data.claude.NutritionSource
 import com.example.plantry.data.claude.RecipeScanner
 import com.example.plantry.data.claude.ScanResult
@@ -184,7 +183,7 @@ data class RecipeEditUiState(
 }
 
 /** What uses Claude here; each waits until Claude is set up, see [RecipeEditViewModel.useClaude]. */
-enum class ClaudeAction { SCAN, PROPOSE_LINE }
+enum class ClaudeAction { SCAN }
 
 /** [action] waits for [step]: first accepting the costs, then entering a key. */
 data class ClaudeGate(val action: ClaudeAction, val step: Step) {
@@ -212,9 +211,6 @@ data class LineEditorState(
     val index: Int?,
     val form: RecipeLineForm = RecipeLineForm(),
     val showErrors: Boolean = false,
-    /** Claude is proposing a new ingredient for the typed name. */
-    val proposing: Boolean = false,
-    val proposalFailure: ClaudeFailure? = null,
     /** Applying opens the next problem line, see [RecipeForm.nextProblem]. */
     val toNextProblem: Boolean = false,
 )
@@ -349,7 +345,6 @@ class RecipeEditViewModel(
         if (step == null) {
             when (action) {
                 ClaudeAction.SCAN -> startScan()
-                ClaudeAction.PROPOSE_LINE -> proposeForLine()
             }
         }
     }
@@ -431,41 +426,6 @@ class RecipeEditViewModel(
                     is ClaudeResult.Success ->
                         state.copy(form = state.form.withProposals(foods, result.value), proposals = ProposalState.Idle)
                     is ClaudeResult.Failure -> state.copy(proposals = ProposalState.Failed(result.reason))
-                }
-            }
-        }
-    }
-
-    /** Has Claude propose a new ingredient for the name typed into the open line editor. */
-    fun proposeForLine() {
-        val editor = _state.value.lineEditor ?: return
-        val name = editor.form.ingredientQuery.trim()
-        if (editor.proposing || name.isEmpty()) return
-        val apiKey = settings.apiKey()
-        if (apiKey == null) {
-            _state.update { it.copy(lineEditor = editor.copy(proposalFailure = ClaudeFailure.NO_API_KEY)) }
-            return
-        }
-        val food = NewFood(newTempId(), name, editor.form.wording.trim(), searchTerms = emptyList())
-        _state.update { it.copy(lineEditor = editor.copy(proposing = true, proposalFailure = null)) }
-        viewModelScope.launch {
-            val result = newIngredientFinder.propose(apiKey, settings.settings.value.scanModel, listOf(food))
-            _state.update { state ->
-                // Only the editor that asked takes the answer; a closed one leaves an unused proposal.
-                val current = state.lineEditor?.takeIf { it.proposing }
-                when (result) {
-                    is ClaudeResult.Success -> {
-                        val proposal = result.value.getValue(food.id)
-                        state.copy(
-                            form = state.form.withNewIngredient(food.id, proposal),
-                            lineEditor = current?.copy(
-                                form = current.form.withIngredient(food.id, proposal.name, proposal.units(food.id)),
-                                proposing = false,
-                            ),
-                        )
-                    }
-                    is ClaudeResult.Failure ->
-                        state.copy(lineEditor = current?.copy(proposing = false, proposalFailure = result.reason))
                 }
             }
         }
@@ -993,7 +953,6 @@ fun RecipeEditScreen(
                 onApply = viewModel::applyLine,
                 onDismiss = viewModel::dismissLineEditor,
                 onCreateIngredient = { onCreateIngredient(editor.form.ingredientQuery.trim()) },
-                onProposeIngredient = { viewModel.useClaude(ClaudeAction.PROPOSE_LINE) },
                 onConfirmNew = viewModel::confirmNewIngredient,
                 onChangeNew = viewModel::openUsdaPicker,
                 onEnterLabelNew = viewModel::openLabelNutrition,
@@ -1270,7 +1229,7 @@ private fun SourceField(
 
 /**
  * One checklist row: the line's text, how its grams come about and the matched ingredient. A [problem] line stands out
- * and says what is missing; a resolved one shows a ✓.
+ * and says what is missing.
  */
 @Composable
 private fun LineItem(
@@ -1291,7 +1250,7 @@ private fun LineItem(
         LineProblem.UNCERTAIN -> colors.tertiaryContainer to R.string.recipe_line_uncertain
         null -> Color.Transparent to null
     }
-    // Not a ListItem: its leading icon is centred in a two-line row, here it sits on the first line.
+    // Not a ListItem: its trailing icon is centred in a two-line row, here it sits on the first line.
     Row(
         modifier
             .fillMaxWidth()
@@ -1301,9 +1260,6 @@ private fun LineItem(
             .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        if (problem == null) {
-            Icon(Icons.Filled.Check, stringResource(R.string.recipe_line_resolved), tint = colors.primary)
-        }
         Column(Modifier.weight(1f)) {
             label?.let {
                 Text(stringResource(it), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
@@ -1320,13 +1276,13 @@ private fun LineItem(
                 color = colors.onSurfaceVariant,
             )
         }
-        IconButton(onClick = onRemove, Modifier.align(Alignment.CenterVertically)) {
+        // Up by the button's inner padding, so the icon is level with the first line of text.
+        IconButton(onClick = onRemove, Modifier.offset(y = (-12).dp)) {
             Icon(Icons.Filled.Close, stringResource(R.string.recipe_line_remove))
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun LineEditorDialog(
     editor: LineEditorState,
@@ -1340,7 +1296,6 @@ private fun LineEditorDialog(
     onApply: () -> Unit,
     onDismiss: () -> Unit,
     onCreateIngredient: () -> Unit,
-    onProposeIngredient: () -> Unit,
     onConfirmNew: (Long) -> Unit,
     onChangeNew: (Long) -> Unit,
     onEnterLabelNew: (Long) -> Unit,
@@ -1357,41 +1312,30 @@ private fun LineEditorDialog(
                 Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // A new line asks for the ingredient first and shows the amount once one was picked.
+                // A new line asks for the ingredient first; the amount is there from the start, usable once one was picked.
                 val adding = editor.index == null
-                val showAmount = !adding || form.picked
+                val amountEnabled = !adding || form.picked
                 val ingredientFocus = remember { FocusRequester() }
                 val amountFocus = remember { FocusRequester() }
-                LaunchedEffect(form.picked) {
-                    if (adding) (if (form.picked) amountFocus else ingredientFocus).requestFocus()
+                // Picking moves on to the amount, but opening a line that already has its ingredient doesn't.
+                val initialIngredient = remember { form.ingredientId }
+                LaunchedEffect(form.ingredientId) {
+                    when {
+                        form.ingredientId == null -> if (adding) ingredientFocus.requestFocus()
+                        form.ingredientId != initialIngredient -> amountFocus.requestFocus()
+                    }
                 }
-                FormField(
-                    value = form.ingredientQuery,
-                    onValueChange = { onChange { withIngredientQuery(it) } },
-                    label = R.string.recipe_line_ingredient,
+                IngredientField(
+                    form = form,
+                    suggestions = suggestions,
                     error = if (errors?.ingredient == true) R.string.error_ingredient_required else null,
-                    capitalize = true,
-                    imeAction = ImeAction.Next,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(ingredientFocus),
+                    onQueryChange = { onChange { withIngredientQuery(it) } },
+                    onPick = { ingredient ->
+                        onChange { withIngredient(ingredient, ingredientUnits[ingredient.id].orEmpty(), usualUnits[ingredient.id]) }
+                    },
+                    onCreate = onCreateIngredient,
+                    modifier = Modifier.focusRequester(ingredientFocus),
                 )
-                suggestions.forEach { ingredient ->
-                    ListItem(
-                        headlineContent = { Text(ingredient.name) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable {
-                            onChange { withIngredient(ingredient, ingredientUnits[ingredient.id].orEmpty(), usualUnits[ingredient.id]) }
-                        },
-                    )
-                }
-                if (form.ingredientId == null && form.ingredientQuery.isNotBlank() && suggestions.isEmpty()) {
-                    Text(
-                        stringResource(R.string.recipe_line_no_match),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
                 val ingredientId = form.ingredientId
                 if (newIngredient != null && ingredientId != null) {
                     NewIngredientMatch(
@@ -1402,69 +1346,45 @@ private fun LineEditorDialog(
                         onEnterLabel = { onEnterLabelNew(ingredientId) },
                     )
                 }
-                if (ingredientId == null) {
-                    if (editor.proposing) {
-                        LinearWavyProgressIndicator(Modifier.fillMaxWidth())
-                        Text(stringResource(R.string.new_ingredient_proposing_one), style = MaterialTheme.typography.bodySmall)
-                    } else if (form.ingredientQuery.isNotBlank()) {
-                        TextButton(onClick = onCreateIngredient) {
-                            Icon(Icons.Filled.Add, contentDescription = null)
-                            Text(stringResource(R.string.recipe_line_create_ingredient), Modifier.padding(start = 8.dp))
-                        }
-                        TextButton(onClick = onProposeIngredient) {
-                            Icon(Icons.Filled.AutoAwesome, contentDescription = null)
-                            Text(
-                                stringResource(R.string.recipe_line_propose_ingredient, form.ingredientQuery.trim()),
-                                Modifier.padding(start = 8.dp),
-                            )
-                        }
-                    }
-                    editor.proposalFailure?.let { failure ->
-                        Text(
-                            stringResource(failure.message),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
-                if (showAmount) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FormField(
-                            value = form.amount,
-                            onValueChange = { onChange { withAmount(it) } },
-                            label = R.string.recipe_line_amount_field,
-                            error = if (errors?.amount == true) R.string.error_positive_decimal else null,
-                            keyboardType = KeyboardType.Decimal,
-                            // Adding goes on to the next line from the amount; the wording is optional.
-                            imeAction = if (adding) ImeAction.Done else ImeAction.Next,
-                            onImeAction = if (adding) onApply else null,
-                            modifier = Modifier
-                                .weight(1f)
-                                .focusRequester(amountFocus),
-                        )
-                        UnitField(
-                            unit = form.unit,
-                            options = form.unitOptions(),
-                            onSelect = { onChange { withUnit(it) } },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    form.resolved()?.calculation?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    form.missingUnit?.let { unit ->
-                        MissingUnitFields(unit, form, errors, onChange)
-                    }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FormField(
-                        value = form.wording,
-                        onValueChange = { onChange { withWording(it) } },
-                        label = R.string.recipe_line_text,
-                        hint = R.string.recipe_line_text_hint,
-                        capitalize = true,
-                        imeAction = if (hasNextProblem) ImeAction.Go else ImeAction.Done,
-                        onImeAction = onApply,
+                        value = form.amount,
+                        onValueChange = { onChange { withAmount(it) } },
+                        label = R.string.recipe_line_amount_field,
+                        error = if (errors?.amount == true) R.string.error_positive_decimal else null,
+                        keyboardType = KeyboardType.Decimal,
+                        // Adding goes on to the next line from the amount; the wording is optional.
+                        imeAction = if (adding) ImeAction.Done else ImeAction.Next,
+                        onImeAction = if (adding) onApply else null,
+                        enabled = amountEnabled,
+                        modifier = Modifier
+                            .weight(0.3f)
+                            .focusRequester(amountFocus),
+                    )
+                    UnitField(
+                        unit = form.unit,
+                        options = form.unitOptions(),
+                        onSelect = { onChange { withUnit(it) } },
+                        enabled = amountEnabled,
+                        modifier = Modifier.weight(0.7f),
                     )
                 }
+                form.resolved()?.calculation?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                form.missingUnit?.let { unit ->
+                    MissingUnitFields(unit, form, errors, onChange)
+                }
+                FormField(
+                    value = form.wording,
+                    onValueChange = { onChange { withWording(it) } },
+                    label = R.string.recipe_line_text,
+                    hint = R.string.recipe_line_text_hint,
+                    capitalize = true,
+                    imeAction = if (hasNextProblem) ImeAction.Go else ImeAction.Done,
+                    onImeAction = onApply,
+                    enabled = amountEnabled,
+                )
             }
         },
         confirmButton = {
@@ -1474,6 +1394,66 @@ private fun LineEditorDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
+}
+
+/**
+ * The ingredient of a line: typing opens the matches as a menu over the dialog, so the dialog keeps its size, with
+ * creating the typed name as a new ingredient last. Enter picks the first match.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun IngredientField(
+    form: RecipeLineForm,
+    suggestions: List<Ingredient>,
+    @StringRes error: Int?,
+    onQueryChange: (String) -> Unit,
+    onPick: (Ingredient) -> Unit,
+    onCreate: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Opens on typing and closes on picking or dismissing, like the source field.
+    var typing by remember { mutableStateOf(false) }
+    val query = form.ingredientQuery.trim()
+    val expanded = typing && form.ingredientId == null && query.isNotEmpty()
+    val pick = { ingredient: Ingredient ->
+        typing = false
+        onPick(ingredient)
+    }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { if (!it) typing = false },
+        modifier = modifier,
+    ) {
+        FormField(
+            value = form.ingredientQuery,
+            onValueChange = {
+                typing = true
+                onQueryChange(it)
+            },
+            label = R.string.recipe_line_ingredient,
+            error = error,
+            capitalize = true,
+            imeAction = ImeAction.Next,
+            onImeAction = { suggestions.firstOrNull()?.let(pick) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { typing = false }) {
+            suggestions.forEach { ingredient ->
+                DropdownMenuItem(text = { Text(ingredient.name) }, onClick = { pick(ingredient) })
+            }
+            if (suggestions.isNotEmpty()) HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.recipe_line_create_ingredient, query)) },
+                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                onClick = {
+                    typing = false
+                    onCreate()
+                },
+            )
+        }
+    }
 }
 
 /**
@@ -1552,13 +1532,21 @@ private fun MissingUnitFields(
 /** The line's unit, picked from g, ml, the ingredient's units and all other units. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun UnitField(unit: LineUnit, options: List<LineUnit>, onSelect: (LineUnit) -> Unit, modifier: Modifier = Modifier) {
+private fun UnitField(
+    unit: LineUnit,
+    options: List<LineUnit>,
+    onSelect: (LineUnit) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
+    ExposedDropdownMenuBox(expanded = expanded && enabled, onExpandedChange = { expanded = it }, modifier = modifier) {
         OutlinedTextField(
-            value = LineAmount.word(unit),
+            // The cursor at the start, so a unit too long for the field loses its end, not its start.
+            value = TextFieldValue(LineAmount.word(unit), selection = TextRange.Zero),
             onValueChange = {},
             readOnly = true,
+            enabled = enabled,
             textStyle = MaterialTheme.typography.bodyLarge,
             singleLine = true,
             label = { Text(stringResource(R.string.recipe_line_unit), maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -1597,11 +1585,13 @@ private fun FormField(
     imeAction: ImeAction = ImeAction.Default,
     /** Replaces the default IME action (moving focus on Next, closing the keyboard on Done). */
     onImeAction: (() -> Unit)? = null,
+    enabled: Boolean = true,
 ) {
     val supporting = (error ?: hint)?.let { stringResource(it) } ?: supportingText
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
+        enabled = enabled,
         // The size of the label, also in a dialog's smaller text style: an empty field showing its
         // label is as high as a filled one. On one line, so a wrapped label doesn't grow it either.
         textStyle = MaterialTheme.typography.bodyLarge,
