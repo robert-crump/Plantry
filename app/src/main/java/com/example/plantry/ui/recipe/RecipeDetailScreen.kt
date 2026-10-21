@@ -256,17 +256,17 @@ fun RecipeDetailScreen(
                 .nestedScroll(fab.connection)
                 .verticalScroll(rememberScrollState()),
         ) {
-            if (detail.highlights.isNotEmpty()) {
-                HighlightTags(detail.highlights, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
-            }
             photos?.let {
                 PhotoRoll(
                     it,
                     onOpen = { index -> openPhoto = index },
-                    modifier = Modifier.padding(top = 16.dp),
+                    modifier = Modifier.padding(top = 8.dp),
                     state = photoRoll,
                     onAdd = { choosingPhotoSource = true },
                 )
+            }
+            if (detail.highlights.isNotEmpty()) {
+                HighlightTags(detail.highlights, Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp))
             }
             // Without lines a 0 would say nothing.
             MetadataCard(current, plantPoints = detail.stats.roundedPlantPoints.takeIf { detail.lines.isNotEmpty() })
