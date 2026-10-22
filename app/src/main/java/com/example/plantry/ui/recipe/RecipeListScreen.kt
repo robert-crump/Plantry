@@ -3,7 +3,6 @@ package com.example.plantry.ui.recipe
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,8 +16,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.NoteAdd
-import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterAlt
@@ -28,8 +25,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -92,6 +87,7 @@ import com.example.plantry.ui.FabScrim
 import com.example.plantry.ui.FilterRow
 import com.example.plantry.ui.FilterRows
 import com.example.plantry.ui.ScrollToTopOnChange
+import com.example.plantry.ui.SortMenu
 import com.example.plantry.ui.SnackbarBelowFab
 import com.example.plantry.ui.rememberFabVisibility
 import com.example.plantry.ui.rememberHideKeyboardOnScroll
@@ -304,7 +300,7 @@ fun RecipeListScreen(
                                     Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.recipe_search_clear))
                                 }
                             }
-                            SortMenu(it.sort) { option -> viewModel.setSort(option); sortPicks++ }
+                            SortMenu(RecipeSort.entries, it.sort, { option -> option.label }) { option -> viewModel.setSort(option); sortPicks++ }
                         }
                     },
                 )
@@ -376,30 +372,6 @@ private fun IngredientFilterButton(chosen: Int, onClick: () -> Unit) {
                 if (chosen > 0) Icons.Filled.FilterAlt else Icons.Outlined.OutlinedFilterAlt,
                 contentDescription = stringResource(R.string.recipe_filter_ingredients),
             )
-        }
-    }
-}
-
-@Composable
-private fun SortMenu(sort: RecipeSort, onSort: (RecipeSort) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { expanded = true }) {
-            Icon(Icons.AutoMirrored.Filled.Sort, stringResource(R.string.recipe_sort))
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            RecipeSort.entries.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(stringResource(option.label)) },
-                    onClick = {
-                        onSort(option)
-                        expanded = false
-                    },
-                    leadingIcon = {
-                        if (option == sort) Icon(Icons.Filled.Check, contentDescription = null)
-                    },
-                )
-            }
         }
     }
 }

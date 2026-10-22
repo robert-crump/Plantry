@@ -37,6 +37,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -59,6 +60,7 @@ import com.example.plantry.ui.FastScrollbar
 import com.example.plantry.ui.FilterRows
 import com.example.plantry.ui.HideOnScrollFab
 import com.example.plantry.ui.ScrollToTopOnChange
+import com.example.plantry.ui.SortMenu
 import com.example.plantry.ui.rememberFabVisibility
 import com.example.plantry.ui.ToggleChip
 import com.example.plantry.ui.currentLocale
@@ -67,6 +69,7 @@ import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientChip
 import com.example.plantry.data.IngredientFilters
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.IngredientSort
 import com.example.plantry.data.IngredientSorting
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.RecipeQuery
@@ -80,7 +83,7 @@ import kotlinx.coroutines.flow.update
 import java.util.Locale
 
 data class IngredientListUiState(
-    /** The ingredients matching the filters, sorted by name. */
+    /** The ingredients matching the filters, in [sort]'s order. */
     val ingredients: List<Ingredient>,
     val totalCount: Int,
     /** Recipes using each ingredient (buy-as links followed); missing ids mean 0. */
@@ -88,6 +91,7 @@ data class IngredientListUiState(
     val chips: ChipSelection<IngredientChip>,
     /** The name search while it is open, blank before anything is typed; null while closed. */
     val search: String? = null,
+    val sort: IngredientSort = IngredientSort.NAME,
 ) {
     val filtered: Boolean get() = chips.active.isNotEmpty() || !search.isNullOrBlank()
 }
@@ -99,6 +103,7 @@ class IngredientListViewModel(
 
     private val chips = MutableStateFlow(ChipSelection<IngredientChip>())
     private val search = MutableStateFlow<String?>(null)
+    private val sort = MutableStateFlow(IngredientSort.NAME)
 
     /** Null until the first emission, so the empty state doesn't flash on launch. */
     val state: StateFlow<IngredientListUiState?> =
@@ -106,22 +111,29 @@ class IngredientListViewModel(
             repository.observeIngredients(),
             recipeRepository.observeAllLines(),
             chips,
-            search,
-        ) { all, lines, chips, search ->
+            combine(search, sort, ::Pair),
+        ) { all, lines, chips, (search, sort) ->
             val recipeCounts = RecipeQuery.recipeCounts(lines, all.associateBy { it.id })
             IngredientListUiState(
-                ingredients = IngredientSorting.sortedByName(
+                ingredients = IngredientSorting.sorted(
                     IngredientFilters.apply(all, chips.active, search.orEmpty()),
+                    sort,
+                    recipeCounts,
                     Locale.getDefault(),
                 ),
                 totalCount = all.size,
                 recipeCounts = recipeCounts,
                 chips = chips,
                 search = search,
+                sort = sort,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun toggleChip(chip: IngredientChip) = chips.update { it.toggle(chip) }
+
+    fun setSort(value: IngredientSort) {
+        sort.value = value
+    }
 
     fun openSearch() {
         search.update { it ?: "" }
@@ -135,10 +147,11 @@ class IngredientListViewModel(
         search.value = null
     }
 
-    /** No chip on and the search closed; called each time the Zutaten tab is opened. */
+    /** No chip on, the search closed and sorted A–Z; called each time the Zutaten tab is opened. */
     fun resetFilters() {
         chips.value = ChipSelection()
         search.value = null
+        sort.value = IngredientSort.NAME
     }
 }
 
@@ -153,8 +166,11 @@ fun IngredientListScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val fab = rememberFabVisibility()
     val listState = rememberLazyListState()
-    // A changed filter starts at the top, so a shrunk list isn't scrolled past its end.
-    ScrollToTopOnChange(listState, listOf(state?.chips, state?.search)) { fab.visible = true }
+    // Picking a sort, even the current one, jumps to the top; keyed on the sort too so it
+    // runs after the list has been reordered (the keyed rows would otherwise keep their place).
+    // A changed filter starts at the top too, so a shrunk list isn't scrolled past its end.
+    var sortPicks by rememberSaveable { mutableIntStateOf(0) }
+    ScrollToTopOnChange(listState, listOf(sortPicks, state?.sort, state?.chips, state?.search)) { fab.visible = true }
     val search = state?.search
     val searchFocus = remember { FocusRequester() }
     // Only tapping the search icon opens the keyboard, not coming back to an open search.
@@ -183,15 +199,19 @@ fun IngredientListScreen(
                     }
                 },
                 actions = {
-                    if (search == null) {
-                        if ((state?.totalCount ?: 0) > 0) {
+                    state?.takeIf { it.totalCount > 0 }?.let {
+                        if (search == null) {
                             IconButton(onClick = { focusSearch = true; viewModel.openSearch() }) {
                                 Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.ingredient_search))
                             }
+                        } else if (search.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.setSearch(""); searchFocus.requestFocus() }) {
+                                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.recipe_search_clear))
+                            }
                         }
-                    } else if (search.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.setSearch(""); searchFocus.requestFocus() }) {
-                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.recipe_search_clear))
+                        SortMenu(IngredientSort.entries, it.sort, { option -> option.label }) { option ->
+                            viewModel.setSort(option)
+                            sortPicks++
                         }
                     }
                 },
@@ -209,9 +229,10 @@ fun IngredientListScreen(
     ) { padding ->
         val current = state ?: return@Scaffold
         val locale = currentLocale()
-        // One letter per row, in list order (the list is already sorted by name); none for the filters.
-        val scrollLabels = remember(current.ingredients, locale) {
-            listOf(null) + current.ingredients.map { IngredientSorting.indexLetter(it.name, locale) }
+        // One label per row, in list order: the first letter A–Z, else the value sorted by; none for the filters.
+        val grams = stringResource(R.string.ingredient_sort_grams)
+        val scrollLabels = remember(current.ingredients, current.sort, locale, grams) {
+            listOf(null) + current.ingredients.map { scrollLabel(it, current.sort, current.recipeCounts, locale, grams) }
         }
         Box(Modifier.fillMaxSize().padding(padding).nestedScroll(fab.connection)) {
             LazyColumn(
@@ -253,7 +274,7 @@ fun IngredientListScreen(
                     val recipeCount = current.recipeCounts[ingredient.id] ?: 0
                     IngredientRow(
                         ingredient,
-                        amounts = chipAmounts(current.chips, ingredient.nutrition, locale),
+                        amounts = chipAmounts(current.chips, current.sort, ingredient.nutrition, locale),
                         recipeCount = recipeCount,
                         onClick = { onIngredientClick(ingredient.id) },
                         onRecipesClick = if (recipeCount > 0) {
@@ -311,6 +332,32 @@ internal val IngredientChip.label: Int
 private fun shownChips(chips: ChipSelection<IngredientChip>): List<IngredientChip> =
     IngredientChip.entries.filter { it in chips.active }
 
+private val IngredientSort.label: Int
+    get() = when (this) {
+        IngredientSort.NAME -> R.string.recipe_sort_title
+        IngredientSort.PROTEIN -> R.string.ingredient_sort_protein
+        IngredientSort.CARBS -> R.string.ingredient_sort_carbs
+        IngredientSort.FIBRE -> R.string.ingredient_sort_fibre
+        IngredientSort.RECIPES -> R.string.ingredient_sort_recipes
+    }
+
+/**
+ * The fast scrollbar's bubble for [ingredient]: its first letter sorted A–Z, else the value sorted
+ * by, e.g. "24 g" ([grams] with the whole grams per 100 g, as in the row) or "12" recipes.
+ */
+private fun scrollLabel(
+    ingredient: Ingredient,
+    sort: IngredientSort,
+    recipeCounts: Map<Long, Int>,
+    locale: Locale,
+    grams: String,
+): String? = when {
+    sort.nutrient != null ->
+        grams.format(formatDecimal(Math.round(IngredientFilters.amount(sort.nutrient, ingredient.nutrition)).toDouble(), locale))
+    sort == IngredientSort.RECIPES -> "${recipeCounts[ingredient.id] ?: 0}"
+    else -> IngredientSorting.indexLetter(ingredient.name, locale)
+}
+
 internal val IngredientChip.amountLabel: Int
     get() = when (this) {
         IngredientChip.HIGH_PROTEIN -> R.string.filter_amount_protein
@@ -318,10 +365,13 @@ internal val IngredientChip.amountLabel: Int
         IngredientChip.HIGH_FIBRE -> R.string.filter_amount_fibre
     }
 
-/** The ingredient's whole grams per 100 g for each active chip, e.g. "24 g Protein · 11 g Ballaststoffe"; null without one. */
+/**
+ * The ingredient's whole grams per 100 g for each active chip and the nutrient [sort] is by, in
+ * chip row order, e.g. "24 g Protein · 11 g Ballaststoffe"; null without either.
+ */
 @Composable
-private fun chipAmounts(chips: ChipSelection<IngredientChip>, nutrition: Nutrition, locale: Locale): String? =
-    shownChips(chips).map { chip ->
+private fun chipAmounts(chips: ChipSelection<IngredientChip>, sort: IngredientSort, nutrition: Nutrition, locale: Locale): String? =
+    IngredientChip.entries.filter { it in chips.active || it == sort.nutrient }.map { chip ->
         stringResource(chip.amountLabel, formatDecimal(Math.round(IngredientFilters.amount(chip, nutrition)).toDouble(), locale))
     }.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 

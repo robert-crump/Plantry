@@ -282,6 +282,11 @@
     <!-- The ingredient count, then each active chip's threshold, e.g. "90/213 Zutaten · ab 12 g Protein je 100 g" -->
     <string name="filter_thresholds">%1$s · %2$s je 100 g</string>
     <string name="ingredient_search">Zutat suchen</string>
+    <string name="ingredient_sort_protein">Eiweiß je 100 g</string>
+    <string name="ingredient_sort_carbs">Kohlenhydrate je 100 g</string>
+    <string name="ingredient_sort_fibre">Ballaststoffe je 100 g</string>
+    <string name="ingredient_sort_recipes">Meiste Rezepte</string>
+    <string name="ingredient_sort_grams">%s g</string>
     <string name="ingredient_fab">Zutat</string>
     <string name="ingredient_add">Zutat hinzufügen</string>
     <plurals name="ingredient_recipe_count">
