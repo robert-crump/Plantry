@@ -16,6 +16,12 @@ class ProposalEventRepository(
         return dao.insert(ProposalEvent(date = today(), recipeId = recipeId, hookId = hookId))
     }
 
+    /** The hook of the latest proposal's title, which the next one must not repeat. */
+    suspend fun lastHookId(): String? = dao.lastHookId()
+
+    /** The hook of the proposal [id]'s title, to show it the same again; null if it had none. */
+    suspend fun hookId(id: Long): String? = dao.get(id)?.hookId
+
     /** [outcome] happened to the proposal [id], unless something stronger already did. */
     suspend fun record(id: Long, outcome: ProposalOutcome) {
         val event = dao.get(id) ?: return

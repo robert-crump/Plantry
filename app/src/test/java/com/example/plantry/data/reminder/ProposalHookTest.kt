@@ -2,8 +2,11 @@ package com.example.plantry.data.reminder
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.DayOfWeek
 import java.time.LocalDate
+import kotlin.random.Random
 
 class ProposalHookTest {
 
@@ -108,4 +111,109 @@ class ProposalHookTest {
         assertEquals("vor über einem Jahr", FriendlyDuration.ago(400))
         assertEquals("vor über zwei Jahren", FriendlyDuration.ago(800))
     }
+
+    private val fancy = MoodHook("fancy", "Lust auf {name}?")
+    private val upNext = MoodHook("up_next", "Heute dran: {name}")
+    private val lovedOnes = MoodHook("loved_ones", "Heute für deine Liebsten: {name}")
+    private val wednesday = MoodHook("hump_day", "Bergfest: {name}", DayOfWeek.WEDNESDAY)
+
+    /** [today] is a Wednesday. */
+    private fun choose(
+        factual: ProposalHook? = null,
+        moods: List<MoodHook> = listOf(fancy, upNext),
+        name: String = "Linsen-Dal",
+        day: LocalDate = today,
+        lastId: String? = null,
+        seed: Int = 0,
+    ) = TitleHook.choose(factual, moods, name, day, lastId, Random(seed))
+
+    /** What [choose] picks over many seeds. */
+    private fun picks(
+        factual: ProposalHook? = null,
+        moods: List<MoodHook> = listOf(fancy, upNext),
+        name: String = "Linsen-Dal",
+        day: LocalDate = today,
+        lastId: String? = null,
+    ) = (0 until 200).map { choose(factual, moods, name, day, lastId, it) }.toSet()
+
+    @Test
+    fun choose_isTheSameForTheSameSeed() =
+        assertEquals(choose(ProposalHook.New, seed = 7), choose(ProposalHook.New, seed = 7))
+
+    @Test
+    fun choose_tossesBetweenFactAndMood() =
+        assertEquals(setOf(ProposalHook.New, fancy, upNext), picks(ProposalHook.New))
+
+    @Test
+    fun choose_tossIsHalfAndHalf() {
+        val facts = (0 until 1000).count { choose(ProposalHook.New, seed = it) == ProposalHook.New }
+        assertTrue("$facts", facts in 430..570)
+    }
+
+    @Test
+    fun choose_withoutFact_alwaysAMood() = assertEquals(setOf(fancy, upNext), picks())
+
+    @Test
+    fun choose_neverTheLastMoodAgain() = assertEquals(setOf(ProposalHook.New, upNext), picks(ProposalHook.New, lastId = "mood_fancy"))
+
+    @Test
+    fun choose_neverTheLastFactAgain() = assertEquals(setOf(fancy, upNext), picks(ProposalHook.New, lastId = "new"))
+
+    @Test
+    fun choose_lastFactAndNoMoodLeft_isNone() = assertNull(choose(ProposalHook.New, moods = emptyList(), lastId = "new"))
+
+    @Test
+    fun choose_onlyTheLastMoodLeft_isTheFact() =
+        assertEquals(ProposalHook.New, choose(ProposalHook.New, moods = listOf(fancy), lastId = "mood_fancy"))
+
+    @Test
+    fun choose_nothingAtAll_isNone() = assertNull(choose(moods = emptyList()))
+
+    @Test
+    fun choose_weekdayMoodOnlyOnItsDay() {
+        assertEquals(setOf(fancy, wednesday), picks(moods = listOf(fancy, wednesday)))
+        assertEquals(setOf(fancy), picks(moods = listOf(fancy, wednesday), day = today.plusDays(1)))
+    }
+
+    @Test
+    fun choose_onlyMoodsWhoseTitleFits() {
+        val name = "Ofengemüse mit Tahini"
+        assertTrue(lovedOnes.title(name).length > ProposalText.MAX_TITLE_LENGTH)
+        assertEquals(setOf(fancy), picks(moods = listOf(fancy, lovedOnes), name = name))
+    }
+
+    @Test
+    fun choose_noMoodFits_isTheFact() =
+        assertEquals(setOf(ProposalHook.New), picks(ProposalHook.New, moods = listOf(lovedOnes), name = "Ofengemüse mit Tahini"))
+
+    @Test
+    fun mood_idIsItsKey() = assertEquals("mood_fancy", fancy.id)
+
+    @Test
+    fun mood_parse() {
+        assertEquals(MoodHook("how_about", "Wie wär's mit {name}?"), MoodHook.parse("how_about|Wie wär's mit {name}?"))
+        assertEquals(MoodHook("week_start", "Wochenstart: {name}", DayOfWeek.MONDAY), MoodHook.parse("week_start|MO|Wochenstart: {name}"))
+        assertEquals(DayOfWeek.SUNDAY, MoodHook.parse("sunday|SO|Sonntagsessen: {name}").weekday)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun mood_parse_unknownWeekday() {
+        MoodHook.parse("x|MON|Hallo {name}")
+    }
+
+    @Test
+    fun text_mood_keepsTheFactualSentence() = assertEquals(
+        ProposalText("Lust auf Linsen-Dal?", "Noch nie gekocht.\n🌱 +5 neu"),
+        ProposalText.mood("Linsen-Dal", fancy, "Noch nie gekocht.", "🌱 +5 neu"),
+    )
+
+    @Test
+    fun text_mood_withoutFact_isOverTheFacts() =
+        assertEquals(ProposalText("Lust auf Linsen-Dal?", "🌱 +5 neu"), ProposalText.mood("Linsen-Dal", fancy, null, "🌱 +5 neu"))
+
+    @Test
+    fun text_behind_isTheNameOverTheHook() = assertEquals(
+        ProposalText("Linsen-Dal", "Mal was Neues: Noch nie gekocht.\n🌱 +5 neu"),
+        ProposalText.behind("Linsen-Dal", "Mal was Neues", "Noch nie gekocht.", "🌱 +5 neu"),
+    )
 }

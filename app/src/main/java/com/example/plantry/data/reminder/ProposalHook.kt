@@ -2,15 +2,51 @@ package com.example.plantry.data.reminder
 
 import com.example.plantry.data.RecipeHighlight
 import com.example.plantry.data.planner.plantPointsGoalReachedWith
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import kotlin.math.roundToInt
+import kotlin.random.Random
+
+/** What leads the proposal notification's title: a [ProposalHook] or a [MoodHook]. [id] is what the ProposalEvent log stores. */
+sealed interface TitleHook {
+    val id: String
+
+    companion object {
+        /**
+         * Today's title hook: a coin toss between the [factual] hook and a mood hook when both are
+         * eligible, else whichever is, else none. Never the [lastId] again; a mood hook only on its
+         * weekday and only when its title for [name] fits uncut. Without one, a [factual] hook still
+         * goes in the expanded text.
+         */
+        fun choose(
+            factual: ProposalHook?,
+            moods: List<MoodHook>,
+            name: String,
+            today: LocalDate,
+            lastId: String?,
+            random: Random,
+        ): TitleHook? {
+            val fact = factual?.takeIf { it.id != lastId }
+            val fitting = moods.filter {
+                it.id != lastId &&
+                    (it.weekday == null || it.weekday == today.dayOfWeek) &&
+                    it.title(name).length <= ProposalText.MAX_TITLE_LENGTH
+            }
+            return when {
+                fitting.isEmpty() -> fact
+                fact != null && random.nextBoolean() -> fact
+                else -> fitting.random(random)
+            }
+        }
+    }
+}
 
 /**
  * Why this recipe, in front of its name in the proposal notification: a fact that is true for the
  * suggester's pick. It never changes which recipe is picked. [id] is what the ProposalEvent log stores.
  */
-sealed class ProposalHook(val id: String) {
+sealed class ProposalHook(override val id: String) : TitleHook {
     /** "Wochenziel in Reichweite": cooking it takes this week to the plant-points goal. */
     data object WeeklyGoal : ProposalHook("weekly_goal")
 
@@ -47,6 +83,32 @@ sealed class ProposalHook(val id: String) {
     }
 }
 
+/**
+ * A title with no fact behind it, so the proposal doesn't read the same every day: "Lust auf
+ * {name}?". Only on [weekday] when it has one.
+ */
+data class MoodHook(val key: String, val template: String, val weekday: DayOfWeek? = null) : TitleHook {
+    override val id: String get() = "mood_$key"
+
+    fun title(name: String): String = template.replace(NAME, name)
+
+    companion object {
+        const val NAME = "{name}"
+
+        private val WEEKDAYS = listOf("MO", "DI", "MI", "DO", "FR", "SA", "SO")
+
+        /** "key|template", or "key|MO|template" for one only on Mondays (MO DI MI DO FR SA SO), as strings.xml lists them. */
+        fun parse(item: String): MoodHook {
+            val parts = item.split("|")
+            return when (parts.size) {
+                2 -> MoodHook(parts[0], parts[1])
+                3 -> MoodHook(parts[0], parts[2], DayOfWeek.of(WEEKDAYS.indexOf(parts[1]).also { require(it >= 0) { item } } + 1))
+                else -> throw IllegalArgumentException(item)
+            }
+        }
+    }
+}
+
 /** The proposal notification's collapsed title and its expanded (BigText) text. */
 data class ProposalText(val title: String, val expanded: String) {
     companion object {
@@ -64,12 +126,15 @@ data class ProposalText(val title: String, val expanded: String) {
         fun of(name: String, hook: String?, sentence: String?, facts: String): ProposalText {
             if (hook == null || sentence == null) return ProposalText(name, facts)
             val title = "$hook: $name"
-            return if (title.length <= MAX_TITLE_LENGTH) {
-                ProposalText(title, "$sentence\n$facts")
-            } else {
-                ProposalText(name, "$hook: $sentence\n$facts")
-            }
+            return if (title.length <= MAX_TITLE_LENGTH) ProposalText(title, "$sentence\n$facts") else behind(name, hook, sentence, facts)
         }
+
+        /** The plain [name] over "{hook}: {sentence}" and the [facts]: the hook only in the expanded text. */
+        fun behind(name: String, hook: String, sentence: String, facts: String) = ProposalText(name, "$hook: $sentence\n$facts")
+
+        /** The [mood] hook's title for [name] over the factual hook's [sentence], if any, and the [facts]. */
+        fun mood(name: String, mood: MoodHook, sentence: String?, facts: String) =
+            ProposalText(mood.title(name), if (sentence == null) facts else "$sentence\n$facts")
     }
 }
 

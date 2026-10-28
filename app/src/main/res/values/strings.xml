@@ -241,6 +241,25 @@
     <string name="proposal_hook_long_ago_sentence">Zuletzt gekocht %1$s.</string>
     <string name="proposal_hook_protein_power">Protein-Power</string>
     <string name="proposal_hook_protein_power_sentence">%1$d g Eiweiß pro Portion.</string>
+    <!--
+        Mood hooks: proposal titles with no fact behind them. "key|template", or "key|MO|template" for one
+        only on that weekday (MO DI MI DO FR SA SO). {name} is the recipe. The key is logged, so keep it when
+        rewording; a title longer than 40 characters is never used.
+    -->
+    <string-array name="proposal_mood_hooks">
+        <item>loved_ones|Heute für deine Liebsten: {name}</item>
+        <item>together|Gemeinsam kochen: {name}</item>
+        <item>treat_you|Etwas Gutes für dich: {name}</item>
+        <item>treat_yourself|Heute gönnst du dir: {name}</item>
+        <item>how_about|Wie wär\'s mit {name}?</item>
+        <item>on_the_table|Heute auf dem Tisch: {name}?</item>
+        <item>fancy|Lust auf {name}?</item>
+        <item>up_next|Heute dran: {name}</item>
+        <item>week_start|MO|Wochenstart: {name}</item>
+        <item>hump_day|MI|Bergfest: {name}</item>
+        <item>friday|FR|Freitag: {name}</item>
+        <item>sunday|SO|Sonntagsessen: {name}</item>
+    </string-array>
     <string name="shopping_channel">Einkaufserinnerung</string>
     <string name="shopping_channel_description">Erinnert ans Einkaufen, wenn für heute ein Rezept geplant ist</string>
     <string name="shopping_text">Einkaufen für heute: %1$s?</string>

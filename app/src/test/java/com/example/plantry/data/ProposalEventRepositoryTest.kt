@@ -19,6 +19,17 @@ class ProposalEventRepositoryTest {
     private val repository = ProposalEventRepository(dao) { today }
 
     @Test
+    fun lastHookId_isThatOfTheLatestProposal() = runTest {
+        assertNull(repository.lastHookId())
+        repository.shown(1, "new")
+        val mood = repository.shown(2, "mood_fancy")
+        assertEquals("mood_fancy", repository.lastHookId())
+        assertEquals("mood_fancy", repository.hookId(mood))
+        repository.shown(3, null)
+        assertNull(repository.lastHookId())
+    }
+
+    @Test
     fun after_takesAnyOutcomeWhileThereIsNone() {
         ProposalOutcome.entries.forEach { assertEquals(it, ProposalOutcome.after(null, it)) }
     }
@@ -146,6 +157,8 @@ class ProposalEventRepositoryTest {
         }
 
         override suspend fun get(id: Long) = rows[id]
+
+        override suspend fun lastHookId() = rows.values.lastOrNull()?.hookId
 
         override suspend fun setOutcome(id: Long, outcome: ProposalOutcome?) {
             rows[id]?.let { rows[id] = it.copy(outcome = outcome) }

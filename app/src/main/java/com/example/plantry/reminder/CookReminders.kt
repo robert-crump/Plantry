@@ -26,11 +26,13 @@ import com.example.plantry.data.planner.WeeklyPlantPointsGoal
 import com.example.plantry.data.priceLines
 import com.example.plantry.data.reminder.CookReminder
 import com.example.plantry.data.reminder.FriendlyDuration
+import com.example.plantry.data.reminder.MoodHook
 import com.example.plantry.data.reminder.ProposalFact
 import com.example.plantry.data.reminder.ProposalFacts
 import com.example.plantry.data.reminder.ProposalHook
 import com.example.plantry.data.reminder.ProposalText
 import com.example.plantry.data.reminder.ReminderContent
+import com.example.plantry.data.reminder.TitleHook
 import com.example.plantry.data.settings.ReminderKind
 import com.example.plantry.data.settings.Settings
 import com.example.plantry.data.settings.SettingsRepository
@@ -42,10 +44,11 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
+import kotlin.random.Random
 
 /**
- * The notifications: a recipe proposal (its name, behind a [ProposalHook] when one applies, and a
- * fact line, see [ProposalFacts]) and a
+ * The notifications: a recipe proposal (its name, behind a [ProposalHook] or a [MoodHook], see
+ * [TitleHook.choose], and a fact line, see [ProposalFacts]) and a
  * shopping reminder at their times, and the "Hast du heute … gekocht?" question on the evening of
  * a planned day. Keeps one alarm per kind set while it is on, shows the notification when the alarm
  * fires and answers the buttons of the proposal and the evening one. The proposal's "Planen" turns
@@ -63,6 +66,7 @@ class CookReminders(
 ) {
     private val alarms = context.getSystemService(AlarmManager::class.java)
     private val notifications = context.getSystemService(NotificationManager::class.java)
+    private val moods by lazy { context.resources.getStringArray(R.array.proposal_mood_hooks).map(MoodHook::parse) }
 
     /** Keeps the alarms in step with the settings and Geplant while the process lives. */
     fun start(scope: CoroutineScope) {
@@ -100,7 +104,7 @@ class CookReminders(
         if (canNotify()) {
             when (kind) {
                 ReminderKind.PROPOSAL -> proposal(enabled, today, plannedNow)?.let {
-                    notifications.notify(kind.notificationId, buildProposal(it, events.shown(it.recipe.id, it.hook?.id)))
+                    notifications.notify(kind.notificationId, buildProposal(it, events.shown(it.recipe.id, it.titleHook?.id)))
                 }
                 // One Plantry notification at a time: these replace a proposal or its confirmation.
                 ReminderKind.SHOPPING -> CookReminder.content(enabled, today, plannedNow, recipes.observeRecipes().first())?.let {
@@ -125,7 +129,7 @@ class CookReminders(
      */
     suspend fun planProposal(recipeId: Long, eventId: Long?) {
         val today = LocalDate.now()
-        val proposal = proposalOf(recipeId, today) ?: return notifications.cancel(ReminderKind.PROPOSAL.notificationId)
+        val proposal = proposalOf(recipeId, today) { factual, _ -> factual } ?: return notifications.cancel(ReminderKind.PROPOSAL.notificationId)
         val previous = planned.observe().first().firstOrNull { it.recipeId == recipeId }
         // Shown before planning, so the update that follows finds a confirmation, not a proposal no longer wanted.
         if (canNotify()) notifications.notify(ReminderKind.PROPOSAL.notificationId, buildConfirmation(proposal, previous, eventId))
@@ -139,7 +143,11 @@ class CookReminders(
      */
     suspend fun undoPlanProposal(recipeId: Long, previous: PlannedRecipe?, eventId: Long?) {
         eventId?.let { events.undoPlan(it) }
-        val proposal = proposalOf(recipeId, LocalDate.now())
+        // The same title as before "Planen"; a notification from before the log had the factual hook.
+        val hookId = eventId?.let { events.hookId(it) }
+        val proposal = proposalOf(recipeId, LocalDate.now()) { factual, _ ->
+            if (eventId == null) factual else moods.firstOrNull { it.id == hookId } ?: factual?.takeIf { it.id == hookId }
+        }
         if (proposal != null && canNotify()) {
             notifications.notify(ReminderKind.PROPOSAL.notificationId, buildProposal(proposal, eventId))
         } else {
@@ -173,11 +181,19 @@ class CookReminders(
     private suspend fun proposal(enabled: Boolean, today: LocalDate, planned: List<PlannedRecipe>): Proposal? {
         if (!CookReminder.proposalWanted(enabled, today, planned, recipes.observeRecipes().first())) return null
         val id = suggester.suggest(today, 1, planned.mapTo(mutableSetOf()) { it.recipeId }).firstOrNull() ?: return null
-        return proposalOf(id, today)
+        val lastHookId = events.lastHookId()
+        return proposalOf(id, today) { factual, name -> TitleHook.choose(factual, moods, name, today, lastHookId, Random.Default) }
     }
 
-    /** The recipe with its facts on [today]; null if it no longer exists. */
-    private suspend fun proposalOf(id: Long, today: LocalDate): Proposal? {
+    /**
+     * The recipe with its facts on [today], and [titleHook] of its factual hook and name for the
+     * title; null if it no longer exists.
+     */
+    private suspend fun proposalOf(
+        id: Long,
+        today: LocalDate,
+        titleHook: (factual: ProposalHook?, name: String) -> TitleHook?,
+    ): Proposal? {
         val recipe = recipes.getRecipe(id) ?: return null
         val lines = recipes.getLines(id)
         val byId = ingredients.observeIngredients().first().associateBy { it.id }
@@ -198,10 +214,11 @@ class CookReminders(
             cooldownDays = settings.settings.value.cooldownDays,
             proteinPerPortion = stats.proteinPerPortion,
         )
-        return Proposal(recipe, facts, hook)
+        return Proposal(recipe, facts, hook, titleHook(hook, recipe.title))
     }
 
-    private class Proposal(val recipe: Recipe, val facts: List<ProposalFact>, val hook: ProposalHook?)
+    /** [hook] is the factual one, if any applies; [titleHook] leads the title. */
+    private class Proposal(val recipe: Recipe, val facts: List<ProposalFact>, val hook: ProposalHook?, val titleHook: TitleHook?)
 
     private fun schedule(settings: Settings, planned: List<PlannedRecipe>) {
         val now = LocalDateTime.now()
@@ -273,7 +290,13 @@ class CookReminders(
             if (eventId != null) putExtra(MainActivity.EXTRA_PROPOSAL_EVENT_ID, eventId)
         }
         val facts = ProposalFacts.line(proposal.facts, ::factText)
-        val text = ProposalText.of(proposal.recipe.title, proposal.hook?.let(::hookLabel), proposal.hook?.let(::hookSentence), facts)
+        val name = proposal.recipe.title
+        val factual = proposal.hook
+        val text = when (val title = proposal.titleHook) {
+            is ProposalHook -> ProposalText.of(name, hookLabel(title), hookSentence(title), facts)
+            is MoodHook -> ProposalText.mood(name, title, factual?.let(::hookSentence), facts)
+            null -> if (factual == null) ProposalText(name, facts) else ProposalText.behind(name, hookLabel(factual), hookSentence(factual), facts)
+        }
         return builder(ReminderKind.PROPOSAL, proposal.recipe.id, eventId)
             .setContentTitle(text.title)
             .setContentText(facts)

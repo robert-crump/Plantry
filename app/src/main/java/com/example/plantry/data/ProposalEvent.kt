@@ -18,7 +18,7 @@ data class ProposalEvent(
     /** The day it was shown. */
     val date: LocalDate,
     val recipeId: Long,
-    /** The hook template of its title; null while there are no hooks. */
+    /** The hook template of its title ([com.example.plantry.data.reminder.TitleHook.id]); null when it had none. */
     val hookId: String? = null,
     /** Null while nothing has come of it yet. */
     val outcome: ProposalOutcome? = null,
@@ -69,6 +69,10 @@ interface ProposalEventDao {
 
     @Query("UPDATE proposal_events SET outcome = :outcome WHERE id = :id")
     suspend fun setOutcome(id: Long, outcome: ProposalOutcome?)
+
+    /** The hook of the latest proposal's title; null if it had none or there was none. */
+    @Query("SELECT hookId FROM proposal_events ORDER BY id DESC LIMIT 1")
+    suspend fun lastHookId(): String?
 
     /** Marks every proposal shown before [date] that nothing came of as ignored. */
     @Query("UPDATE proposal_events SET outcome = 'ignored' WHERE outcome IS NULL AND date < :date")
