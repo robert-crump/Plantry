@@ -51,6 +51,10 @@ class RecipeSuggester(
     /** This week's plants so far, as the suggestions weigh them. */
     suspend fun week(today: LocalDate): WeekPlants = load(today).week
 
+    /** When [recipeId] was last cooked, as the cooldown counts it; null if never. */
+    suspend fun lastCooked(recipeId: Long): LocalDate? =
+        cookLogDao.getLastCooked().firstOrNull { it.recipeId == recipeId }?.lastCookedOn
+
     private class State(
         val recipes: List<Recipe>,
         val lines: List<RecipeLine>,

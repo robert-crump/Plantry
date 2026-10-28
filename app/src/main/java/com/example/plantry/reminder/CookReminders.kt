@@ -22,10 +22,14 @@ import com.example.plantry.data.RecipePrice
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.planner.RecipeSuggester
+import com.example.plantry.data.planner.WeeklyPlantPointsGoal
 import com.example.plantry.data.priceLines
 import com.example.plantry.data.reminder.CookReminder
+import com.example.plantry.data.reminder.FriendlyDuration
 import com.example.plantry.data.reminder.ProposalFact
 import com.example.plantry.data.reminder.ProposalFacts
+import com.example.plantry.data.reminder.ProposalHook
+import com.example.plantry.data.reminder.ProposalText
 import com.example.plantry.data.reminder.ReminderContent
 import com.example.plantry.data.settings.ReminderKind
 import com.example.plantry.data.settings.Settings
@@ -40,7 +44,8 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 /**
- * The notifications: a recipe proposal (its name and a fact line, see [ProposalFacts]) and a
+ * The notifications: a recipe proposal (its name, behind a [ProposalHook] when one applies, and a
+ * fact line, see [ProposalFacts]) and a
  * shopping reminder at their times, and the "Habt ihr heute … gekocht?" question on the evening of
  * a planned day. Keeps one alarm per kind set while it is on, shows the notification when the alarm
  * fires and answers the buttons of the proposal and the evening one. The proposal's "Planen" turns
@@ -95,7 +100,7 @@ class CookReminders(
         if (canNotify()) {
             when (kind) {
                 ReminderKind.PROPOSAL -> proposal(enabled, today, plannedNow)?.let {
-                    notifications.notify(kind.notificationId, buildProposal(it, events.shown(it.recipe.id)))
+                    notifications.notify(kind.notificationId, buildProposal(it, events.shown(it.recipe.id, it.hook?.id)))
                 }
                 // One Plantry notification at a time: these replace a proposal or its confirmation.
                 ReminderKind.SHOPPING -> CookReminder.content(enabled, today, plannedNow, recipes.observeRecipes().first())?.let {
@@ -177,16 +182,26 @@ class CookReminders(
         val lines = recipes.getLines(id)
         val byId = ingredients.observeIngredients().first().associateBy { it.id }
         val stats = RecipeStats.of(recipe, lines, byId, ingredients.observeContents().first())
+        val week = suggester.week(today)
+        val newPlantPoints = week.newPoints(lines.map { it.ingredientId })
         val facts = ProposalFacts.of(
-            newPlantPoints = suggester.week(today).newPoints(lines.map { it.ingredientId }),
+            newPlantPoints = newPlantPoints,
             plantPoints = stats.plantPoints,
             proteinPerPortion = stats.proteinPerPortion,
             price = RecipePrice.calculate(priceLines(lines, byId), recipe.servings, today),
         )
-        return Proposal(recipe, facts)
+        val hook = ProposalHook.of(
+            weekPoints = week.points,
+            newPlantPoints = newPlantPoints,
+            lastCooked = suggester.lastCooked(id),
+            today = today,
+            cooldownDays = settings.settings.value.cooldownDays,
+            proteinPerPortion = stats.proteinPerPortion,
+        )
+        return Proposal(recipe, facts, hook)
     }
 
-    private class Proposal(val recipe: Recipe, val facts: List<ProposalFact>)
+    private class Proposal(val recipe: Recipe, val facts: List<ProposalFact>, val hook: ProposalHook?)
 
     private fun schedule(settings: Settings, planned: List<PlannedRecipe>) {
         val now = LocalDateTime.now()
@@ -257,9 +272,12 @@ class CookReminders(
             putExtra(MainActivity.EXTRA_OTHER_SUGGESTIONS_THAN, proposal.recipe.id)
             if (eventId != null) putExtra(MainActivity.EXTRA_PROPOSAL_EVENT_ID, eventId)
         }
+        val facts = ProposalFacts.line(proposal.facts, ::factText)
+        val text = ProposalText.of(proposal.recipe.title, proposal.hook?.let(::hookLabel), proposal.hook?.let(::hookSentence), facts)
         return builder(ReminderKind.PROPOSAL, proposal.recipe.id, eventId)
-            .setContentTitle(proposal.recipe.title)
-            .setContentText(ProposalFacts.line(proposal.facts, ::factText))
+            .setContentTitle(text.title)
+            .setContentText(facts)
+            .setStyle(Notification.BigTextStyle().bigText(text.expanded))
             .setOnlyAlertOnce(true)
             .setDeleteIntent(dismissed(eventId))
             .addAction(Notification.Action.Builder(null, context.getString(R.string.action_plan), plan).build())
@@ -298,6 +316,22 @@ class CookReminders(
                 putExtra(ReminderReceiver.EXTRA_EVENT_ID, it)
             }
         }
+
+    private fun hookLabel(hook: ProposalHook): String = context.getString(
+        when (hook) {
+            ProposalHook.WeeklyGoal -> R.string.proposal_hook_weekly_goal
+            ProposalHook.New -> R.string.proposal_hook_new
+            is ProposalHook.LongAgo -> R.string.proposal_hook_long_ago
+            is ProposalHook.ProteinPower -> R.string.proposal_hook_protein_power
+        },
+    )
+
+    private fun hookSentence(hook: ProposalHook): String = when (hook) {
+        ProposalHook.WeeklyGoal -> context.getString(R.string.proposal_hook_weekly_goal_sentence, WeeklyPlantPointsGoal)
+        ProposalHook.New -> context.getString(R.string.proposal_hook_new_sentence)
+        is ProposalHook.LongAgo -> context.getString(R.string.proposal_hook_long_ago_sentence, FriendlyDuration.ago(hook.days))
+        is ProposalHook.ProteinPower -> context.getString(R.string.proposal_hook_protein_power_sentence, hook.grams)
+    }
 
     private fun factText(fact: ProposalFact): String = when (fact) {
         is ProposalFact.NewPlants -> context.getString(R.string.proposal_new_plants, fact.points)

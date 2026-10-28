@@ -233,6 +233,14 @@
     </plurals>
     <string name="proposal_protein">%1$d g Eiweiß</string>
     <string name="proposal_planned_title">Für heute geplant: %1$s</string>
+    <string name="proposal_hook_weekly_goal">Wochenziel in Reichweite</string>
+    <string name="proposal_hook_weekly_goal_sentence">Damit schaffst du diese Woche %1$d Pflanzen.</string>
+    <string name="proposal_hook_new">Mal was Neues</string>
+    <string name="proposal_hook_new_sentence">Noch nie gekocht.</string>
+    <string name="proposal_hook_long_ago">Lange nicht gegessen</string>
+    <string name="proposal_hook_long_ago_sentence">Zuletzt gekocht %1$s.</string>
+    <string name="proposal_hook_protein_power">Protein-Power</string>
+    <string name="proposal_hook_protein_power_sentence">%1$d g Eiweiß pro Portion.</string>
     <string name="shopping_channel">Einkaufserinnerung</string>
     <string name="shopping_channel_description">Erinnert ans Einkaufen, wenn für heute ein Rezept geplant ist</string>
     <string name="shopping_text">Einkaufen für heute: %1$s?</string>
