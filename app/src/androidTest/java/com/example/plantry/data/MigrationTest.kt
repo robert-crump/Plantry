@@ -92,6 +92,19 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate4To5_addsAnEmptyProposalEventLog() {
+        helper.createDatabase(DB_NAME, 4).close()
+
+        helper.runMigrationsAndValidate(DB_NAME, 5, true).use { db ->
+            db.execSQL("INSERT INTO proposal_events (date, recipeId, hookId, outcome) VALUES (20754, 3, NULL, 'opened')")
+            db.query("SELECT COUNT(*) FROM proposal_events").use {
+                it.moveToFirst()
+                assertEquals(1, it.getInt(0))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }

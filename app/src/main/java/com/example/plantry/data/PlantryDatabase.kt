@@ -17,9 +17,9 @@ import com.example.plantry.data.backup.BackupDao
 @Database(
     entities = [
         Recipe::class, Ingredient::class, IngredientUnit::class, RecipeIngredient::class, CookLog::class,
-        IngredientAlias::class, PlannedRecipe::class, MixComponent::class, CookLogPlant::class,
+        IngredientAlias::class, PlannedRecipe::class, MixComponent::class, CookLogPlant::class, ProposalEvent::class,
     ],
-    version = 4,
+    version = 5,
     autoMigrations = [
         // Adds the mix components ("Enthält").
         AutoMigration(from = 1, to = 2),
@@ -27,6 +27,8 @@ import com.example.plantry.data.backup.BackupDao
         AutoMigration(from = 2, to = 3, spec = PlantryDatabase.BackfillCookLogPlants::class),
         // Adds the ingredient price; existing ingredients have none.
         AutoMigration(from = 3, to = 4),
+        // Adds the proposal event log, empty.
+        AutoMigration(from = 4, to = 5),
     ],
 )
 @TypeConverters(Converters::class)
@@ -41,6 +43,8 @@ abstract class PlantryDatabase : RoomDatabase() {
     abstract fun plannedRecipeDao(): PlannedRecipeDao
 
     abstract fun backupDao(): BackupDao
+
+    abstract fun proposalEventDao(): ProposalEventDao
 
     class BackfillCookLogPlants : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) = db.execSQL(CookLogPlant.BACKFILL_SQL)

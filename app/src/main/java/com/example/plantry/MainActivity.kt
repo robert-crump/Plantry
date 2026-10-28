@@ -10,10 +10,13 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import com.example.plantry.data.ProposalOutcome
 import com.example.plantry.data.settings.ThemeMode
 import com.example.plantry.ui.CapitalizeOnFocus
 import com.example.plantry.ui.PlantryNavHost
 import com.example.plantry.ui.theme.PlantryTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -33,6 +36,15 @@ class MainActivity : ComponentActivity() {
         }
         // An action button doesn't cancel its notification itself.
         if (otherSuggestionsThan != null) (application as PlantryApplication).cookReminders.dismissProposal()
+        val proposalEventId = if (savedInstanceState == null) {
+            intent.getLongExtra(EXTRA_PROPOSAL_EVENT_ID, -1).takeIf { it >= 0 }
+        } else {
+            null
+        }
+        if (proposalEventId != null) {
+            val outcome = if (otherSuggestionsThan != null) ProposalOutcome.OTHER_SUGGESTIONS else ProposalOutcome.OPENED
+            lifecycleScope.launch { (application as PlantryApplication).proposalEventRepository.record(proposalEventId, outcome) }
+        }
         val settingsRepository =(application as PlantryApplication).settingsRepository
         setContent {
             val settings by settingsRepository.settings.collectAsStateWithLifecycle()
@@ -50,7 +62,7 @@ class MainActivity : ComponentActivity() {
             }
             PlantryTheme(darkTheme = darkTheme) {
                 CapitalizeOnFocus {
-                    PlantryNavHost(openRecipeId, otherSuggestionsThan)
+                    PlantryNavHost(openRecipeId, otherSuggestionsThan, proposalEventId)
                 }
             }
         }
@@ -62,6 +74,9 @@ class MainActivity : ComponentActivity() {
 
         /** The recipe a notification proposed; Vorschläge opens without it, instead of Speiseplan. */
         const val EXTRA_OTHER_SUGGESTIONS_THAN = "otherSuggestionsThan"
+
+        /** The ProposalEvent log row of the proposal notification it was opened from. */
+        const val EXTRA_PROPOSAL_EVENT_ID = "proposalEventId"
 
         // The scrims androidx.activity uses by default.
         private val LightScrim = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)

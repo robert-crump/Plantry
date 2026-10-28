@@ -15,6 +15,8 @@ import com.example.plantry.R
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.PlannedRepository
+import com.example.plantry.data.ProposalEventRepository
+import com.example.plantry.data.ProposalOutcome
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipePrice
 import com.example.plantry.data.RecipeRepository
@@ -43,6 +45,7 @@ import java.time.ZoneId
  * a planned day. Keeps one alarm per kind set while it is on, shows the notification when the alarm
  * fires and answers the buttons of the proposal and the evening one. The proposal's "Planen" turns
  * it into a "Für heute geplant" confirmation in its place; "Anderer Vorschlag" opens Vorschläge without it.
+ * Each proposal shown gets a row in the [ProposalEventRepository] log, whose id its buttons carry.
  */
 class CookReminders(
     private val context: Context,
@@ -51,6 +54,7 @@ class CookReminders(
     private val recipes: RecipeRepository,
     private val ingredients: IngredientRepository,
     private val suggester: RecipeSuggester,
+    private val events: ProposalEventRepository,
 ) {
     private val alarms = context.getSystemService(AlarmManager::class.java)
     private val notifications = context.getSystemService(NotificationManager::class.java)
@@ -60,6 +64,7 @@ class CookReminders(
         scope.launch {
             combine(settings.settings, planned.observe(), ::Pair).collect { (settings, planned) ->
                 schedule(settings, planned)
+                events.closePastDays()
                 // Nothing left to say today: an unanswered notification would only be stale.
                 val today = LocalDate.now()
                 val all = recipes.observeRecipes().first()
@@ -90,15 +95,17 @@ class CookReminders(
         if (canNotify()) {
             when (kind) {
                 ReminderKind.PROPOSAL -> proposal(enabled, today, plannedNow)?.let {
-                    notifications.notify(kind.notificationId, buildProposal(it))
+                    notifications.notify(kind.notificationId, buildProposal(it, events.shown(it.recipe.id)))
                 }
                 // One Plantry notification at a time: these replace a proposal or its confirmation.
                 ReminderKind.SHOPPING -> CookReminder.content(enabled, today, plannedNow, recipes.observeRecipes().first())?.let {
                     notifications.cancel(ReminderKind.PROPOSAL.notificationId)
+                    events.replaced()
                     notifications.notify(kind.notificationId, buildShopping(it))
                 }
                 ReminderKind.COOKED -> CookReminder.content(enabled, today, plannedNow, recipes.observeRecipes().first())?.let {
                     notifications.cancel(ReminderKind.PROPOSAL.notificationId)
+                    events.replaced()
                     notifications.notify(kind.notificationId, buildCooked(it, today))
                 }
             }
@@ -108,22 +115,28 @@ class CookReminders(
 
     /**
      * "Planen": puts the proposed recipe on Geplant for today (moving it there if it was planned for
-     * another day) and shows the confirmation in the proposal's place.
+     * another day) and shows the confirmation in the proposal's place. [eventId] is the proposal's
+     * log row; null for a notification from before the log.
      */
-    suspend fun planProposal(recipeId: Long) {
+    suspend fun planProposal(recipeId: Long, eventId: Long?) {
         val today = LocalDate.now()
         val proposal = proposalOf(recipeId, today) ?: return notifications.cancel(ReminderKind.PROPOSAL.notificationId)
         val previous = planned.observe().first().firstOrNull { it.recipeId == recipeId }
         // Shown before planning, so the update that follows finds a confirmation, not a proposal no longer wanted.
-        if (canNotify()) notifications.notify(ReminderKind.PROPOSAL.notificationId, buildConfirmation(proposal, previous))
+        if (canNotify()) notifications.notify(ReminderKind.PROPOSAL.notificationId, buildConfirmation(proposal, previous, eventId))
         planned.plan(recipeId, today)
+        eventId?.let { events.record(it, ProposalOutcome.PLANNED_FROM_NOTIFICATION) }
     }
 
-    /** "Rückgängig" of the confirmation: the recipe back where it was before "Planen", and the proposal again. */
-    suspend fun undoPlanProposal(recipeId: Long, previous: PlannedRecipe?) {
+    /**
+     * "Rückgängig" of the confirmation: the recipe back where it was before "Planen", and the same
+     * proposal again, with nothing come of it yet.
+     */
+    suspend fun undoPlanProposal(recipeId: Long, previous: PlannedRecipe?, eventId: Long?) {
+        eventId?.let { events.undoPlan(it) }
         val proposal = proposalOf(recipeId, LocalDate.now())
         if (proposal != null && canNotify()) {
-            notifications.notify(ReminderKind.PROPOSAL.notificationId, buildProposal(proposal))
+            notifications.notify(ReminderKind.PROPOSAL.notificationId, buildProposal(proposal, eventId))
         } else {
             notifications.cancel(ReminderKind.PROPOSAL.notificationId)
         }
@@ -132,6 +145,9 @@ class CookReminders(
 
     /** "Anderer Vorschlag" opened Vorschläge. */
     fun dismissProposal() = notifications.cancel(ReminderKind.PROPOSAL.notificationId)
+
+    /** The proposal or its confirmation was swiped away. */
+    suspend fun proposalDismissed(eventId: Long) = events.record(eventId, ProposalOutcome.DISMISSED)
 
     /** "Ja": logs the recipe as cooked today, unless it was handled in the app in the meantime. */
     suspend fun answerYes(recipeId: Long) {
@@ -204,19 +220,20 @@ class CookReminders(
             ?.notification?.extras?.getLong(EXTRA_CONFIRMED_RECIPE_ID, -1)
             ?.takeIf { it >= 0 }
 
-    private fun builder(kind: ReminderKind, openRecipeId: Long?): Notification.Builder {
+    private fun builder(kind: ReminderKind, openRecipeId: Long?, proposalEventId: Long? = null): Notification.Builder {
         ensureChannels()
         return Notification.Builder(context, kind.channelId)
             // The kind is the title, unless the notification names its own; the question goes below it.
             .setContentTitle(context.getString(kind.channelName))
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentIntent(open(kind, openRecipeId))
+            .setContentIntent(open(kind, openRecipeId, proposalEventId))
             .setAutoCancel(true)
     }
 
-    private fun open(kind: ReminderKind, openRecipeId: Long?): PendingIntent =
+    private fun open(kind: ReminderKind, openRecipeId: Long?, proposalEventId: Long?): PendingIntent =
         activity(kind.requestCode + OPEN_REQUEST_OFFSET) {
             if (openRecipeId != null) putExtra(MainActivity.EXTRA_RECIPE_ID, openRecipeId)
+            if (proposalEventId != null) putExtra(MainActivity.EXTRA_PROPOSAL_EVENT_ID, proposalEventId)
         }
 
     private fun activity(requestCode: Int, extras: Intent.() -> Unit): PendingIntent =
@@ -231,43 +248,56 @@ class CookReminders(
         )
 
     // Both only alert once, so swapping one for the other in place makes no second sound.
-    private fun buildProposal(proposal: Proposal): Notification {
+    private fun buildProposal(proposal: Proposal, eventId: Long?): Notification {
         val plan = broadcast(ReminderReceiver.ACTION_PLAN, REQUEST_PLAN) {
             putExtra(ReminderReceiver.EXTRA_RECIPE_ID, proposal.recipe.id)
+            if (eventId != null) putExtra(ReminderReceiver.EXTRA_EVENT_ID, eventId)
         }
         val other = activity(REQUEST_OTHER_SUGGESTIONS) {
             putExtra(MainActivity.EXTRA_OTHER_SUGGESTIONS_THAN, proposal.recipe.id)
+            if (eventId != null) putExtra(MainActivity.EXTRA_PROPOSAL_EVENT_ID, eventId)
         }
-        return builder(ReminderKind.PROPOSAL, proposal.recipe.id)
+        return builder(ReminderKind.PROPOSAL, proposal.recipe.id, eventId)
             .setContentTitle(proposal.recipe.title)
             .setContentText(ProposalFacts.line(proposal.facts, ::factText))
             .setOnlyAlertOnce(true)
+            .setDeleteIntent(dismissed(eventId))
             .addAction(Notification.Action.Builder(null, context.getString(R.string.action_plan), plan).build())
             .addAction(Notification.Action.Builder(null, context.getString(R.string.action_other_suggestion), other).build())
             .build()
     }
 
     /** "Für heute geplant: …"; [previous] is the recipe's Geplant entry before "Planen", for Rückgängig. */
-    private fun buildConfirmation(proposal: Proposal, previous: PlannedRecipe?): Notification {
+    private fun buildConfirmation(proposal: Proposal, previous: PlannedRecipe?, eventId: Long?): Notification {
         val undo = broadcast(ReminderReceiver.ACTION_UNDO_PLAN, REQUEST_UNDO_PLAN) {
             putExtra(ReminderReceiver.EXTRA_RECIPE_ID, proposal.recipe.id)
             if (previous != null) putExtra(ReminderReceiver.EXTRA_DATE, previous.plannedOn.toEpochDay())
+            if (eventId != null) putExtra(ReminderReceiver.EXTRA_EVENT_ID, eventId)
         }
-        return builder(ReminderKind.PROPOSAL, proposal.recipe.id)
+        return builder(ReminderKind.PROPOSAL, proposal.recipe.id, eventId)
             .setContentTitle(context.getString(R.string.proposal_planned_title, proposal.recipe.title))
             .setContentText(ProposalFacts.line(proposal.facts, ::factText))
             .setOnlyAlertOnce(true)
+            .setDeleteIntent(dismissed(eventId))
             .addExtras(Bundle().apply { putLong(EXTRA_CONFIRMED_RECIPE_ID, proposal.recipe.id) })
             .addAction(Notification.Action.Builder(null, context.getString(R.string.action_undo), undo).build())
             .addAction(
                 Notification.Action.Builder(
                     null,
                     context.getString(R.string.action_open_recipe),
-                    open(ReminderKind.PROPOSAL, proposal.recipe.id),
+                    open(ReminderKind.PROPOSAL, proposal.recipe.id, eventId),
                 ).build(),
             )
             .build()
     }
+
+    /** Swiping the proposal or its confirmation away; nothing to record without a log row. */
+    private fun dismissed(eventId: Long?): PendingIntent? =
+        eventId?.let {
+            broadcast(ReminderReceiver.ACTION_PROPOSAL_DISMISSED, REQUEST_PROPOSAL_DISMISSED) {
+                putExtra(ReminderReceiver.EXTRA_EVENT_ID, it)
+            }
+        }
 
     private fun factText(fact: ProposalFact): String = when (fact) {
         is ProposalFact.NewPlants -> context.getString(R.string.proposal_new_plants, fact.points)
@@ -390,6 +420,7 @@ class CookReminders(
         const val REQUEST_SHOW_SHOPPING = 5
         const val REQUEST_PLAN = 6
         const val REQUEST_UNDO_PLAN = 7
+        const val REQUEST_PROPOSAL_DISMISSED = 8
 
         // Not 10 + a kind's request code: those are the activity intents of the notifications' bodies.
         const val REQUEST_OTHER_SUGGESTIONS = 20

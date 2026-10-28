@@ -16,6 +16,8 @@ import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.PlantryDatabase
+import com.example.plantry.data.ProposalEvent
+import com.example.plantry.data.ProposalOutcome
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeIngredient
 import com.example.plantry.data.RecipeStats
@@ -102,5 +104,15 @@ class BackupDaoTest {
         }
 
         assertEquals(snapshot, dao.snapshot())
+    }
+
+    @Test
+    fun replaceAll_leavesTheProposalEventLog() = runTest {
+        val id = db.proposalEventDao().insert(ProposalEvent(date = LocalDate.of(2026, 10, 28), recipeId = 3))
+        db.proposalEventDao().setOutcome(id, ProposalOutcome.OPENED)
+
+        dao.replaceAll(snapshot)
+
+        assertEquals(ProposalOutcome.OPENED, db.proposalEventDao().get(id)?.outcome)
     }
 }

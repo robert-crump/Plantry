@@ -8,6 +8,7 @@ import com.example.plantry.data.NewIngredientFinder
 import com.example.plantry.data.PhotoCompressor
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.PlantryDatabase
+import com.example.plantry.data.ProposalEventRepository
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeSnapshot
@@ -58,8 +59,13 @@ class PlantryApplication : Application() {
     }
 
     val cookReminders: CookReminders by lazy {
-        CookReminders(this, settingsRepository, plannedRepository, recipeRepository, ingredientRepository, recipeSuggester)
+        CookReminders(
+            this, settingsRepository, plannedRepository, recipeRepository, ingredientRepository, recipeSuggester,
+            proposalEventRepository,
+        )
     }
+
+    val proposalEventRepository: ProposalEventRepository by lazy { ProposalEventRepository(database.proposalEventDao()) }
 
     val recipeSuggester: RecipeSuggester by lazy {
         RecipeSuggester(

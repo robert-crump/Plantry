@@ -18,4 +18,11 @@ class Converters {
 
     @TypeConverter
     fun lineUnitFromCode(code: String): LineUnit = checkNotNull(LineUnit.fromCode(code)) { "unknown unit $code" }
+
+    /** By its id, as the queries in [ProposalEventDao] write it. */
+    @TypeConverter
+    fun proposalOutcomeToId(outcome: ProposalOutcome?): String? = outcome?.id
+
+    @TypeConverter
+    fun proposalOutcomeFromId(id: String?): ProposalOutcome? = id?.let(ProposalOutcome::fromId)
 }

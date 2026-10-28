@@ -20,7 +20,10 @@ interface BackupStore {
     suspend fun replaceAll(snapshot: BackupSnapshot)
 }
 
-/** Ordered by key, so the same data always exports to the same file. */
+/**
+ * Ordered by key, so the same data always exports to the same file. The proposal event log is
+ * left out on purpose: it never leaves the device, and a restore keeps it as it is.
+ */
 @Dao
 abstract class BackupDao : BackupStore {
 

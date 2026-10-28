@@ -93,9 +93,12 @@ import java.time.LocalDate
 @Serializable
 object CookingRoute
 
-/** [skipRecipeId]: left out of the first round, the recipe a notification's "Anderer Vorschlag" came from. */
+/**
+ * [skipRecipeId]: left out of the first round, the recipe a notification's "Anderer Vorschlag" came
+ * from; [proposalEventId] is that proposal's log row, which planning for today from here upgrades.
+ */
 @Serializable
-data class SuggestionsRoute(val skipRecipeId: Long? = null)
+data class SuggestionsRoute(val skipRecipeId: Long? = null, val proposalEventId: Long? = null)
 
 /**
  * Saved-state keys with which "Vorschlag" and "Planen" hand the recipe and day (epoch day) to plan
@@ -209,7 +212,7 @@ private enum class TopLevelDestination(
 }
 
 @Composable
-fun PlantryNavHost(openRecipeId: Long? = null, otherSuggestionsThan: Long? = null) {
+fun PlantryNavHost(openRecipeId: Long? = null, otherSuggestionsThan: Long? = null, proposalEventId: Long? = null) {
     val navController = rememberNavController()
     val app = LocalContext.current.applicationContext as PlantryApplication
     val recipeRepository = app.recipeRepository
@@ -260,7 +263,7 @@ fun PlantryNavHost(openRecipeId: Long? = null, otherSuggestionsThan: Long? = nul
     }
     // "Anderer Vorschlag": Vorschläge on top of Speiseplan, without the notification's recipe at first.
     LaunchedEffect(otherSuggestionsThan) {
-        if (otherSuggestionsThan != null) navController.navigate(SuggestionsRoute(otherSuggestionsThan))
+        if (otherSuggestionsThan != null) navController.navigate(SuggestionsRoute(otherSuggestionsThan, proposalEventId))
     }
     LifecycleResumeEffect(Unit) {
         scope.launch { app.backupRepository.refreshReminder() }
@@ -394,6 +397,7 @@ fun PlantryNavHost(openRecipeId: Long? = null, otherSuggestionsThan: Long? = nul
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it, fromSuggestions = true)) },
                         onPlanned = { recipeId, title, date ->
                             askForNotifications()
+                            scope.launch { app.proposalEventRepository.plannedFromSuggestions(route.proposalEventId, date) }
                             navController.previousBackStackEntry?.handOverPlan(recipeId, title, date)
                             navController.popBackStack()
                         },
@@ -451,6 +455,8 @@ fun PlantryNavHost(openRecipeId: Long? = null, otherSuggestionsThan: Long? = nul
                         onPlanPicked = if (route.fromSuggestions) {
                             { title, date ->
                                 askForNotifications()
+                                val suggestions = navController.getBackStackEntry<SuggestionsRoute>().toRoute<SuggestionsRoute>()
+                                scope.launch { app.proposalEventRepository.plannedFromSuggestions(suggestions.proposalEventId, date) }
                                 navController.getBackStackEntry<CookingRoute>().handOverPlan(recipeId, title, date)
                                 // Vorschläge too, as after planning a suggestion from its card.
                                 navController.popBackStack<CookingRoute>(inclusive = false)

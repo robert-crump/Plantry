@@ -21,11 +21,14 @@ class ReminderReceiver : BroadcastReceiver() {
             try {
                 when (intent.action) {
                     ACTION_SHOW -> reminders.show(kindOf(intent))
-                    ACTION_PLAN -> intent.getLongExtra(EXTRA_RECIPE_ID, -1).takeIf { it >= 0 }?.let { reminders.planProposal(it) }
+                    ACTION_PLAN -> intent.getLongExtra(EXTRA_RECIPE_ID, -1).takeIf { it >= 0 }?.let {
+                        reminders.planProposal(it, eventIdOf(intent))
+                    }
                     ACTION_UNDO_PLAN -> intent.getLongExtra(EXTRA_RECIPE_ID, -1).takeIf { it >= 0 }?.let { id ->
                         val previous = intent.getLongExtra(EXTRA_DATE, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE }
-                        reminders.undoPlanProposal(id, previous?.let { PlannedRecipe(id, LocalDate.ofEpochDay(it)) })
+                        reminders.undoPlanProposal(id, previous?.let { PlannedRecipe(id, LocalDate.ofEpochDay(it)) }, eventIdOf(intent))
                     }
+                    ACTION_PROPOSAL_DISMISSED -> eventIdOf(intent)?.let { reminders.proposalDismissed(it) }
                     ACTION_YES -> intent.getLongExtra(EXTRA_RECIPE_ID, -1).takeIf { it >= 0 }?.let { reminders.answerYes(it) }
                     ACTION_NO -> {
                         val ids = intent.getLongArrayExtra(EXTRA_RECIPE_IDS)
@@ -45,6 +48,8 @@ class ReminderReceiver : BroadcastReceiver() {
         }
     }
 
+    private fun eventIdOf(intent: Intent) = intent.getLongExtra(EXTRA_EVENT_ID, -1).takeIf { it >= 0 }
+
     // An alarm set before the other kinds existed carries no kind and is the evening reminder.
     private fun kindOf(intent: Intent) =
         ReminderKind.entries.firstOrNull { it.name == intent.getStringExtra(EXTRA_KIND) } ?: ReminderKind.COOKED
@@ -55,11 +60,15 @@ class ReminderReceiver : BroadcastReceiver() {
         const val ACTION_NO = "com.example.plantry.reminder.NO"
         const val ACTION_PLAN = "com.example.plantry.reminder.PLAN"
         const val ACTION_UNDO_PLAN = "com.example.plantry.reminder.UNDO_PLAN"
+        const val ACTION_PROPOSAL_DISMISSED = "com.example.plantry.reminder.PROPOSAL_DISMISSED"
         const val EXTRA_RECIPE_ID = "recipeId"
         const val EXTRA_RECIPE_IDS = "recipeIds"
 
         /** The day the evening reminder asked about, or the Geplant day before "Planen", as epoch day. */
         const val EXTRA_DATE = "date"
         const val EXTRA_KIND = "kind"
+
+        /** The proposal's row in the ProposalEvent log. */
+        const val EXTRA_EVENT_ID = "proposalEventId"
     }
 }
