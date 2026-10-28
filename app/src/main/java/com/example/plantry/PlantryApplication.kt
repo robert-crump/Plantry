@@ -58,7 +58,7 @@ class PlantryApplication : Application() {
     }
 
     val cookReminders: CookReminders by lazy {
-        CookReminders(this, settingsRepository, plannedRepository, recipeRepository, recipeSuggester)
+        CookReminders(this, settingsRepository, plannedRepository, recipeRepository, ingredientRepository, recipeSuggester)
     }
 
     val recipeSuggester: RecipeSuggester by lazy {

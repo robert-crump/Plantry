@@ -226,7 +226,12 @@
     <string name="reminder_offer_message">Möchtest du erinnert werden, ob du ein geplantes Rezept gekocht hast?</string>
     <string name="proposal_channel">Rezeptvorschlag</string>
     <string name="proposal_channel_description">Schlägt ein Rezept vor, wenn für heute nichts geplant ist</string>
-    <string name="proposal_text">Heute kochen: %1$s?</string>
+    <string name="proposal_new_plants">🌱 +%1$d neu</string>
+    <plurals name="proposal_plants">
+        <item quantity="one">🌱 %1$d Pflanze</item>
+        <item quantity="other">🌱 %1$d Pflanzen</item>
+    </plurals>
+    <string name="proposal_protein">%1$d g Eiweiß</string>
     <string name="shopping_channel">Einkaufserinnerung</string>
     <string name="shopping_channel_description">Erinnert ans Einkaufen, wenn für heute ein Rezept geplant ist</string>
     <string name="shopping_text">Einkaufen für heute: %1$s?</string>

@@ -11,16 +11,23 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import com.example.plantry.MainActivity
 import com.example.plantry.R
+import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
+import com.example.plantry.data.RecipePrice
 import com.example.plantry.data.RecipeRepository
+import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.planner.RecipeSuggester
+import com.example.plantry.data.priceLines
 import com.example.plantry.data.reminder.CookReminder
+import com.example.plantry.data.reminder.ProposalFact
+import com.example.plantry.data.reminder.ProposalFacts
 import com.example.plantry.data.reminder.ReminderContent
 import com.example.plantry.data.settings.ReminderKind
 import com.example.plantry.data.settings.Settings
 import com.example.plantry.data.settings.SettingsRepository
+import com.example.plantry.ui.formatEuros
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -30,15 +37,17 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 /**
- * The notifications: a recipe proposal and a shopping reminder at their times, and the "Habt ihr
- * heute … gekocht?" question on the evening of a planned day. Keeps one alarm per kind set while
- * it is on, shows the notification when the alarm fires and answers the evening one's buttons.
+ * The notifications: a recipe proposal (its name and a fact line, see [ProposalFacts]) and a
+ * shopping reminder at their times, and the "Habt ihr heute … gekocht?" question on the evening of
+ * a planned day. Keeps one alarm per kind set while it is on, shows the notification when the alarm
+ * fires and answers the evening one's buttons.
  */
 class CookReminders(
     private val context: Context,
     private val settings: SettingsRepository,
     private val planned: PlannedRepository,
     private val recipes: RecipeRepository,
+    private val ingredients: IngredientRepository,
     private val suggester: RecipeSuggester,
 ) {
     private val alarms = context.getSystemService(AlarmManager::class.java)
@@ -104,11 +113,23 @@ class CookReminders(
     fun dismissCooked() = notifications.cancel(ReminderKind.COOKED.notificationId)
 
     /** The recipe to propose, picked now; null when none is wanted or none is left to propose. */
-    private suspend fun proposal(enabled: Boolean, today: LocalDate, planned: List<PlannedRecipe>): Recipe? {
+    private suspend fun proposal(enabled: Boolean, today: LocalDate, planned: List<PlannedRecipe>): Proposal? {
         if (!CookReminder.proposalWanted(enabled, today, planned, recipes.observeRecipes().first())) return null
         val id = suggester.suggest(today, 1, planned.mapTo(mutableSetOf()) { it.recipeId }).firstOrNull() ?: return null
-        return recipes.getRecipe(id)
+        val recipe = recipes.getRecipe(id) ?: return null
+        val lines = recipes.getLines(id)
+        val byId = ingredients.observeIngredients().first().associateBy { it.id }
+        val stats = RecipeStats.of(recipe, lines, byId, ingredients.observeContents().first())
+        val facts = ProposalFacts.of(
+            newPlantPoints = suggester.week(today).newPoints(lines.map { it.ingredientId }),
+            plantPoints = stats.plantPoints,
+            proteinPerPortion = stats.proteinPerPortion,
+            price = RecipePrice.calculate(priceLines(lines, byId), recipe.servings, today),
+        )
+        return Proposal(recipe, facts)
     }
+
+    private class Proposal(val recipe: Recipe, val facts: List<ProposalFact>)
 
     private fun schedule(settings: Settings, planned: List<PlannedRecipe>) {
         val now = LocalDateTime.now()
@@ -147,17 +168,27 @@ class CookReminders(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         return Notification.Builder(context, kind.channelId)
-            // The kind is the title; the question goes below it.
+            // The kind is the title, unless the notification names its own; the question goes below it.
             .setContentTitle(context.getString(kind.channelName))
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(open)
             .setAutoCancel(true)
     }
 
-    private fun buildProposal(recipe: Recipe): Notification =
-        builder(ReminderKind.PROPOSAL, recipe.id)
-            .setContentText(context.getString(R.string.proposal_text, recipe.title))
+    private fun buildProposal(proposal: Proposal): Notification =
+        builder(ReminderKind.PROPOSAL, proposal.recipe.id)
+            .setContentTitle(proposal.recipe.title)
+            .setContentText(ProposalFacts.line(proposal.facts, ::factText))
             .build()
+
+    private fun factText(fact: ProposalFact): String = when (fact) {
+        is ProposalFact.NewPlants -> context.getString(R.string.proposal_new_plants, fact.points)
+        is ProposalFact.Plants -> context.resources.getQuantityString(R.plurals.proposal_plants, fact.points, fact.points)
+        is ProposalFact.Protein -> context.getString(R.string.proposal_protein, fact.grams)
+        is ProposalFact.Price ->
+            if (fact.euros == 0.0) context.getString(R.string.recipe_price_below)
+            else context.getString(R.string.recipe_price_value, formatEuros(fact.euros))
+    }
 
     private fun buildShopping(content: ReminderContent): Notification =
         when (content) {
