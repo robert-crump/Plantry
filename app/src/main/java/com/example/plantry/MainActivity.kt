@@ -26,6 +26,13 @@ class MainActivity : ComponentActivity() {
         } else {
             null
         }
+        val otherSuggestionsThan = if (savedInstanceState == null) {
+            intent.getLongExtra(EXTRA_OTHER_SUGGESTIONS_THAN, -1).takeIf { it >= 0 }
+        } else {
+            null
+        }
+        // An action button doesn't cancel its notification itself.
+        if (otherSuggestionsThan != null) (application as PlantryApplication).cookReminders.dismissProposal()
         val settingsRepository =(application as PlantryApplication).settingsRepository
         setContent {
             val settings by settingsRepository.settings.collectAsStateWithLifecycle()
@@ -43,7 +50,7 @@ class MainActivity : ComponentActivity() {
             }
             PlantryTheme(darkTheme = darkTheme) {
                 CapitalizeOnFocus {
-                    PlantryNavHost(openRecipeId)
+                    PlantryNavHost(openRecipeId, otherSuggestionsThan)
                 }
             }
         }
@@ -52,6 +59,9 @@ class MainActivity : ComponentActivity() {
     companion object {
         /** The recipe a notification opens instead of Speiseplan. */
         const val EXTRA_RECIPE_ID = "openRecipeId"
+
+        /** The recipe a notification proposed; Vorschläge opens without it, instead of Speiseplan. */
+        const val EXTRA_OTHER_SUGGESTIONS_THAN = "otherSuggestionsThan"
 
         // The scrims androidx.activity uses by default.
         private val LightScrim = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)

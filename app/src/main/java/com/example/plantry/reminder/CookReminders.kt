@@ -42,7 +42,7 @@ import java.time.ZoneId
  * shopping reminder at their times, and the "Habt ihr heute … gekocht?" question on the evening of
  * a planned day. Keeps one alarm per kind set while it is on, shows the notification when the alarm
  * fires and answers the buttons of the proposal and the evening one. The proposal's "Planen" turns
- * it into a "Für heute geplant" confirmation in its place.
+ * it into a "Für heute geplant" confirmation in its place; "Anderer Vorschlag" opens Vorschläge without it.
  */
 class CookReminders(
     private val context: Context,
@@ -130,6 +130,9 @@ class CookReminders(
         planned.undoPlan(recipeId, previous)
     }
 
+    /** "Anderer Vorschlag" opened Vorschläge. */
+    fun dismissProposal() = notifications.cancel(ReminderKind.PROPOSAL.notificationId)
+
     /** "Ja": logs the recipe as cooked today, unless it was handled in the app in the meantime. */
     suspend fun answerYes(recipeId: Long) {
         notifications.cancel(ReminderKind.COOKED.notificationId)
@@ -212,13 +215,18 @@ class CookReminders(
     }
 
     private fun open(kind: ReminderKind, openRecipeId: Long?): PendingIntent =
+        activity(kind.requestCode + OPEN_REQUEST_OFFSET) {
+            if (openRecipeId != null) putExtra(MainActivity.EXTRA_RECIPE_ID, openRecipeId)
+        }
+
+    private fun activity(requestCode: Int, extras: Intent.() -> Unit): PendingIntent =
         PendingIntent.getActivity(
             context,
-            kind.requestCode + OPEN_REQUEST_OFFSET,
+            requestCode,
             Intent(context, MainActivity::class.java)
-                // A fresh start lands on Speiseplan, the start destination, or on the recipe it is given.
+                // A fresh start lands on Speiseplan, the start destination, or on what the extras ask for.
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                .apply { if (openRecipeId != null) putExtra(MainActivity.EXTRA_RECIPE_ID, openRecipeId) },
+                .apply(extras),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
@@ -227,11 +235,15 @@ class CookReminders(
         val plan = broadcast(ReminderReceiver.ACTION_PLAN, REQUEST_PLAN) {
             putExtra(ReminderReceiver.EXTRA_RECIPE_ID, proposal.recipe.id)
         }
+        val other = activity(REQUEST_OTHER_SUGGESTIONS) {
+            putExtra(MainActivity.EXTRA_OTHER_SUGGESTIONS_THAN, proposal.recipe.id)
+        }
         return builder(ReminderKind.PROPOSAL, proposal.recipe.id)
             .setContentTitle(proposal.recipe.title)
             .setContentText(ProposalFacts.line(proposal.facts, ::factText))
             .setOnlyAlertOnce(true)
             .addAction(Notification.Action.Builder(null, context.getString(R.string.action_plan), plan).build())
+            .addAction(Notification.Action.Builder(null, context.getString(R.string.action_other_suggestion), other).build())
             .build()
     }
 
@@ -378,6 +390,9 @@ class CookReminders(
         const val REQUEST_SHOW_SHOPPING = 5
         const val REQUEST_PLAN = 6
         const val REQUEST_UNDO_PLAN = 7
+
+        // Not 10 + a kind's request code: those are the activity intents of the notifications' bodies.
+        const val REQUEST_OTHER_SUGGESTIONS = 20
 
         /** Marks the proposal's confirmation, with the recipe it planned. */
         const val EXTRA_CONFIRMED_RECIPE_ID = "com.example.plantry.confirmedRecipeId"

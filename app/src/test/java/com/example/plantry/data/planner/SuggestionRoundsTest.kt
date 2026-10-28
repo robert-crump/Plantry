@@ -66,6 +66,37 @@ class SuggestionRoundsTest {
     }
 
     @Test
+    fun next_alreadyShown_leftOutOfFirstRound() = runTest {
+        val rounds = SuggestionRounds(alreadyShown = setOf(1L)) { count, exclude ->
+            (1L..10L).filter { it !in exclude }.take(count)
+        }
+
+        assertEquals(listOf(2L, 3L, 4L), rounds.next(emptySet()))
+    }
+
+    @Test
+    fun next_alreadyShown_notToppedUpInFirstRound_butBackAfterReroll() = runTest {
+        val rounds = SuggestionRounds(alreadyShown = setOf(1L)) { count, exclude ->
+            (1L..3L).filter { it !in exclude }.take(count)
+        }
+
+        // Fewer cards rather than the notification's recipe.
+        assertEquals(listOf(2L, 3L), rounds.next(emptySet()))
+        assertEquals(listOf(1L, 2L, 3L), rounds.next(emptySet()))
+    }
+
+    @Test
+    fun next_alreadyShown_comesBackWhenTheExclusionStartsOver() = runTest {
+        val rounds = SuggestionRounds(alreadyShown = setOf(1L)) { count, exclude ->
+            (1L..6L).filter { it !in exclude }.take(count)
+        }
+
+        assertEquals(listOf(2L, 3L, 4L), rounds.next(emptySet()))
+        // Only 5 and 6 are unseen: topped up from all recipes, the skipped one too.
+        assertEquals(listOf(5L, 6L, 1L), rounds.next(emptySet()))
+    }
+
+    @Test
     fun next_noRecipes() = runTest {
         assertTrue(rounds(LongRange.EMPTY).next(emptySet()).isEmpty())
         assertTrue(rounds(1L..2L).next(planned = setOf(1L, 2L)).isEmpty())

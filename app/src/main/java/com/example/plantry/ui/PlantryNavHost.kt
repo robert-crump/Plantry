@@ -93,8 +93,9 @@ import java.time.LocalDate
 @Serializable
 object CookingRoute
 
+/** [skipRecipeId]: left out of the first round, the recipe a notification's "Anderer Vorschlag" came from. */
 @Serializable
-object SuggestionsRoute
+data class SuggestionsRoute(val skipRecipeId: Long? = null)
 
 /**
  * Saved-state keys with which "Vorschlag" and "Planen" hand the recipe and day (epoch day) to plan
@@ -208,7 +209,7 @@ private enum class TopLevelDestination(
 }
 
 @Composable
-fun PlantryNavHost(openRecipeId: Long? = null) {
+fun PlantryNavHost(openRecipeId: Long? = null, otherSuggestionsThan: Long? = null) {
     val navController = rememberNavController()
     val app = LocalContext.current.applicationContext as PlantryApplication
     val recipeRepository = app.recipeRepository
@@ -256,6 +257,10 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
         if (openRecipeId != null && recipeRepository.getRecipe(openRecipeId) != null) {
             navController.navigate(RecipeDetailRoute(openRecipeId))
         }
+    }
+    // "Anderer Vorschlag": Vorschläge on top of Speiseplan, without the notification's recipe at first.
+    LaunchedEffect(otherSuggestionsThan) {
+        if (otherSuggestionsThan != null) navController.navigate(SuggestionsRoute(otherSuggestionsThan))
     }
     LifecycleResumeEffect(Unit) {
         scope.launch { app.backupRepository.refreshReminder() }
@@ -333,7 +338,7 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                             CookingViewModel(cookLogRepository, app.plannedRepository, recipeRepository, ingredientRepository, settingsRepository)
                         },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
-                        onSuggest = { navController.navigate(SuggestionsRoute) },
+                        onSuggest = { navController.navigate(SuggestionsRoute()) },
                         onPlan = { navController.navigate(RecipeSearchRoute(RecipeSearchMode.Plan)) },
                         onLog = { navController.navigate(RecipeSearchRoute(RecipeSearchMode.Log)) },
                         onStats = { week -> navController.navigate(StatsRoute(week?.toEpochDay())) },
@@ -373,10 +378,17 @@ fun PlantryNavHost(openRecipeId: Long? = null) {
                         },
                     )
                 }
-                composable<SuggestionsRoute> {
+                composable<SuggestionsRoute> { entry ->
+                    val route = entry.toRoute<SuggestionsRoute>()
                     SuggestionsScreen(
                         viewModel = viewModel {
-                            SuggestionsViewModel(app.recipeSuggester, app.plannedRepository, recipeRepository, ingredientRepository)
+                            SuggestionsViewModel(
+                                app.recipeSuggester,
+                                app.plannedRepository,
+                                recipeRepository,
+                                ingredientRepository,
+                                skipRecipeId = route.skipRecipeId,
+                            )
                         },
                         onBack = { navController.popBackStack() },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it, fromSuggestions = true)) },

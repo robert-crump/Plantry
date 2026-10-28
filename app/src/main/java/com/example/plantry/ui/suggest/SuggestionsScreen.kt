@@ -111,11 +111,17 @@ class SuggestionsViewModel(
     private val plannedRepository: PlannedRepository,
     private val recipeRepository: RecipeRepository,
     private val ingredientRepository: IngredientRepository,
+    /** A recipe the first round leaves out, e.g. the one a notification just proposed. */
+    skipRecipeId: Long? = null,
     private val clock: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
     // Lives as long as the screen, so recipes already shown stay excluded until it is left.
-    private val rounds = SuggestionRounds { count, exclude -> suggester.suggest(clock(), count, exclude) }
-    private val boostRounds = SuggestionRounds(count = 1) { count, exclude -> suggester.boost(clock(), count, exclude) }
+    private val rounds = SuggestionRounds(alreadyShown = setOfNotNull(skipRecipeId)) { count, exclude ->
+        suggester.suggest(clock(), count, exclude)
+    }
+    private val boostRounds = SuggestionRounds(count = 1, alreadyShown = setOfNotNull(skipRecipeId)) { count, exclude ->
+        suggester.boost(clock(), count, exclude)
+    }
     private var loading: Job? = null
 
     private val _suggestions = MutableStateFlow<Suggestions?>(null)

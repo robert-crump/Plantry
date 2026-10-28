@@ -246,6 +246,7 @@
     <string name="action_none_tomorrow">Keins, morgen</string>
     <string name="action_plan">Planen</string>
     <string name="action_open_recipe">Rezept öffnen</string>
+    <string name="action_other_suggestion">Anderer Vorschlag</string>
 
     <!-- Suggestions -->
     <string name="suggest_action">Vorschlag</string>
