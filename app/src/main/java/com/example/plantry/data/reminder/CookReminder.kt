@@ -9,10 +9,10 @@ import java.time.LocalTime
 
 /** What the reminders about today's planned recipes say. */
 sealed interface ReminderContent {
-    /** "Habt ihr heute <Titel> gekocht?" with Ja / Nein, morgen. */
+    /** "Hast du heute <Titel> gekocht?" with Ja / Nein, morgen. */
     data class Single(val recipeId: Long, val title: String) : ReminderContent
 
-    /** "Habt ihr heute etwas davon gekocht?" with Keins, morgen; [recipeIds] and [titles] in Geplant order. */
+    /** "Hast du heute etwas davon gekocht?" with Keins, morgen; [recipeIds] and [titles] in Geplant order. */
     data class Several(val recipeIds: List<Long>, val titles: List<String>) : ReminderContent
 }
 

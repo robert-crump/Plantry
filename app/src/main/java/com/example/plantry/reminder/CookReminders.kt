@@ -46,7 +46,7 @@ import java.time.ZoneId
 /**
  * The notifications: a recipe proposal (its name, behind a [ProposalHook] when one applies, and a
  * fact line, see [ProposalFacts]) and a
- * shopping reminder at their times, and the "Habt ihr heute … gekocht?" question on the evening of
+ * shopping reminder at their times, and the "Hast du heute … gekocht?" question on the evening of
  * a planned day. Keeps one alarm per kind set while it is on, shows the notification when the alarm
  * fires and answers the buttons of the proposal and the evening one. The proposal's "Planen" turns
  * it into a "Für heute geplant" confirmation in its place; "Anderer Vorschlag" opens Vorschläge without it.

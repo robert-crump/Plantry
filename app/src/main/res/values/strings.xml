@@ -220,9 +220,9 @@
     <string name="planned_swipe_hint">Wischen zum Abhaken · Gedrückt halten zum Auswählen</string>
     <string name="reminder_channel">Kocherinnerung</string>
     <string name="reminder_channel_description">Fragt am Abend des geplanten Tages, ob das Rezept gekocht wurde</string>
-    <string name="reminder_single_text">Habt ihr heute %1$s gekocht?</string>
-    <string name="reminder_several_text">Habt ihr heute etwas davon gekocht: %1$s?</string>
-    <string name="reminder_several_question">Habt ihr heute etwas davon gekocht?</string>
+    <string name="reminder_single_text">Hast du heute %1$s gekocht?</string>
+    <string name="reminder_several_text">Hast du heute etwas davon gekocht: %1$s?</string>
+    <string name="reminder_several_question">Hast du heute etwas davon gekocht?</string>
     <string name="reminder_offer_message">Möchtest du erinnert werden, ob du ein geplantes Rezept gekocht hast?</string>
     <string name="proposal_channel">Rezeptvorschlag</string>
     <string name="proposal_channel_description">Schlägt ein Rezept vor, wenn für heute nichts geplant ist</string>
@@ -531,8 +531,8 @@
     <string name="about_how">So funktioniert’s</string>
     <string name="about_step_recipes">1. Rezepte anlegen – von Hand oder per Foto aus dem Kochbuch scannen (Claude).</string>
     <string name="about_step_suggestions">2. Vorschläge holen und passende Rezepte in den Speiseplan übernehmen.</string>
-    <string name="about_step_reminder">3. Abends fragt eine Erinnerung, ob ihr gekocht habt – dann kannst du das Rezept als gekocht loggen.</string>
-    <string name="about_step_history">4. Der Verlauf zeigt, was ihr gekocht habt und wie viele Pflanzenpunkte jede Woche gesammelt hat.</string>
+    <string name="about_step_reminder">3. Abends fragt eine Erinnerung, ob du gekocht hast – dann kannst du das Rezept als gekocht loggen.</string>
+    <string name="about_step_history">4. Der Verlauf zeigt, was du gekocht hast und wie viele Pflanzenpunkte jede Woche gesammelt hat.</string>
     <string name="about_plant_points">Pflanzenpunkte</string>
     <!-- %1$d is the weekly plant points goal -->
     <string name="about_plant_points_rules">Jede Pflanze zählt einmal pro Woche (Montag bis Sonntag), auch wenn sie in mehreren Rezepten oder in einer Mischung wie Pesto steckt. Es zählen nur gekochte Rezepte, geplante noch nicht. Ziel: %1$d pro Woche.</string>
