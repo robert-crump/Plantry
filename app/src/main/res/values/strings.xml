@@ -232,6 +232,7 @@
         <item quantity="other">🌱 %1$d Pflanzen</item>
     </plurals>
     <string name="proposal_protein">%1$d g Eiweiß</string>
+    <string name="proposal_planned_title">Für heute geplant: %1$s</string>
     <string name="shopping_channel">Einkaufserinnerung</string>
     <string name="shopping_channel_description">Erinnert ans Einkaufen, wenn für heute ein Rezept geplant ist</string>
     <string name="shopping_text">Einkaufen für heute: %1$s?</string>
@@ -243,6 +244,8 @@
     <string name="action_no">Nein</string>
     <string name="action_no_tomorrow">Nein, morgen</string>
     <string name="action_none_tomorrow">Keins, morgen</string>
+    <string name="action_plan">Planen</string>
+    <string name="action_open_recipe">Rezept öffnen</string>
 
     <!-- Suggestions -->
     <string name="suggest_action">Vorschlag</string>

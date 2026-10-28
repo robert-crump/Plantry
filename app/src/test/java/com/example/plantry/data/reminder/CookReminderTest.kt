@@ -113,4 +113,13 @@ class CookReminderTest {
         assertTrue(CookReminder.proposalWanted(true, today, listOf(PlannedRecipe(5, today)), recipes))
         assertFalse(CookReminder.proposalWanted(true, today, listOf(PlannedRecipe(5, today), PlannedRecipe(1, today)), recipes))
     }
+
+    @Test
+    fun confirmationCurrent_onlyWhileTheRecipeIsPlannedForToday() {
+        assertTrue(CookReminder.confirmationCurrent(1, today, listOf(PlannedRecipe(2, today), PlannedRecipe(1, today))))
+        // Moved to another day, removed or cooked (off Geplant) in the app meanwhile.
+        assertFalse(CookReminder.confirmationCurrent(1, today, listOf(PlannedRecipe(1, today.plusDays(1)))))
+        assertFalse(CookReminder.confirmationCurrent(1, today, listOf(PlannedRecipe(2, today))))
+        assertFalse(CookReminder.confirmationCurrent(1, today, emptyList()))
+    }
 }

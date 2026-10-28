@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.example.plantry.PlantryApplication
+import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.settings.ReminderKind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +21,11 @@ class ReminderReceiver : BroadcastReceiver() {
             try {
                 when (intent.action) {
                     ACTION_SHOW -> reminders.show(kindOf(intent))
+                    ACTION_PLAN -> intent.getLongExtra(EXTRA_RECIPE_ID, -1).takeIf { it >= 0 }?.let { reminders.planProposal(it) }
+                    ACTION_UNDO_PLAN -> intent.getLongExtra(EXTRA_RECIPE_ID, -1).takeIf { it >= 0 }?.let { id ->
+                        val previous = intent.getLongExtra(EXTRA_DATE, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE }
+                        reminders.undoPlanProposal(id, previous?.let { PlannedRecipe(id, LocalDate.ofEpochDay(it)) })
+                    }
                     ACTION_YES -> intent.getLongExtra(EXTRA_RECIPE_ID, -1).takeIf { it >= 0 }?.let { reminders.answerYes(it) }
                     ACTION_NO -> {
                         val ids = intent.getLongArrayExtra(EXTRA_RECIPE_IDS)
@@ -47,10 +53,12 @@ class ReminderReceiver : BroadcastReceiver() {
         const val ACTION_SHOW = "com.example.plantry.reminder.SHOW"
         const val ACTION_YES = "com.example.plantry.reminder.YES"
         const val ACTION_NO = "com.example.plantry.reminder.NO"
+        const val ACTION_PLAN = "com.example.plantry.reminder.PLAN"
+        const val ACTION_UNDO_PLAN = "com.example.plantry.reminder.UNDO_PLAN"
         const val EXTRA_RECIPE_ID = "recipeId"
         const val EXTRA_RECIPE_IDS = "recipeIds"
 
-        /** The day the evening reminder asked about, as epoch day. */
+        /** The day the evening reminder asked about, or the Geplant day before "Planen", as epoch day. */
         const val EXTRA_DATE = "date"
         const val EXTRA_KIND = "kind"
     }

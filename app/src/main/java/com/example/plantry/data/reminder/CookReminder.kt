@@ -61,4 +61,11 @@ object CookReminder {
         val mains = recipes.filter { it.dish == Dish.MAIN }.mapTo(mutableSetOf()) { it.id }
         return planned.none { it.plannedOn == today && it.recipeId in mains }
     }
+
+    /**
+     * Whether the "Für heute geplant" confirmation for [recipeId] still holds on [today]: the recipe
+     * is still planned for that day, not moved, removed or logged as cooked in the app meanwhile.
+     */
+    fun confirmationCurrent(recipeId: Long, today: LocalDate, planned: List<PlannedRecipe>): Boolean =
+        planned.any { it.recipeId == recipeId && it.plannedOn == today }
 }
