@@ -31,6 +31,16 @@ class ScanPromptTest {
     }
 
     @Test
+    fun `steps follow the shared step rules`() {
+        val system = ScanPrompt.system(emptyList())
+
+        assertTrue(system.contains(StepRules.RULES))
+        assertTrue(system.contains("- steps: the cooking steps, following the step rules below."))
+        assertFalse(system.contains("cooks from the book"))
+        assertTrue(ScanPrompt.schema()._additionalProperties()["required"].toString().contains("steps"))
+    }
+
+    @Test
     fun `units are read back from their words`() {
         assertEquals(LineUnit.Grams, ScanPrompt.unitOf("g"))
         assertEquals(LineUnit.Milliliters, ScanPrompt.unitOf("ML"))

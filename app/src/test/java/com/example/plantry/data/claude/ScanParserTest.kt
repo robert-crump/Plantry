@@ -117,6 +117,23 @@ class ScanParserTest {
     }
 
     @Test
+    fun steps_areReadAndCleanedUp() {
+        val text = answer(lines = arrayOf(line("200 g rote Linsen", 200.0, 3)))
+            .replace("]}", "],\"steps\":[\" 1. Zwiebel anschwitzen. \",\"\",\"Linsen 20 Min. köcheln.\"]}")
+
+        assertEquals(listOf("Zwiebel anschwitzen.", "Linsen 20 Min. köcheln."), success(text).steps)
+    }
+
+    @Test
+    fun noMethodOnThePhoto_givesNoSteps() {
+        val withEmpty = answer(lines = arrayOf(line("200 g rote Linsen", 200.0, 3))).replace("]}", "],\"steps\":[]}")
+        val withoutField = answer(lines = arrayOf(line("200 g rote Linsen", 200.0, 3)))
+
+        assertEquals(emptyList<String>(), success(withEmpty).steps)
+        assertEquals(emptyList<String>(), success(withoutField).steps)
+    }
+
+    @Test
     fun noTitleAndNoLines_isNotARecipe() {
         assertEquals(ScanResult.Failure(ClaudeFailure.NOT_A_RECIPE), ScanParser.toResult(answer(title = ""), known))
     }

@@ -11,6 +11,7 @@ import com.anthropic.models.messages.JsonOutputFormat
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.anthropic.models.messages.StopReason
+import com.example.plantry.data.CookingSteps
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.LineUnit
@@ -56,6 +57,8 @@ data class ScannedRecipe(
     val lines: List<ScannedLine>,
     /** "Arbeitszeit". */
     val activeTimeMinutes: Int? = null,
+    /** The cooking steps, condensed by [StepRules]; empty when the photo shows no method. */
+    val steps: List<String> = emptyList(),
 )
 
 sealed interface ScanResult {
@@ -144,8 +147,7 @@ object ScanPrompt {
         appendLine(
             """
             You read a photo of a cookbook page (usually German) for a meal-planning app and extract
-            the recipe's metadata and its ingredient lines. Method steps are not needed: the user
-            cooks from the book.
+            the recipe's metadata, its ingredient lines and its cooking steps.
 
             - title: the recipe title as printed.
             - servings: the number of servings stated; for a range such as "2-4" the higher number;
@@ -187,9 +189,17 @@ object ScanPrompt {
                 a rough guess; false otherwise.
               - searchTerms: only when ingredientId is 0: 1 to 3 ${ProposalPrompt.SEARCH_TERMS_RULE}.
                 Empty otherwise.
+            - steps: the cooking steps, following the step rules below. The photo is often only
+              the ingredient page: if no method is visible, no steps.
 
-            If the photo shows no recipe, return an empty title and no lines.
-
+            If the photo shows no recipe, return an empty title, no lines and no steps.
+            """.trimIndent(),
+        )
+        appendLine()
+        appendLine(StepRules.RULES)
+        appendLine()
+        appendLine(
+            """
             The user's ingredient table (id, tab, German name; for ingredients counted in units a
             tab and the weight of one unit per unit, e.g. "1 Scheibe = 37.5 g"):
             """.trimIndent(),
@@ -240,6 +250,7 @@ object ScanPrompt {
             "totalMinutes" to mapOf("type" to "integer"),
             "page" to mapOf("type" to "integer"),
             "lines" to mapOf("type" to "array", "items" to line),
+            "steps" to mapOf("type" to "array", "items" to mapOf("type" to "string")),
         )
         return JsonOutputFormat.Schema.builder()
             .putAdditionalProperty("type", JsonValue.from("object"))
@@ -261,6 +272,7 @@ object ScanParser {
         val totalMinutes: Int,
         val page: Int,
         val lines: List<LineJson>,
+        val steps: List<String> = emptyList(),
     )
 
     @Serializable
@@ -279,7 +291,7 @@ object ScanParser {
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * Ids not in [knownIngredientIds] count as "no match". A line without a positive amount, or in
+     * Steps are cleaned up as typed ones are ([CookingSteps.parse]). Ids not in [knownIngredientIds] count as "no match". A line without a positive amount, or in
      * a unit not in [ScanPrompt.UNIT_WORDS] (then read as grams), is marked uncertain, since its
      * amount must be corrected.
      */
@@ -291,7 +303,8 @@ object ScanParser {
         } catch (_: IllegalArgumentException) {
             return ScanResult.Failure(ClaudeFailure.BAD_RESPONSE)
         }
-        if (parsed.title.isBlank() && parsed.lines.isEmpty()) return ScanResult.Failure(ClaudeFailure.NOT_A_RECIPE)
+        val steps = parsed.steps.flatMap(CookingSteps::parse)
+        if (parsed.title.isBlank() && parsed.lines.isEmpty() && steps.isEmpty()) return ScanResult.Failure(ClaudeFailure.NOT_A_RECIPE)
         return ScanResult.Success(
             ScannedRecipe(
                 title = parsed.title.trim(),
@@ -314,6 +327,7 @@ object ScanParser {
                         searchTerms = if (ingredientId == null) ProposalParser.cleanTerms(line.searchTerms) else emptyList(),
                     )
                 },
+                steps = steps,
             ),
         )
     }

@@ -2,7 +2,7 @@ package com.example.plantry.data.claude
 
 /**
  * How Claude writes a recipe's cooking steps, in the concise style of Pick Up Limes: used by
- * Kürzen, and later by the scan and "Aus Fotos lesen". The same rules are in
+ * Kürzen and the scan, and later by "Aus Fotos lesen". The same rules are in
  * `tools/seed/step-rules.md`; change both together.
  */
 object StepRules {

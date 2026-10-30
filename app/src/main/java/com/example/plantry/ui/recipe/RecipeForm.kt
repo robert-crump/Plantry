@@ -93,6 +93,7 @@ data class RecipeForm(
                 missingUnit = ingredientId != null && it.unit.lackedBy(units[ingredientId].orEmpty()),
             )
         },
+        steps = CookingSteps.text(scan.steps),
     )
 
     /**

@@ -157,7 +157,7 @@ data class RecipeEditUiState(
     val usdaPicker: UsdaPickerState? = null,
     /** The new ingredient whose package values are being entered, if any. */
     val labelNutritionFor: Long? = null,
-    /** A scan is reviewed in two steps: the recipe fields first, then (once true) the lines. */
+    /** A scan is reviewed in two steps: the recipe fields and steps first, then (once true) the lines. */
     val linesStep: Boolean = false,
     /** The new recipe is being read from a photo (see [scan]) or that scan is being reviewed. */
     val scanning: Boolean = false,
@@ -713,7 +713,7 @@ fun RecipeEditScreen(
     val errors = if (state.showErrors) form.errors() else null
     val isScan = state.scanning
     val showForm = state.scan == ScanState.Done
-    // A scan is reviewed in two steps, recipe fields then lines; otherwise both show at once.
+    // A scan is reviewed in two steps, recipe fields and steps then lines; otherwise all show at once.
     val showFields = showForm && !(isScan && state.linesStep)
     val showLines = showForm && (!isScan || state.linesStep)
     // System back steps out of the scan's photo and lines steps before it closes the editor; X always closes.
@@ -807,6 +807,20 @@ fun RecipeEditScreen(
                     Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    val stepsSection = @Composable {
+                        Text(
+                            stringResource(R.string.recipe_section_steps),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
+                        StepsField(
+                            value = form.steps,
+                            work = stepsWork,
+                            onValueChange = viewModel::onStepsChange,
+                            onCondense = { viewModel.useClaude(ClaudeAction.CONDENSE_STEPS) },
+                        )
+                    }
                     if (showFields) {
                         RecipeFields(
                             form = form,
@@ -816,6 +830,8 @@ fun RecipeEditScreen(
                             onDone = if (isScan) viewModel::showLines else null,
                         )
                         if (isScan) {
+                            // The scan reads the steps with the recipe fields, so they are reviewed here.
+                            stepsSection()
                             Button(onClick = viewModel::showLines, Modifier.align(Alignment.End).padding(top = 8.dp)) {
                                 Text(stringResource(R.string.action_next))
                             }
@@ -900,18 +916,7 @@ fun RecipeEditScreen(
                             Icon(Icons.Filled.Add, contentDescription = null)
                             Text(stringResource(R.string.recipe_line_add), Modifier.padding(start = 8.dp))
                         }
-                        Text(
-                            stringResource(R.string.recipe_section_steps),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 16.dp),
-                        )
-                        StepsField(
-                            value = form.steps,
-                            work = stepsWork,
-                            onValueChange = viewModel::onStepsChange,
-                            onCondense = { viewModel.useClaude(ClaudeAction.CONDENSE_STEPS) },
-                        )
+                        if (!isScan) stepsSection()
                     }
                 }
             }

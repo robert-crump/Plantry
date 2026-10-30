@@ -299,6 +299,21 @@ class RecipeFormTest {
     }
 
     @Test
+    fun withScan_fillsTheStepsWhichAreSaved() {
+        val scan = ScannedRecipe(
+            "Linsen-Dal", servings = 4, totalTimeMinutes = 40, page = null, lines = emptyList(),
+            steps = listOf("Zwiebel anschwitzen.", "Linsen 20 Min. köcheln."),
+        )
+        val noMethod = ScannedRecipe("Linsen-Dal", servings = 4, totalTimeMinutes = 40, page = null, lines = emptyList())
+
+        val form = RecipeForm().withScan(scan)
+
+        assertEquals("Zwiebel anschwitzen.\nLinsen 20 Min. köcheln.", form.steps)
+        assertEquals(listOf("Zwiebel anschwitzen.", "Linsen 20 Min. köcheln."), form.withLine(null, tofu).toDraft()?.steps)
+        assertEquals("", RecipeForm().withScan(noMethod).steps)
+    }
+
+    @Test
     fun fieldErrors_ignoreTheLines() {
         val incompleteLine = RecipeFormLine(30.0, LineUnit.Grams, ingredientId = null, wording = "1 Bund Koriander")
 
