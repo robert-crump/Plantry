@@ -19,7 +19,7 @@ import com.example.plantry.data.backup.BackupDao
         Recipe::class, Ingredient::class, IngredientUnit::class, RecipeIngredient::class, CookLog::class,
         IngredientAlias::class, PlannedRecipe::class, MixComponent::class, CookLogPlant::class, ProposalEvent::class,
     ],
-    version = 5,
+    version = 6,
     autoMigrations = [
         // Adds the mix components ("Enthält").
         AutoMigration(from = 1, to = 2),
@@ -29,6 +29,8 @@ import com.example.plantry.data.backup.BackupDao
         AutoMigration(from = 3, to = 4),
         // Adds the proposal event log, empty.
         AutoMigration(from = 4, to = 5),
+        // Adds the recipes' cooking steps; existing recipes have none.
+        AutoMigration(from = 5, to = 6),
     ],
 )
 @TypeConverters(Converters::class)

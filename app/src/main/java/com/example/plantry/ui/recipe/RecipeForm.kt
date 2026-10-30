@@ -2,6 +2,7 @@ package com.example.plantry.ui.recipe
 
 import com.example.plantry.data.BookPage
 import com.example.plantry.data.BookSession
+import com.example.plantry.data.CookingSteps
 import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientAliases
@@ -35,6 +36,8 @@ data class RecipeForm(
     val totalTime: String = "",
     /** Ingredient lines are validated in the line editor, so they are kept parsed. */
     val lines: List<RecipeFormLine> = emptyList(),
+    /** The Zubereitung as typed, one step per line; see [CookingSteps.parse]. */
+    val steps: String = "",
     /**
      * Ingredients Claude proposed, by temporary negative id; lines refer to them by that id. Those
      * a line uses are created on save.
@@ -270,6 +273,7 @@ data class RecipeForm(
             lines = completeLines(),
             dish = dish,
             activeTimeMinutes = activeTime.toPositiveIntOrNull(),
+            steps = CookingSteps.parse(steps),
         )
     }
 
@@ -283,6 +287,7 @@ data class RecipeForm(
             totalTime = recipe.totalTimeMinutes?.toString().orEmpty(),
             dish = recipe.dish,
             lines = lines.map { RecipeFormLine.from(it.toDraft()) },
+            steps = CookingSteps.text(recipe.steps),
         )
     }
 }

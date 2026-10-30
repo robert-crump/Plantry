@@ -45,5 +45,6 @@ class RecipeRepository(private val dao: RecipeDao) {
         modified = modified,
         dish = dish,
         activeTimeMinutes = activeTimeMinutes,
+        steps = steps,
     )
 }

@@ -164,6 +164,16 @@ class RecipeFormTest {
     }
 
     @Test
+    fun steps_areOptional_cleanedOnSave_andShownOnePerLine() {
+        val draft = valid.copy(steps = "1. Reis kochen.\n\n2) Gemüse anbraten.").withLine(null, tofu).toDraft()
+        val recipe = Recipe(1, "Curry", "", null, servings = 2, totalTimeMinutes = null, steps = listOf("Reis kochen.", "Servieren."))
+
+        assertEquals(listOf("Reis kochen.", "Gemüse anbraten."), draft?.steps)
+        assertEquals(emptyList<String>(), valid.withLine(null, tofu).toDraft()?.steps)
+        assertEquals("Reis kochen.\nServieren.",RecipeForm.from(recipe, emptyList()).steps)
+    }
+
+    @Test
     fun activeTime_mustBeANumberNoLongerThanTheTotal() {
         assertTrue(valid.copy(activeTime = "abc").errors().activeTime)
         assertTrue(valid.copy(activeTime = "50", totalTime = "45").errors().activeTime)

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -292,6 +293,13 @@ fun RecipeDetailScreen(
                     )
                 }
                 IngredientList(detail.lines, onLineClick = { onIngredientClick(it.ingredientId) })
+            }
+
+            if (current.steps.isNotEmpty()) {
+                DetailCard {
+                    SectionTitle(R.string.recipe_section_steps)
+                    StepList(current.steps)
+                }
             }
 
             if (detail.lines.isNotEmpty()) {
@@ -595,6 +603,27 @@ private fun IngredientList(lines: List<ShownLine>, onLineClick: (ShownLine) -> U
                 pluralStringResource(R.plurals.recipe_lines_more, hidden, hidden),
                 onToggle = { expanded = !expanded },
             )
+        }
+    }
+}
+
+/** The cooking steps numbered in order, each one wrapping under its own text, not under its number. */
+@Composable
+private fun StepList(steps: List<String>) {
+    Column(
+        Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        steps.forEachIndexed { index, step ->
+            Row(Modifier.padding(top = if (index == 0) 4.dp else 0.dp)) {
+                Text(
+                    "${index + 1}.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.widthIn(min = 28.dp),
+                )
+                Text(step, style = MaterialTheme.typography.bodyLarge)
+            }
         }
     }
 }

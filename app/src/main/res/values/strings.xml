@@ -115,6 +115,8 @@
     <string name="recipe_line_open">Zutat öffnen</string>
     <string name="recipe_line_amount">%1$s · %2$s</string>
     <string name="recipe_line_add">Zutat hinzufügen</string>
+    <string name="recipe_section_steps">Zubereitung</string>
+    <string name="recipe_steps_hint">Ein Schritt pro Zeile</string>
     <string name="recipe_line_new">Zutat hinzufügen</string>
     <string name="recipe_line_edit">Zeile bearbeiten</string>
     <string name="recipe_line_remove">Zeile entfernen</string>

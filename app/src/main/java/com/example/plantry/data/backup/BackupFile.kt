@@ -59,8 +59,9 @@ data class BackupFile(
          * 4 keeps each cooking log entry's plants ([BackupCookLog.plants]); an earlier file's entries
          * take them from their recipes as in the file, like the database migration. 5 adds the
          * ingredient price ([BackupIngredient.pricePerKg]); an earlier file's ingredients have none.
+         * 6 adds the cooking steps ([BackupRecipe.steps]); an earlier file's recipes have none.
          */
-        const val FORMAT_VERSION = 5
+        const val FORMAT_VERSION = 6
 
         /** The oldest format since the restart; still read. */
         private const val FIRST_FORMAT_VERSION = 1
@@ -173,6 +174,8 @@ data class BackupRecipe(
     val photo: String? = null,
     /** In recipe order. */
     val lines: List<BackupLine>,
+    /** The Zubereitung in order; empty when the recipe has none, and before format 6. */
+    @EncodeDefault val steps: List<String> = emptyList(),
 )
 
 /** [unit] is "G", "ML" or one of the ingredient's units, see [LineUnit.code]; no grams, they follow from the units. */
@@ -359,6 +362,7 @@ private fun Recipe.toBackup(photos: List<String>, lines: List<RecipeIngredient>)
     dish = dish,
     photos = photos,
     lines = lines.map { BackupLine(it.id, it.amount, it.unit.code, it.ingredientId, it.wording) },
+    steps = steps,
 )
 
 private fun BackupRecipe.toEntity() = Recipe(
@@ -371,4 +375,5 @@ private fun BackupRecipe.toEntity() = Recipe(
     modified = modified,
     dish = dish,
     activeTimeMinutes = activeTimeMinutes,
+    steps = steps,
 )

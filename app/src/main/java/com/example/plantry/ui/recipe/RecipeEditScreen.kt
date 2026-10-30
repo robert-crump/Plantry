@@ -865,6 +865,13 @@ fun RecipeEditScreen(
                             Icon(Icons.Filled.Add, contentDescription = null)
                             Text(stringResource(R.string.recipe_line_add), Modifier.padding(start = 8.dp))
                         }
+                        Text(
+                            stringResource(R.string.recipe_section_steps),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
+                        StepsField(form.steps, onValueChange = { viewModel.onFormChange { copy(steps = it) } })
                     }
                 }
             }
@@ -1153,6 +1160,21 @@ private fun RecipeFields(
             modifier = Modifier.weight(1f),
         )
     }
+}
+
+/** The Zubereitung, one step per line; numbering and empty lines are cleaned up on save. */
+@Composable
+private fun StepsField(value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        textStyle = MaterialTheme.typography.bodyLarge,
+        label = { Text(stringResource(R.string.recipe_section_steps)) },
+        supportingText = { Text(stringResource(R.string.recipe_steps_hint)) },
+        minLines = 3,
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /** "Art" with the recipe's dish; tapping opens a radio dialog that applies on tap. */

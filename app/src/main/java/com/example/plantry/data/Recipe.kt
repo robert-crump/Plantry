@@ -3,6 +3,7 @@ package com.example.plantry.data
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.TypeConverters
 
 @Entity(tableName = "recipes")
 data class Recipe(
@@ -20,6 +21,8 @@ data class Recipe(
     @ColumnInfo(defaultValue = "MAIN") val dish: Dish = Dish.MAIN,
     /** "Arbeitszeit", the hands-on part of [totalTimeMinutes]; null when unknown, as for all older recipes. */
     val activeTimeMinutes: Int? = null,
+    /** "Zubereitung", see [CookingSteps]; empty when the recipe has none, as all older recipes. */
+    @ColumnInfo(defaultValue = "") @field:TypeConverters(CookingSteps.Converter::class) val steps: List<String> = emptyList(),
 )
 
 /** What a recipe is eaten as: "Hauptgericht", "Frühstück" or "Snack"; stored by name. */
@@ -35,4 +38,5 @@ data class RecipeDraft(
     val lines: List<RecipeIngredientDraft>,
     val dish: Dish = Dish.MAIN,
     val activeTimeMinutes: Int? = null,
+    val steps: List<String> = emptyList(),
 )
