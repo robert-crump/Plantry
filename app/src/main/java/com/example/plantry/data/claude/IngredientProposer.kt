@@ -1,13 +1,9 @@
 package com.example.plantry.data.claude
 
-import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import com.anthropic.core.JsonValue
-import com.anthropic.errors.AnthropicIoException
-import com.anthropic.errors.AnthropicServiceException
 import com.anthropic.models.messages.JsonOutputFormat
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
-import com.anthropic.models.messages.StopReason
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.IngredientUnit
@@ -126,7 +122,7 @@ class AnthropicIngredientProposer(private val models: ModelCatalog = ModelCatalo
             ProposalPrompt.searchTermsSchema(),
             ProposalPrompt.searchTermsMessage(foods),
         )
-        return when (val answer = call(apiKey, params)) {
+        return when (val answer = callClaude(apiKey, params)) {
             is ClaudeResult.Success -> ProposalParser.searchTerms(answer.value, foods)
             is ClaudeResult.Failure -> answer
         }
@@ -144,7 +140,7 @@ class AnthropicIngredientProposer(private val models: ModelCatalog = ModelCatalo
             ProposalPrompt.proposeSchema(),
             ProposalPrompt.proposeMessage(foods),
         )
-        return when (val answer = call(apiKey, params)) {
+        return when (val answer = callClaude(apiKey, params)) {
             is ClaudeResult.Success -> ProposalParser.proposals(answer.value, foods)
             is ClaudeResult.Failure -> answer
         }
@@ -168,28 +164,6 @@ class AnthropicIngredientProposer(private val models: ModelCatalog = ModelCatalo
         )
         .addUserMessage(message)
         .build()
-
-    /** The answer's text, or why there is none. */
-    private suspend fun call(apiKey: String, params: MessageCreateParams): ClaudeResult<String?> =
-        withContext(Dispatchers.IO) {
-            val client = AnthropicOkHttpClient.builder().apiKey(apiKey).build()
-            try {
-                val response = client.messages().create(params)
-                when (response.stopReason().orElse(null)) {
-                    StopReason.REFUSAL -> ClaudeResult.Failure(ClaudeFailure.REFUSED)
-                    StopReason.MAX_TOKENS -> ClaudeResult.Failure(ClaudeFailure.TRUNCATED)
-                    else -> ClaudeResult.Success(
-                        response.content().mapNotNull { block -> block.text().orElse(null)?.text() }.lastOrNull(),
-                    )
-                }
-            } catch (e: AnthropicServiceException) {
-                ClaudeResult.Failure(ClaudeFailure.fromError(e.statusCode(), e.errorType().map { it.asString() }.orElse(null)))
-            } catch (_: AnthropicIoException) {
-                ClaudeResult.Failure(ClaudeFailure.NETWORK)
-            } finally {
-                client.close()
-            }
-        }
 }
 
 object ProposalPrompt {

@@ -5,6 +5,7 @@ import com.anthropic.errors.AnthropicIoException
 import com.anthropic.errors.AnthropicServiceException
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
+import com.anthropic.models.messages.StopReason
 import com.example.plantry.data.settings.ScanModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -94,3 +95,25 @@ class AnthropicConnectionTester(private val models: ModelCatalog = ModelCatalog.
         }
     }
 }
+
+/** Makes [params]' call and returns the answer's text, or why there is none. */
+suspend fun callClaude(apiKey: String, params: MessageCreateParams): ClaudeResult<String?> =
+    withContext(Dispatchers.IO) {
+        val client = AnthropicOkHttpClient.builder().apiKey(apiKey).build()
+        try {
+            val response = client.messages().create(params)
+            when (response.stopReason().orElse(null)) {
+                StopReason.REFUSAL -> ClaudeResult.Failure(ClaudeFailure.REFUSED)
+                StopReason.MAX_TOKENS -> ClaudeResult.Failure(ClaudeFailure.TRUNCATED)
+                else -> ClaudeResult.Success(
+                    response.content().mapNotNull { block -> block.text().orElse(null)?.text() }.lastOrNull(),
+                )
+            }
+        } catch (e: AnthropicServiceException) {
+            ClaudeResult.Failure(ClaudeFailure.fromError(e.statusCode(), e.errorType().map { it.asString() }.orElse(null)))
+        } catch (_: AnthropicIoException) {
+            ClaudeResult.Failure(ClaudeFailure.NETWORK)
+        } finally {
+            client.close()
+        }
+    }

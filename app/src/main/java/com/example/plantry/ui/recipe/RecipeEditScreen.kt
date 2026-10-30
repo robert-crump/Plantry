@@ -55,6 +55,10 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -95,6 +99,7 @@ import com.example.plantry.data.claude.ClaudeResult
 import com.example.plantry.data.claude.NutritionSource
 import com.example.plantry.data.claude.RecipeScanner
 import com.example.plantry.data.claude.ScanResult
+import com.example.plantry.data.claude.StepsCondenser
 import com.example.plantry.data.usda.UsdaCatalog
 import com.example.plantry.data.usda.UsdaFood
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -180,7 +185,7 @@ data class RecipeEditUiState(
 }
 
 /** What uses Claude here; each waits until Claude is set up, see [RecipeEditViewModel.useClaude]. */
-enum class ClaudeAction { SCAN }
+enum class ClaudeAction { SCAN, CONDENSE_STEPS }
 
 /** [action] waits for [step]: first accepting the costs, then entering a key. */
 data class ClaudeGate(val action: ClaudeAction, val step: Step) {
@@ -228,10 +233,21 @@ class RecipeEditViewModel(
     private val bookSession: BookSession,
     private val compressPhoto: suspend (Uri) -> ByteArray?,
     tester: ConnectionTester,
+    stepsCondenser: StepsCondenser,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RecipeEditUiState())
     val state: StateFlow<RecipeEditUiState> = _state.asStateFlow()
+
+    /** Kürzen on the Zubereitung field. */
+    val steps = StepsAssistant(
+        scope = viewModelScope,
+        condenser = stepsCondenser,
+        apiKey = settings::apiKey,
+        model = { settings.settings.value.scanModel },
+        text = { _state.value.form.steps },
+        setText = { text -> _state.update { it.copy(form = it.form.copy(steps = text)) } },
+    )
 
     /** The key entered while a Claude feature waits; once it is stored, that feature runs. */
     val keyEntry: ApiKeyEntry = ApiKeyEntry(settings, tester, viewModelScope) {
@@ -342,6 +358,7 @@ class RecipeEditViewModel(
         if (step == null) {
             when (action) {
                 ClaudeAction.SCAN -> startScan()
+                ClaudeAction.CONDENSE_STEPS -> steps.condense()
             }
         }
     }
@@ -541,6 +558,12 @@ class RecipeEditViewModel(
         _state.update { it.copy(form = it.form.transform()) }
     }
 
+    /** Typing into the Zubereitung; a Kürzen failure shown below it is done with. */
+    fun onStepsChange(text: String) {
+        onFormChange { copy(steps = text) }
+        steps.failureShown()
+    }
+
     fun addLine() {
         _state.update { it.copy(lineEditor = LineEditorState(index = null, RecipeLineForm.newLine())) }
     }
@@ -624,6 +647,7 @@ class RecipeEditViewModel(
 
     fun discard() {
         reading?.cancel()
+        steps.cancel()
         _state.update { it.copy(confirmDiscard = false, closed = true) }
     }
 
@@ -635,6 +659,7 @@ class RecipeEditViewModel(
         }
         if (saving) return
         saving = true
+        steps.cancel()
         val state = _state.value
         viewModelScope.launch {
             val newIds = ingredientRepository.createProposed(state.form.newIngredientsToCreate())
@@ -668,6 +693,15 @@ fun RecipeEditScreen(
     val usualUnits by viewModel.usualUnits.collectAsStateWithLifecycle()
     val ingredientSections by viewModel.ingredientSections.collectAsStateWithLifecycle()
     val sourceSuggestions by viewModel.sourceSuggestions.collectAsStateWithLifecycle()
+    val stepsWork by viewModel.steps.state.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    val condensedMessage = stringResource(R.string.recipe_steps_condensed)
+    val undoLabel = stringResource(R.string.action_undo)
+    LaunchedEffect(stepsWork.undoText) {
+        if (stepsWork.undoText == null) return@LaunchedEffect
+        val result = snackbar.showSnackbar(condensedMessage, actionLabel = undoLabel, duration = SnackbarDuration.Long)
+        if (result == SnackbarResult.ActionPerformed) viewModel.steps.undo() else viewModel.steps.undoExpired()
+    }
     val photoSource = rememberPhotoSource(viewModel::onPhoto)
     var showingScanInfo by rememberSaveable { mutableStateOf(false) }
     // The page photo open over the whole screen, by its index among the shown ones.
@@ -692,6 +726,7 @@ fun RecipeEditScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = {
@@ -871,7 +906,12 @@ fun RecipeEditScreen(
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(top = 16.dp),
                         )
-                        StepsField(form.steps, onValueChange = { viewModel.onFormChange { copy(steps = it) } })
+                        StepsField(
+                            value = form.steps,
+                            work = stepsWork,
+                            onValueChange = viewModel::onStepsChange,
+                            onCondense = { viewModel.useClaude(ClaudeAction.CONDENSE_STEPS) },
+                        )
                     }
                 }
             }
@@ -1162,12 +1202,16 @@ private fun RecipeFields(
     }
 }
 
-/** The Zubereitung, one step per line; numbering and empty lines are cleaned up on save. */
+/**
+ * The Zubereitung, one step per line; numbering and empty lines are cleaned up on save. Below it
+ * "Kürzen" once there is text, locked with progress while Claude works on it.
+ */
 @Composable
-private fun StepsField(value: String, onValueChange: (String) -> Unit) {
+private fun StepsField(value: String, work: StepsWork, onValueChange: (String) -> Unit, onCondense: () -> Unit) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
+        enabled = !work.running,
         textStyle = MaterialTheme.typography.bodyLarge,
         label = { Text(stringResource(R.string.recipe_section_steps)) },
         supportingText = { Text(stringResource(R.string.recipe_steps_hint)) },
@@ -1175,6 +1219,23 @@ private fun StepsField(value: String, onValueChange: (String) -> Unit) {
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         modifier = Modifier.fillMaxWidth(),
     )
+    when {
+        work.running -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LinearWavyProgressIndicator(Modifier.fillMaxWidth())
+            Text(stringResource(R.string.recipe_steps_condensing), style = MaterialTheme.typography.bodyMedium)
+        }
+        value.isNotBlank() -> TextButton(onClick = onCondense) {
+            Icon(Icons.Filled.AutoAwesome, contentDescription = null)
+            Text(stringResource(R.string.recipe_steps_condense), Modifier.padding(start = 8.dp))
+        }
+    }
+    work.failure?.let { failure ->
+        Text(
+            stringResource(failure.message),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
 }
 
 /** "Art" with the recipe's dish; tapping opens a radio dialog that applies on tap. */

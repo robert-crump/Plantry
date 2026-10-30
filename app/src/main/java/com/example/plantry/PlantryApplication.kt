@@ -17,6 +17,8 @@ import com.example.plantry.data.backup.FilePhotoStore
 import com.example.plantry.data.claude.AnthropicConnectionTester
 import com.example.plantry.data.claude.AnthropicIngredientProposer
 import com.example.plantry.data.claude.AnthropicRecipeScanner
+import com.example.plantry.data.claude.AnthropicStepsCondenser
+import com.example.plantry.data.claude.StepsCondenser
 import com.example.plantry.data.claude.RecipeScanner
 import com.example.plantry.data.planner.RecipeSuggester
 import com.example.plantry.data.claude.ConnectionTester
@@ -112,6 +114,8 @@ class PlantryApplication : Application() {
     val connectionTester: ConnectionTester = AnthropicConnectionTester()
 
     val recipeScanner: RecipeScanner = AnthropicRecipeScanner()
+
+    val stepsCondenser: StepsCondenser = AnthropicStepsCondenser()
 
     private val openFoodFacts = OpenFoodFactsClient()
 

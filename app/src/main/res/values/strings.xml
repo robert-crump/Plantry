@@ -117,6 +117,9 @@
     <string name="recipe_line_add">Zutat hinzufügen</string>
     <string name="recipe_section_steps">Zubereitung</string>
     <string name="recipe_steps_hint">Ein Schritt pro Zeile</string>
+    <string name="recipe_steps_condense">Kürzen</string>
+    <string name="recipe_steps_condensing">Claude kürzt die Zubereitung …</string>
+    <string name="recipe_steps_condensed">Zubereitung gekürzt</string>
     <string name="recipe_line_new">Zutat hinzufügen</string>
     <string name="recipe_line_edit">Zeile bearbeiten</string>
     <string name="recipe_line_remove">Zeile entfernen</string>
