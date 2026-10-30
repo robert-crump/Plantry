@@ -4,9 +4,7 @@ import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import com.anthropic.core.JsonValue
 import com.anthropic.errors.AnthropicIoException
 import com.anthropic.errors.AnthropicServiceException
-import com.anthropic.models.messages.Base64ImageSource
 import com.anthropic.models.messages.ContentBlockParam
-import com.anthropic.models.messages.ImageBlockParam
 import com.anthropic.models.messages.JsonOutputFormat
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
@@ -23,7 +21,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.math.BigDecimal
-import java.util.Base64
 import kotlin.math.roundToLong
 
 /** One ingredient line as Claude read it from the photo. */
@@ -119,16 +116,7 @@ class AnthropicRecipeScanner(private val models: ModelCatalog = ModelCatalog.sha
             )
             .addUserMessageOfBlockParams(
                 listOf(
-                    ContentBlockParam.ofImage(
-                        ImageBlockParam.builder()
-                            .source(
-                                Base64ImageSource.builder()
-                                    .mediaType(Base64ImageSource.MediaType.IMAGE_JPEG)
-                                    .data(Base64.getEncoder().encodeToString(photo))
-                                    .build(),
-                            )
-                            .build(),
-                    ),
+                    jpegBlock(photo),
                     ContentBlockParam.ofText("Lies dieses Rezept."),
                 ),
             )

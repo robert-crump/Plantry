@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.util.Base64
 
 class StepsPromptTest {
 
@@ -12,6 +13,24 @@ class StepsPromptTest {
         assertTrue(StepsPrompt.CONDENSE_SYSTEM.endsWith(StepRules.RULES))
         listOf("never translate", "Usually 3 to 5 steps", "At most two sentences", "bis goldbraun", "never pad", "Never invent steps")
             .forEach { assertTrue(it, StepRules.RULES.contains(it)) }
+    }
+
+    @Test
+    fun `read prompt carries the shared step rules`() {
+        assertTrue(StepsPrompt.READ_SYSTEM.endsWith(StepRules.RULES))
+        assertTrue(StepsPrompt.READ_SYSTEM.contains("The pages come in order"))
+    }
+
+    @Test
+    fun `read message sends every page in order, then the request`() {
+        val pages = listOf(byteArrayOf(1), byteArrayOf(2), byteArrayOf(3))
+
+        val blocks = StepsPrompt.readMessage(pages)
+
+        assertEquals(4, blocks.size)
+        val images = blocks.take(3).map { it.asImage().source().asBase64().data() }
+        assertEquals(pages.map { Base64.getEncoder().encodeToString(it) }, images)
+        assertEquals("Lies die Zubereitung von diesen 3 Seiten, in dieser Reihenfolge.", blocks.last().asText().text())
     }
 
     @Test

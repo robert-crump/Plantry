@@ -100,6 +100,7 @@ import com.example.plantry.data.claude.NutritionSource
 import com.example.plantry.data.claude.RecipeScanner
 import com.example.plantry.data.claude.ScanResult
 import com.example.plantry.data.claude.StepsCondenser
+import com.example.plantry.data.claude.StepsReader
 import com.example.plantry.data.usda.UsdaCatalog
 import com.example.plantry.data.usda.UsdaFood
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -185,7 +186,7 @@ data class RecipeEditUiState(
 }
 
 /** What uses Claude here; each waits until Claude is set up, see [RecipeEditViewModel.useClaude]. */
-enum class ClaudeAction { SCAN, CONDENSE_STEPS }
+enum class ClaudeAction { SCAN, CONDENSE_STEPS, READ_STEPS }
 
 /** [action] waits for [step]: first accepting the costs, then entering a key. */
 data class ClaudeGate(val action: ClaudeAction, val step: Step) {
@@ -234,19 +235,22 @@ class RecipeEditViewModel(
     private val compressPhoto: suspend (Uri) -> ByteArray?,
     tester: ConnectionTester,
     stepsCondenser: StepsCondenser,
+    stepsReader: StepsReader,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RecipeEditUiState())
     val state: StateFlow<RecipeEditUiState> = _state.asStateFlow()
 
-    /** Kürzen on the Zubereitung field. */
+    /** Kürzen and Aus Fotos lesen on the Zubereitung field; the photos are the pages still shown. */
     val steps = StepsAssistant(
         scope = viewModelScope,
         condenser = stepsCondenser,
+        reader = stepsReader,
         apiKey = settings::apiKey,
         model = { settings.settings.value.scanModel },
         text = { _state.value.form.steps },
         setText = { text -> _state.update { it.copy(form = it.form.copy(steps = text)) } },
+        pages = { _state.value.let { state -> state.shownPages.map { state.pages[it] } } },
     )
 
     /** The key entered while a Claude feature waits; once it is stored, that feature runs. */
@@ -359,6 +363,7 @@ class RecipeEditViewModel(
             when (action) {
                 ClaudeAction.SCAN -> startScan()
                 ClaudeAction.CONDENSE_STEPS -> steps.condense()
+                ClaudeAction.READ_STEPS -> steps.readPhotos()
             }
         }
     }
@@ -695,11 +700,13 @@ fun RecipeEditScreen(
     val sourceSuggestions by viewModel.sourceSuggestions.collectAsStateWithLifecycle()
     val stepsWork by viewModel.steps.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    val condensedMessage = stringResource(R.string.recipe_steps_condensed)
+    val doneMessage = stringResource(
+        if (stepsWork.task == StepsTask.READ_PHOTOS) R.string.recipe_steps_read else R.string.recipe_steps_condensed,
+    )
     val undoLabel = stringResource(R.string.action_undo)
     LaunchedEffect(stepsWork.undoText) {
         if (stepsWork.undoText == null) return@LaunchedEffect
-        val result = snackbar.showSnackbar(condensedMessage, actionLabel = undoLabel, duration = SnackbarDuration.Long)
+        val result = snackbar.showSnackbar(doneMessage, actionLabel = undoLabel, duration = SnackbarDuration.Long)
         if (result == SnackbarResult.ActionPerformed) viewModel.steps.undo() else viewModel.steps.undoExpired()
     }
     val photoSource = rememberPhotoSource(viewModel::onPhoto)
@@ -818,7 +825,9 @@ fun RecipeEditScreen(
                             value = form.steps,
                             work = stepsWork,
                             onValueChange = viewModel::onStepsChange,
+                            hasPhotos = state.shownPages.isNotEmpty(),
                             onCondense = { viewModel.useClaude(ClaudeAction.CONDENSE_STEPS) },
+                            onReadPhotos = { viewModel.useClaude(ClaudeAction.READ_STEPS) },
                         )
                     }
                     if (showFields) {
@@ -958,6 +967,21 @@ fun RecipeEditScreen(
                 text = { Text(stringResource(R.string.scan_intro)) },
                 confirmButton = {
                     TextButton(onClick = { showingScanInfo = false }) { Text(stringResource(R.string.action_ok)) }
+                },
+            )
+        }
+
+        if (stepsWork.confirmReplace) {
+            AlertDialog(
+                onDismissRequest = viewModel.steps::dismissReplace,
+                text = { Text(stringResource(R.string.recipe_steps_read_replace)) },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.steps.readPhotos(confirmed = true) }) {
+                        Text(stringResource(R.string.action_replace))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel.steps::dismissReplace) { Text(stringResource(R.string.action_cancel)) }
                 },
             )
         }
@@ -1209,10 +1233,18 @@ private fun RecipeFields(
 
 /**
  * The Zubereitung, one step per line; numbering and empty lines are cleaned up on save. Below it
- * "Kürzen" once there is text, locked with progress while Claude works on it.
+ * "Kürzen" once there is text and "Aus Fotos lesen" when the recipe has page photos, locked with
+ * progress while Claude works on it.
  */
 @Composable
-private fun StepsField(value: String, work: StepsWork, onValueChange: (String) -> Unit, onCondense: () -> Unit) {
+private fun StepsField(
+    value: String,
+    work: StepsWork,
+    hasPhotos: Boolean,
+    onValueChange: (String) -> Unit,
+    onCondense: () -> Unit,
+    onReadPhotos: () -> Unit,
+) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -1224,14 +1256,30 @@ private fun StepsField(value: String, work: StepsWork, onValueChange: (String) -
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         modifier = Modifier.fillMaxWidth(),
     )
-    when {
-        work.running -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    if (work.running) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             LinearWavyProgressIndicator(Modifier.fillMaxWidth())
-            Text(stringResource(R.string.recipe_steps_condensing), style = MaterialTheme.typography.bodyMedium)
+            Text(
+                stringResource(
+                    if (work.task == StepsTask.READ_PHOTOS) R.string.recipe_steps_reading else R.string.recipe_steps_condensing,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
-        value.isNotBlank() -> TextButton(onClick = onCondense) {
-            Icon(Icons.Filled.AutoAwesome, contentDescription = null)
-            Text(stringResource(R.string.recipe_steps_condense), Modifier.padding(start = 8.dp))
+    } else if (value.isNotBlank() || hasPhotos) {
+        Row {
+            if (value.isNotBlank()) {
+                TextButton(onClick = onCondense) {
+                    Icon(Icons.Filled.AutoAwesome, contentDescription = null)
+                    Text(stringResource(R.string.recipe_steps_condense), Modifier.padding(start = 8.dp))
+                }
+            }
+            if (hasPhotos) {
+                TextButton(onClick = onReadPhotos) {
+                    Icon(Icons.Filled.AutoAwesome, contentDescription = null)
+                    Text(stringResource(R.string.recipe_steps_read_photos), Modifier.padding(start = 8.dp))
+                }
+            }
         }
     }
     work.failure?.let { failure ->
@@ -1239,6 +1287,13 @@ private fun StepsField(value: String, work: StepsWork, onValueChange: (String) -
             stringResource(failure.message),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
+        )
+    }
+    if (work.noneFound) {
+        Text(
+            stringResource(R.string.recipe_steps_none_found),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

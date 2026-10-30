@@ -482,6 +482,7 @@ fun PlantryNavHost(openRecipeId: Long? = null, otherSuggestionsThan: Long? = nul
                             app.photoCompressor::compress,
                             app.connectionTester,
                             app.stepsCondenser,
+                            app.stepsReader,
                         )
                     }
                     val handle = entry.savedStateHandle

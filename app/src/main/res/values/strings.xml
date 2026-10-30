@@ -120,6 +120,11 @@
     <string name="recipe_steps_condense">Kürzen</string>
     <string name="recipe_steps_condensing">Claude kürzt die Zubereitung …</string>
     <string name="recipe_steps_condensed">Zubereitung gekürzt</string>
+    <string name="recipe_steps_read_photos">Aus Fotos lesen</string>
+    <string name="recipe_steps_reading">Claude liest die Zubereitung von den Fotos …</string>
+    <string name="recipe_steps_read">Zubereitung von den Fotos gelesen</string>
+    <string name="recipe_steps_read_replace">Die bisherige Zubereitung wird durch die von den Fotos ersetzt.</string>
+    <string name="recipe_steps_none_found">Auf den Fotos ist keine Zubereitung zu sehen.</string>
     <string name="recipe_line_new">Zutat hinzufügen</string>
     <string name="recipe_line_edit">Zeile bearbeiten</string>
     <string name="recipe_line_remove">Zeile entfernen</string>
