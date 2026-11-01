@@ -23,13 +23,19 @@ class RecipeRepository(private val dao: RecipeDao) {
 
     /**
      * Overwrites the recipe and its lines. Once its lines differ from the stored ones, the recipe
-     * is flagged as modified, and stays so.
+     * is flagged as modified, and stays so. The [Recipe.notes] are kept, the editor has no field for them.
      */
     suspend fun update(id: Long, draft: RecipeDraft) {
         val existing = dao.getById(id) ?: return
         val linesChanged = dao.getLines(id).map { it.toDraft() } != draft.normalizedLines()
-        dao.updateWithLines(draft.toRecipe(id, modified = existing.modified || linesChanged), draft.lines)
+        dao.updateWithLines(
+            draft.toRecipe(id, modified = existing.modified || linesChanged).copy(notes = existing.notes),
+            draft.lines,
+        )
     }
+
+    /** Replaces the recipe's [Recipe.notes], trimmed; blank text clears them. */
+    suspend fun setNotes(id: Long, notes: String) = dao.updateNotes(id, notes.trim())
 
     suspend fun delete(id: Long) = dao.deleteById(id)
 

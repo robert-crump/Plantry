@@ -79,7 +79,7 @@ class BackupRepositoryTest {
         assertTrue(json.replace(Regex("\\s+"), "").contains("\"photos\":[\"AQID/w==\",\"BA==\"]"))
         assertTrue(json.contains("\"photos\": []"))
         assertFalse(json.contains("\"photo\":"))
-        assertTrue(json.contains("\"formatVersion\": 6"))
+        assertTrue(json.contains("\"formatVersion\": 7"))
         assertTrue(json.contains("\"dish\": \"MAIN\""))
         assertFalse(json.contains("\"reviewed\""))
         assertFalse(json.contains("\"origin\""))
@@ -118,7 +118,7 @@ class BackupRepositoryTest {
 
     @Test
     fun read_rejectsNewerFormatVersion() = runTest {
-        val newer = source.export().replace("\"formatVersion\": 6,", "\"formatVersion\": 7,")
+        val newer = source.export().replace("\"formatVersion\": 7,", "\"formatVersion\": 8,")
 
         val error = readError(newer)
 
@@ -195,6 +195,27 @@ class BackupRepositoryTest {
         target.repository.import(target.repository.read(format5))
 
         assertEquals(source.store.data.copy(recipes = source.store.data.recipes.map { it.copy(steps = emptyList()) }), target.store.data)
+    }
+
+    @Test
+    fun notes_areWritten_emptyWithout() = runTest {
+        val recipes = Json.parseToJsonElement(source.export()).jsonObject.getValue("recipes").jsonArray.map { it.jsonObject }
+
+        val notes = recipes.associate { it.getValue("id").toString() to it.getValue("notes").toString() }
+        assertEquals("\"Nächstes Mal mehr Ingwer.\\nStatt Spinat geht Mangold.\"", notes["2"])
+        assertEquals("\"\"", notes["7"])
+    }
+
+    @Test
+    fun read_importsAFormat6FileWithoutNotes() = runTest {
+        val file = Json.parseToJsonElement(source.export()).jsonObject
+        val recipes = JsonArray(file.getValue("recipes").jsonArray.map { JsonObject(it.jsonObject - "notes") })
+        val format6 = JsonObject(file + ("formatVersion" to JsonPrimitive(6)) + ("recipes" to recipes)).toString()
+        val target = Device()
+
+        target.repository.import(target.repository.read(format6))
+
+        assertEquals(source.store.data.copy(recipes = source.store.data.recipes.map { it.copy(notes = "") }), target.store.data)
     }
 
     @Test
@@ -435,6 +456,7 @@ class BackupRepositoryTest {
                 Recipe(
                     2, "Curry", "Kochbuch", 42, 2, 30, modified = true, activeTimeMinutes = 15,
                     steps = listOf("Reis kochen.", "Gemüse anbraten, mit Kokosmilch ablöschen."),
+                    notes = "Nächstes Mal mehr Ingwer.\nStatt Spinat geht Mangold.",
                 ),
                 Recipe(7, "Chili", "", null, 2, totalTimeMinutes = null),
                 Recipe(8, "Skyr mit Banane", "", null, 1, totalTimeMinutes = 2, dish = Dish.SNACK),

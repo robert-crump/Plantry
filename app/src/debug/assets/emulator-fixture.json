@@ -1,5 +1,5 @@
 {
-    "formatVersion": 6,
+    "formatVersion": 7,
     "settings": {
         "scanModel": "opus",
         "cooldownDays": 21
@@ -1035,7 +1035,8 @@
                 "Zwiebel, Knoblauch und Ingwer in Öl anschwitzen, Gewürze kurz mitrösten.",
                 "Linsen, Tomaten und Wasser dazugeben und 20 Minuten köcheln lassen.",
                 "Spinat unterrühren, mit Salz und Zitronensaft abschmecken."
-            ]
+            ],
+            "notes": "Nächstes Mal etwas mehr Ingwer.\nIm Frühling statt Spinat Bärlauch."
         },
         {
             "id": 2,
@@ -1106,7 +1107,8 @@
             "dish": "MAIN",
             "activeTimeMinutes": 10,
             "totalTimeMinutes": 45,
-            "steps": []
+            "steps": [],
+            "notes": ""
         },
         {
             "id": 3,
@@ -1191,7 +1193,8 @@
             "dish": "MAIN",
             "activeTimeMinutes": 20,
             "totalTimeMinutes": 60,
-            "steps": []
+            "steps": [],
+            "notes": ""
         },
         {
             "id": 4,
@@ -1266,7 +1269,8 @@
                 "Zwiebel und Currypaste in Öl anbraten.",
                 "Kichererbsen und Kokosmilch dazugeben und 15 Minuten köcheln lassen.",
                 "Mit Reis servieren."
-            ]
+            ],
+            "notes": ""
         },
         {
             "id": 5,
@@ -1330,7 +1334,8 @@
             "dish": "MAIN",
             "activeTimeMinutes": 20,
             "totalTimeMinutes": 20,
-            "steps": []
+            "steps": [],
+            "notes": ""
         },
         {
             "id": 6,
@@ -1401,7 +1406,8 @@
             "dish": "MAIN",
             "activeTimeMinutes": 25,
             "totalTimeMinutes": null,
-            "steps": []
+            "steps": [],
+            "notes": ""
         },
         {
             "id": 7,
@@ -1465,7 +1471,8 @@
             "dish": "MAIN",
             "activeTimeMinutes": 15,
             "totalTimeMinutes": 30,
-            "steps": []
+            "steps": [],
+            "notes": ""
         },
         {
             "id": 8,
@@ -1536,7 +1543,8 @@
             "dish": "MAIN",
             "activeTimeMinutes": null,
             "totalTimeMinutes": null,
-            "steps": []
+            "steps": [],
+            "notes": ""
         },
         {
             "id": 9,
@@ -1607,7 +1615,8 @@
             "dish": "MAIN",
             "activeTimeMinutes": null,
             "totalTimeMinutes": null,
-            "steps": []
+            "steps": [],
+            "notes": ""
         },
         {
             "id": 10,
@@ -1657,7 +1666,8 @@
             "dish": "SNACK",
             "activeTimeMinutes": 5,
             "totalTimeMinutes": 5,
-            "steps": []
+            "steps": [],
+            "notes": ""
         },
         {
             "id": 11,
@@ -1700,7 +1710,8 @@
             "dish": "SNACK",
             "activeTimeMinutes": 5,
             "totalTimeMinutes": 5,
-            "steps": []
+            "steps": [],
+            "notes": ""
         }
     ],
     "cookLog": [

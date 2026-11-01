@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -39,6 +40,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -47,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,14 +58,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -175,6 +184,11 @@ class RecipeDetailViewModel(
         }
     }
 
+    /** Replaces the Notizen; blank text clears them. */
+    fun saveNotes(notes: String) {
+        viewModelScope.launch { repository.setNotes(recipeId, notes) }
+    }
+
     fun delete(onDeleted: () -> Unit) {
         viewModelScope.launch {
             repository.delete(recipeId)
@@ -209,6 +223,7 @@ fun RecipeDetailScreen(
     var openPhoto by rememberSaveable { mutableStateOf<Int?>(null) }
     var choosingPhotoSource by rememberSaveable { mutableStateOf(false) }
     var showPrice by rememberSaveable { mutableStateOf(false) }
+    var editNotes by rememberSaveable { mutableStateOf(false) }
     val photoRoll = rememberLazyListState()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -281,6 +296,8 @@ fun RecipeDetailScreen(
                 price = detail.price.takeIf { detail.lines.isNotEmpty() },
                 onPriceClick = { showPrice = true },
             )
+
+            NotesCard(current.notes, onClick = { editNotes = true })
 
             DetailCard {
                 SectionTitle(R.string.recipe_section_lines)
@@ -361,6 +378,17 @@ fun RecipeDetailScreen(
                     }
                 },
                 onDismiss = { pickPlanDate = false },
+            )
+        }
+
+        if (editNotes) {
+            NotesDialog(
+                saved = current.notes,
+                onSave = {
+                    viewModel.saveNotes(it)
+                    editNotes = false
+                },
+                onDismiss = { editNotes = false },
             )
         }
 
@@ -625,6 +653,100 @@ private fun StepList(steps: List<String>) {
                 Text(step, style = MaterialTheme.typography.bodyLarge)
             }
         }
+    }
+}
+
+/** The Notizen, always shown: the text as written, or a hint to add some; tapping opens the [NotesDialog]. */
+@Composable
+private fun NotesCard(notes: String, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClickLabel = stringResource(R.string.recipe_notes_edit), onClick = onClick)
+                .padding(bottom = 16.dp),
+        ) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Box(Modifier.weight(1f)) { SectionTitle(R.string.recipe_section_notes) }
+                if (notes.isNotEmpty()) {
+                    Icon(
+                        Icons.Filled.Edit,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 16.dp).size(18.dp),
+                    )
+                }
+            }
+            if (notes.isEmpty()) {
+                Text(
+                    stringResource(R.string.recipe_notes_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                )
+            } else {
+                Text(
+                    notes,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Edits the Notizen, starting from [saved]. A tap outside does nothing; Back or Abbrechen asks
+ * before dropping changed text.
+ */
+@Composable
+private fun NotesDialog(saved: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var text by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(saved, selection = TextRange(saved.length)))
+    }
+    var confirmDiscard by rememberSaveable { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+    val cancel: () -> Unit = { if (text.text != saved) confirmDiscard = true else onDismiss() }
+    AlertDialog(
+        onDismissRequest = cancel,
+        properties = DialogProperties(dismissOnClickOutside = false, usePlatformDefaultWidth = false),
+        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+        title = { Text(stringResource(R.string.recipe_section_notes)) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text(stringResource(R.string.recipe_notes_hint)) },
+                minLines = 4,
+                maxLines = 12,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus),
+            )
+        },
+        confirmButton = { TextButton(onClick = { onSave(text.text) }) { Text(stringResource(R.string.action_save)) } },
+        dismissButton = { TextButton(onClick = cancel) { Text(stringResource(R.string.action_cancel)) } },
+    )
+    LaunchedEffect(Unit) { focus.requestFocus() }
+
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text(stringResource(R.string.recipe_discard_title)) },
+            text = { Text(stringResource(R.string.recipe_notes_discard_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDiscard = false
+                    onDismiss()
+                }) { Text(stringResource(R.string.action_discard)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
     }
 }
 

@@ -117,6 +117,27 @@ class RecipeRepositoryTest {
     }
 
     @Test
+    fun setNotes_storesTrimmedText_blankClears() = runTest {
+        val id = repository.create(draft())
+
+        repository.setNotes(id, "  Nächstes Mal halb so viel Chili.\nSpargel → Zucchini \n")
+        assertEquals("Nächstes Mal halb so viel Chili.\nSpargel → Zucchini", repository.getRecipe(id)!!.notes)
+
+        repository.setNotes(id, " \n ")
+        assertEquals("", repository.getRecipe(id)!!.notes)
+    }
+
+    @Test
+    fun update_keepsNotes() = runTest {
+        val id = repository.create(draft())
+        repository.setNotes(id, "Mehr Zitrone")
+
+        repository.update(id, draft().copy(title = "Dal"))
+
+        assertEquals("Mehr Zitrone", repository.getRecipe(id)!!.notes)
+    }
+
+    @Test
     fun delete_removesRecipe() = runTest {
         val keep = repository.create(draft().copy(title = "Chili"))
         val remove = repository.create(draft())
@@ -159,6 +180,10 @@ private class FakeRecipeDao : RecipeDao {
 
     override suspend fun update(recipe: Recipe) {
         if (recipe.id in recipes.value) recipes.value += recipe.id to recipe
+    }
+
+    override suspend fun updateNotes(id: Long, notes: String) {
+        recipes.value[id]?.let { recipes.value += id to it.copy(notes = notes) }
     }
 
     override suspend fun deleteById(id: Long) {

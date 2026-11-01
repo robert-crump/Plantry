@@ -116,6 +116,10 @@
     <string name="recipe_line_amount">%1$s · %2$s</string>
     <string name="recipe_line_add">Zutat hinzufügen</string>
     <string name="recipe_section_steps">Zubereitung</string>
+    <string name="recipe_section_notes">Notizen</string>
+    <string name="recipe_notes_hint">Tippe hier, um eine Notiz hinzuzufügen</string>
+    <string name="recipe_notes_edit">Notizen bearbeiten</string>
+    <string name="recipe_notes_discard_message">Deine Änderungen an den Notizen gehen verloren.</string>
     <string name="recipe_steps_hint">Ein Schritt pro Zeile</string>
     <string name="recipe_steps_condense">Kürzen</string>
     <string name="recipe_steps_condensing">Claude kürzt die Zubereitung …</string>

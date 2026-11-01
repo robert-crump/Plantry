@@ -119,6 +119,20 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate6To7_keepsRecipesWithoutNotes() {
+        helper.createDatabase(DB_NAME, 6).use { db ->
+            db.execSQL("INSERT INTO recipes (id, title, source, servings) VALUES (1, 'Curry', 'Kochbuch', 2)")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 7, true).use { db ->
+            db.query("SELECT title, notes FROM recipes").use {
+                it.moveToFirst()
+                assertEquals(listOf("Curry", ""), listOf(it.getString(0), it.getString(1)))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }

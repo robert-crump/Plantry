@@ -23,6 +23,8 @@ data class Recipe(
     val activeTimeMinutes: Int? = null,
     /** "Zubereitung", see [CookingSteps]; empty when the recipe has none, as all older recipes. */
     @ColumnInfo(defaultValue = "") @field:TypeConverters(CookingSteps.Converter::class) val steps: List<String> = emptyList(),
+    /** "Notizen", the cook's own free text (ideas for next time, substitutes); empty when there is none. */
+    @ColumnInfo(defaultValue = "") val notes: String = "",
 )
 
 /** What a recipe is eaten as: "Hauptgericht", "Frühstück" or "Snack"; stored by name. */
