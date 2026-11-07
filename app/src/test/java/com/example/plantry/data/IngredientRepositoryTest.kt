@@ -437,7 +437,7 @@ class IngredientRepositoryTest {
     }
 }
 
-private class FakeIngredientDao : IngredientDao {
+class FakeIngredientDao : IngredientDao {
     private val ingredients = MutableStateFlow<Map<Long, Ingredient>>(emptyMap())
     private val aliases = MutableStateFlow<Map<String, Long>>(emptyMap())
     private var nextId = 1L

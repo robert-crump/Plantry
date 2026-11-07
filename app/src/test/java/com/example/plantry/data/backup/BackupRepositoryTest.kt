@@ -512,7 +512,7 @@ private class FakeBackupStore : BackupStore {
     }
 }
 
-private class FakePhotoStore : PhotoStore {
+class FakePhotoStore : PhotoStore {
     var photos: Photos = emptyMap()
 
     override fun all() = photos

@@ -1,6 +1,7 @@
 package com.example.plantry
 
 import android.app.Application
+import androidx.room.withTransaction
 import com.example.plantry.data.BookSession
 import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.IngredientRepository
@@ -50,7 +51,9 @@ class PlantryApplication : Application() {
 
     private val database by lazy { PlantryDatabase.create(this) }
 
-    val recipeRepository: RecipeRepository by lazy { RecipeRepository(database.recipeDao()) }
+    val recipeRepository: RecipeRepository by lazy {
+        RecipeRepository(database.recipeDao(), ingredientRepository, recipePhotoRepository, bookSession) { database.withTransaction(it) }
+    }
 
     val ingredientRepository: IngredientRepository by lazy { IngredientRepository(database.ingredientDao()) }
 

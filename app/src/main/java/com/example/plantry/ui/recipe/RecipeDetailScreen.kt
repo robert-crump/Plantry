@@ -188,7 +188,6 @@ class RecipeDetailViewModel(
     fun delete(onDeleted: () -> Unit) {
         viewModelScope.launch {
             repository.delete(recipeId)
-            photoRepository.deleteAll(recipeId)
             onDeleted()
         }
     }

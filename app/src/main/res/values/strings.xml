@@ -176,6 +176,7 @@
     <string name="photo_page">Foto %1$d von %2$d</string>
     <string name="photo_take">Foto aufnehmen</string>
     <string name="photo_pick">Aus Galerie wählen</string>
+    <string name="recipe_save_failed">Das Rezept konnte nicht gespeichert werden.</string>
     <string name="photo_unreadable">Das Foto konnte nicht geladen werden.</string>
     <string name="scan_intro">Fotografiere die Rezeptseite. Claude liest Titel, Portionen, Zeiten und Zutaten, du prüfst danach alles.</string>
     <string name="scan_reading">Claude liest das Rezept …</string>

@@ -1,5 +1,6 @@
 package com.example.plantry.data
 
+import com.example.plantry.data.backup.FakePhotoStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -14,7 +15,13 @@ import org.junit.Test
 class RecipeRepositoryTest {
 
     private val dao = FakeRecipeDao()
-    private val repository = RecipeRepository(dao)
+    private val repository = RecipeRepository(
+        dao,
+        IngredientRepository(FakeIngredientDao()),
+        RecipePhotoRepository(FakePhotoStore()),
+        BookSession(),
+        inTransaction = { it() },
+    )
 
     private val sweetPotato = RecipeIngredientDraft(300.0, LineUnit.Grams, ingredientId = 1, wording = "1 große Süßkartoffel")
     private val lentils = RecipeIngredientDraft(200.0, LineUnit.Grams, ingredientId = 2)

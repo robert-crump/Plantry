@@ -1,5 +1,6 @@
 package com.example.plantry.ui.recipe
 
+import android.util.Log
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
@@ -77,6 +78,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.BookPage
+import com.example.plantry.data.RecipeSave
 import com.example.plantry.data.BookSession
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientUnit
@@ -128,6 +130,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 data class RecipeEditUiState(
@@ -136,6 +139,8 @@ data class RecipeEditUiState(
     /** Null while no line is being edited. */
     val lineEditor: LineEditorState? = null,
     val saved: Boolean = false,
+    /** Saving failed and nothing was stored; the form stays for another try. */
+    val saveFailed: Boolean = false,
     /** Closed without saving. */
     val closed: Boolean = false,
     /** The photo of the cookbook page a new recipe is read from, as compressed JPEG. */
@@ -665,16 +670,35 @@ class RecipeEditViewModel(
         saving = true
         steps.cancel()
         val state = _state.value
+        val save = RecipeSave(
+            recipeId = recipeId,
+            draft = draft,
+            newIngredients = state.form.newIngredientsToCreate(),
+            aliases = state.form.aliasesToLearn(),
+            addPhoto = state.photo?.takeIf { state.photoChanged },
+            deletedPages = state.deletedPages,
+            bookPage = BookPage(draft.source, draft.page).takeIf { state.scanning },
+        )
         viewModelScope.launch {
-            val newIds = ingredientRepository.createProposed(state.form.newIngredientsToCreate())
-            val saved = draft.withIngredientIds(newIds)
-            ingredientRepository.learnAliases(state.form.aliasesToLearn(newIds))
-            val id = recipeId?.also { repository.update(it, saved) } ?: repository.create(saved)
-            if (state.photoChanged && state.photo != null) photos.add(id, state.photo)
-            if (state.deletedPages.isNotEmpty()) photos.delete(id, state.deletedPages)
-            if (state.scanning) bookSession.remember(saved.source, saved.page)
-            _state.update { it.copy(saved = true) }
+            try {
+                repository.save(save)
+                _state.update { it.copy(saved = true) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Saving the recipe failed", e)
+                saving = false
+                _state.update { it.copy(saveFailed = true) }
+            }
         }
+    }
+
+    fun saveFailedShown() {
+        _state.update { it.copy(saveFailed = false) }
+    }
+
+    private companion object {
+        const val TAG = "RecipeEditViewModel"
     }
 }
 
@@ -714,6 +738,12 @@ fun RecipeEditScreen(
     var openPage by rememberSaveable { mutableStateOf<Int?>(null) }
     LaunchedEffect(state.saved, state.closed) { if (state.saved || state.closed) onBack() }
     LaunchedEffect(leaveRequested) { if (leaveRequested) viewModel.close() }
+    val saveFailedMessage = stringResource(R.string.recipe_save_failed)
+    LaunchedEffect(state.saveFailed) {
+        if (!state.saveFailed) return@LaunchedEffect
+        viewModel.saveFailedShown()
+        snackbar.showSnackbar(saveFailedMessage)
+    }
 
     val form = state.form
     val errors = if (state.showErrors) form.errors() else null

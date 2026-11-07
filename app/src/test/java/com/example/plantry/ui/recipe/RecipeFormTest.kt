@@ -3,6 +3,7 @@ package com.example.plantry.ui.recipe
 import com.example.plantry.data.BookPage
 import com.example.plantry.data.Dish
 import com.example.plantry.data.IngredientUnit
+import com.example.plantry.data.withIngredientIds
 import com.example.plantry.data.LineUnit
 import com.example.plantry.data.Nutrition
 import com.example.plantry.data.PieceUnit
@@ -283,8 +284,8 @@ class RecipeFormTest {
         )
 
         assertEquals(
-            listOf("Kichererbsen, abgetropft" to 3L, "Räuchertofu" to 21L),
-            form.aliasesToLearn(createdIds = mapOf(-1L to 21L)),
+            listOf("Kichererbsen, abgetropft" to 3L, "Räuchertofu" to -1L, "Zwiebel" to -2L),
+            form.aliasesToLearn(),
         )
     }
 

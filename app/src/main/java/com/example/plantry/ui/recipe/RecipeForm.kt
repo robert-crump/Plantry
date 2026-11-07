@@ -227,14 +227,13 @@ data class RecipeForm(
 
     /**
      * The wordings the user confirmed, to remember as aliases: lines applied in the line editor and
-     * lines using a new ingredient (whose nutrition source had to be confirmed), with the new ingredients'
-     * temporary ids replaced by their [createdIds].
+     * lines using a new ingredient (whose nutrition source had to be confirmed), by its temporary id;
+     * [com.example.plantry.data.RecipeRepository.save] replaces that.
      */
-    fun aliasesToLearn(createdIds: Map<Long, Long> = emptyMap()): List<Pair<String, Long>> = lines.mapNotNull { line ->
+    fun aliasesToLearn(): List<Pair<String, Long>> = lines.mapNotNull { line ->
         val id = line.ingredientId ?: return@mapNotNull null
         if (!line.confirmed && id > 0) return@mapNotNull null
-        val ingredientId = if (id > 0) id else createdIds[id] ?: return@mapNotNull null
-        line.ingredientName.takeIf { it.isNotBlank() }?.let { it to ingredientId }
+        line.ingredientName.takeIf { it.isNotBlank() }?.let { it to id }
     }
 
     /** The lines that are complete enough for nutrition. */
@@ -363,10 +362,6 @@ enum class LineProblem {
 data class NewIngredient(val proposal: IngredientProposal, val confirmed: Boolean = false) {
     val ready: Boolean get() = confirmed && proposal.source != null
 }
-
-/** Replaces the temporary ids of new ingredients with the ids they were created with. */
-fun RecipeDraft.withIngredientIds(ids: Map<Long, Long>) =
-    copy(lines = lines.map { line -> ids[line.ingredientId]?.let { line.copy(ingredientId = it) } ?: line })
 
 private fun String.normalizedName() = trim().lowercase()
 
