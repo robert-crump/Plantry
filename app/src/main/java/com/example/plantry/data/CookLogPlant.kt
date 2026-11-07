@@ -42,7 +42,7 @@ data class CookLogPlant(
 
         /**
          * Fills `cook_log_plants` for every entry of an existing recipe, from the recipe as it is now,
-         * the way [of] does; entries of deleted recipes get none. Run by the migration that added
+         * the way [of] does; entries of deleted recipes get none. The 1.0/0.25 values are frozen with the migration on purpose, so they don't follow later changes to [PlantPoints]. Run by the migration that added
          * the table.
          */
         const val BACKFILL_SQL = """

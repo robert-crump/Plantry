@@ -10,7 +10,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.example.plantry.R
-import java.time.DayOfWeek
+import com.example.plantry.data.weekStart
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -20,7 +20,6 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeFormatterBuilder
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
-import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
 /** "Heute", "Gestern" or e.g. "Mittwoch, 30. September". */
@@ -56,13 +55,6 @@ internal fun cookMonthLabel(date: LocalDate, locale: Locale): String =
 
 /** The abbreviated month and the year, e.g. "Okt 2025", for the history's scrollbar bubble. */
 internal fun cookMonthYearLabel(date: LocalDate, locale: Locale): String = "${cookMonthLabel(date, locale)} ${date.year}"
-
-/** The Monday of [date]'s week. */
-internal fun weekStart(date: LocalDate): LocalDate = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-
-/** Groups [items] (newest first) into Monday–Sunday weeks, keyed by each week's Monday, keeping their order. */
-internal fun <T> groupByWeek(items: List<T>, date: (T) -> LocalDate): Map<LocalDate, List<T>> =
-    items.groupBy { weekStart(date(it)) }
 
 /**
  * The header for the week starting on [monday]: [thisWeek] or [lastWeek] relative to [today], otherwise

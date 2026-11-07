@@ -1,9 +1,6 @@
-package com.example.plantry.ui.cooklog
+package com.example.plantry.data
 
 import com.example.plantry.data.planner.plantPointsGoalReached
-import com.example.plantry.data.CookLog
-import com.example.plantry.data.CookLogPlant
-import com.example.plantry.data.RecipeStats
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

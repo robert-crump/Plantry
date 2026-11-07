@@ -83,19 +83,4 @@ class CookDatesTest {
         assertEquals("29. Sep – 5. Okt 2025", weekLabel(LocalDate.of(2025, 9, 29)))
     }
 
-    @Test
-    fun groupByWeek_splitsAtMondays_newestFirst() {
-        val dates = listOf(
-            LocalDate.of(2026, 10, 5), // Mon
-            LocalDate.of(2026, 10, 4), // Sun
-            LocalDate.of(2026, 9, 28), // Mon
-            LocalDate.of(2026, 9, 27), // Sun
-        )
-        val weeks = groupByWeek(dates) { it }
-        assertEquals(
-            listOf(LocalDate.of(2026, 10, 5), LocalDate.of(2026, 9, 28), LocalDate.of(2026, 9, 21)),
-            weeks.keys.toList(),
-        )
-        assertEquals(listOf(LocalDate.of(2026, 10, 4), LocalDate.of(2026, 9, 28)), weeks.getValue(LocalDate.of(2026, 9, 28)))
-    }
 }

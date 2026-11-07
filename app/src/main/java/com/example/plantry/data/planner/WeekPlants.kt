@@ -6,9 +6,8 @@ import com.example.plantry.data.Ingredient
 import com.example.plantry.data.MixContents
 import com.example.plantry.data.Mixes
 import com.example.plantry.data.distinctPlantPoints
-import java.time.DayOfWeek
+import com.example.plantry.data.weekStart
 import java.time.LocalDate
-import java.time.temporal.TemporalAdjusters
 import kotlin.math.roundToInt
 
 /** The plant points to aim for in a week, shown as e.g. "23/30" in the history's week headers. */
@@ -53,7 +52,7 @@ class WeekPlants(
             ingredients: Map<Long, Ingredient>,
             contents: MixContents,
         ): WeekPlants {
-            val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            val monday = weekStart(today)
             val week = monday..monday.plusDays(6)
             val entryIds = entries.filter { it.cookedOn in week }.mapTo(mutableSetOf()) { it.id }
             return WeekPlants(plants.filter { it.cookLogId in entryIds }, ingredients, contents)

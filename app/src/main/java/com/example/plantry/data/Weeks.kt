@@ -1,9 +1,15 @@
-package com.example.plantry.ui.cooklog
+package com.example.plantry.data
 
-import com.example.plantry.data.CookLog
-import com.example.plantry.data.CookLogPlant
-import com.example.plantry.data.distinctPlantPoints
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
+
+/** The Monday of [date]'s week; weeks run Monday–Sunday. */
+internal fun weekStart(date: LocalDate): LocalDate = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+
+/** Groups [items] (newest first) into Monday–Sunday weeks, keyed by each week's Monday, keeping their order. */
+internal fun <T> groupByWeek(items: List<T>, date: (T) -> LocalDate): Map<LocalDate, List<T>> =
+    items.groupBy { weekStart(date(it)) }
 
 /**
  * Per Monday–Sunday week, keyed by its Monday: the plant points of the distinct plants the week's

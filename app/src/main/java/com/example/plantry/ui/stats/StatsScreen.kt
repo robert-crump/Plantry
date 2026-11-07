@@ -84,7 +84,7 @@ import com.example.plantry.ui.cooklog.cookMonthLabel
 import com.example.plantry.ui.cooklog.cookWeekLabel
 import com.example.plantry.ui.cooklog.formatPlannedDate
 import com.example.plantry.ui.cooklog.ProteinIcon
-import com.example.plantry.ui.cooklog.weeklyPlantPoints
+import com.example.plantry.data.weeklyPlantPoints
 import com.example.plantry.ui.currentLocale
 import com.example.plantry.ui.ingredient.plantPointsLabel
 import kotlinx.coroutines.flow.SharingStarted

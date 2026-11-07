@@ -1,6 +1,7 @@
 package com.example.plantry.data.stats
 
 import com.example.plantry.data.planner.plantPointsGoalReached
+import com.example.plantry.data.weekStart
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
@@ -52,9 +53,6 @@ data class StatsPeriod(val range: StatsRange, val start: LocalDate) {
         }
     }
 }
-
-/** The Monday of [date]'s week. */
-internal fun weekStart(date: LocalDate): LocalDate = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
 /**
  * Which periods the Statistik screen can show, from [today] and the date of the [firstEntry] in the
