@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
 
-class MealPlannerTest {
+class SuggestionRankerTest {
 
     private fun candidate(id: Long, days: Long? = null, protein: Double = 30.0) = Candidate(id, days, protein)
 
@@ -66,7 +66,7 @@ class MealPlannerTest {
     fun mainDishes_rankMoreNewPlantPointsHigher() {
         val candidates = listOf(candidate(1).copy(newPlantPoints = 1.0), candidate(2).copy(newPlantPoints = 5.0))
 
-        val ranked = MealPlanner.mainDishes(21, candidates, goalReached = false).rank(candidates)
+        val ranked = SuggestionRanker.mainDishes(21, candidates, goalReached = false).rank(candidates)
 
         assertEquals(listOf(2L, 1L), ranked.map { it.candidate.recipeId })
         assertEquals(0.2, ranked.last().score, 1e-9)
@@ -77,7 +77,7 @@ class MealPlannerTest {
         val porridge = candidate(1, protein = 30.0).copy(newPlantPoints = 2.0)
         val smoothie = candidate(2, protein = 2.0).copy(newPlantPoints = 4.0)
 
-        val ranked = MealPlanner.boost(21, listOf(porridge, smoothie)).rank(listOf(porridge, smoothie))
+        val ranked = SuggestionRanker.boost(21, listOf(porridge, smoothie)).rank(listOf(porridge, smoothie))
 
         assertEquals(listOf(2L, 1L), ranked.map { it.candidate.recipeId })
         assertEquals(listOf(1.0, 0.5), ranked.map { it.score })
@@ -85,24 +85,24 @@ class MealPlannerTest {
 
     @Test
     fun score_isProductOfTerms() {
-        val planner = MealPlanner(listOf(CooldownTerm(20), ProteinTerm()))
+        val ranker = SuggestionRanker(listOf(CooldownTerm(20), ProteinTerm()))
 
-        assertEquals(0.5 * 0.5, planner.score(candidate(1, days = 10, protein = 15.0)), 1e-9)
+        assertEquals(0.5 * 0.5, ranker.score(candidate(1, days = 10, protein = 15.0)), 1e-9)
     }
 
     @Test
     fun score_acceptsAdditionalTerms() {
         val halveOdd = ScoreTerm { if (it.recipeId % 2 == 1L) 0.5 else 1.0 }
-        val planner = MealPlanner(listOf(ProteinTerm(), halveOdd))
+        val ranker = SuggestionRanker(listOf(ProteinTerm(), halveOdd))
 
-        assertEquals(0.5, planner.score(candidate(1)), 1e-9)
-        assertEquals(1.0, planner.score(candidate(2)), 1e-9)
+        assertEquals(0.5, ranker.score(candidate(1)), 1e-9)
+        assertEquals(1.0, ranker.score(candidate(2)), 1e-9)
     }
 
     @Test
     fun rank_bestFirst() {
-        val planner = MealPlanner.default(cooldownDays = 21)
-        val ranked = planner.rank(
+        val ranker = SuggestionRanker.default(cooldownDays = 21)
+        val ranked = ranker.rank(
             listOf(candidate(1, days = 2), candidate(2, days = null), candidate(3, days = 30, protein = 10.0)),
         )
 
@@ -111,10 +111,10 @@ class MealPlannerTest {
 
     @Test
     fun suggest_excludesMenuAndNeverRepeats() {
-        val planner = MealPlanner.default(21)
+        val ranker = SuggestionRanker.default(21)
         val candidates = (1L..8L).map { candidate(it) }
 
-        val picked = planner.suggest(candidates, exclude = setOf(1, 2, 3), count = 5, random = Random(42))
+        val picked = ranker.suggest(candidates, exclude = setOf(1, 2, 3), count = 5, random = Random(42))
 
         assertEquals(5, picked.size)
         assertEquals(picked.size, picked.toSet().size)
@@ -123,52 +123,52 @@ class MealPlannerTest {
 
     @Test
     fun suggest_fewerCandidatesThanRequested() {
-        val picked = MealPlanner.default(21).suggest(listOf(candidate(1), candidate(2)), emptySet(), 5, Random(1))
+        val picked = SuggestionRanker.default(21).suggest(listOf(candidate(1), candidate(2)), emptySet(), 5, Random(1))
 
         assertEquals(setOf(1L, 2L), picked.toSet())
     }
 
     @Test
     fun suggest_sameSeedSameResult() {
-        val planner = MealPlanner.default(21)
+        val ranker = SuggestionRanker.default(21)
         val candidates = (1L..20L).map { candidate(it, days = it) }
 
         assertEquals(
-            planner.suggest(candidates, emptySet(), 5, Random(7)),
-            planner.suggest(candidates, emptySet(), 5, Random(7)),
+            ranker.suggest(candidates, emptySet(), 5, Random(7)),
+            ranker.suggest(candidates, emptySet(), 5, Random(7)),
         )
     }
 
     @Test
     fun suggest_drawsOnlyFromTopOfPool() {
-        val planner = MealPlanner(listOf(CooldownTerm(100)), poolSize = 3)
+        val ranker = SuggestionRanker(listOf(CooldownTerm(100)), poolSize = 3)
         // Score rises with the id, so 8, 9 and 10 are the top 3.
         val candidates = (1L..10L).map { candidate(it, days = it * 10) }
 
         repeat(50) { seed ->
-            val picked = planner.suggest(candidates, emptySet(), 2, Random(seed))
+            val picked = ranker.suggest(candidates, emptySet(), 2, Random(seed))
             assertTrue(picked.toString(), picked.all { it in 8L..10L })
         }
     }
 
     @Test
     fun suggest_randomAmongTop_notAlwaysTheBest() {
-        val planner = MealPlanner.default(21)
+        val ranker = SuggestionRanker.default(21)
         val candidates = (1L..10L).map { candidate(it) }
 
-        val firstPicks = (0 until 50).map { seed -> planner.suggest(candidates, emptySet(), 1, Random(seed)).single() }
+        val firstPicks = (0 until 50).map { seed -> ranker.suggest(candidates, emptySet(), 1, Random(seed)).single() }
 
         assertTrue(firstPicks.toSet().size > 1)
     }
 
     @Test
     fun suggest_prefersHigherScores() {
-        val planner = MealPlanner(listOf(ProteinTerm()))
+        val ranker = SuggestionRanker(listOf(ProteinTerm()))
         val strong = candidate(1, protein = 30.0)
         val weak = candidate(2, protein = 3.0)
         val random = Random(3)
 
-        val picks = (0 until 1000).map { planner.suggest(listOf(strong, weak), emptySet(), 1, random).single() }
+        val picks = (0 until 1000).map { ranker.suggest(listOf(strong, weak), emptySet(), 1, random).single() }
 
         // Weights 1.0 vs 0.1: the strong recipe is drawn about 10 of 11 times.
         val strongShare = picks.count { it == 1L } / 1000.0

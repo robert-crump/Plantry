@@ -3,7 +3,7 @@ package com.example.plantry.data.planner
 import com.example.plantry.data.RecipeNutrition
 import kotlin.random.Random
 
-/** What the planner knows about a recipe. */
+/** What the ranker knows about a recipe. */
 data class Candidate(
     val recipeId: Long,
     /** Null if never cooked, which counts as maximally overdue. */
@@ -66,7 +66,7 @@ data class ScoredCandidate(val candidate: Candidate, val score: Double)
  * Suggests recipes by weighted random among the best-scoring candidates, so plans stay varied
  * instead of always being the top [count].
  */
-class MealPlanner(
+class SuggestionRanker(
     private val terms: List<ScoreTerm>,
     /** How many of the best candidates the random pick draws from (at least the number requested). */
     private val poolSize: Int = DEFAULT_POOL_SIZE,
@@ -100,15 +100,15 @@ class MealPlanner(
     companion object {
         const val DEFAULT_POOL_SIZE = 10
 
-        fun default(cooldownDays: Int) = MealPlanner(listOf(CooldownTerm(cooldownDays), ProteinTerm()))
+        fun default(cooldownDays: Int) = SuggestionRanker(listOf(CooldownTerm(cooldownDays), ProteinTerm()))
 
         /** Main dishes: cooldown, protein and the plant points they add to this week. */
-        fun mainDishes(cooldownDays: Int, candidates: List<Candidate>, goalReached: Boolean) = MealPlanner(
+        fun mainDishes(cooldownDays: Int, candidates: List<Candidate>, goalReached: Boolean) = SuggestionRanker(
             listOf(CooldownTerm(cooldownDays), ProteinTerm(), PlantPointsTerm.of(candidates, goalReached)),
         )
 
         /** The boost card: cooldown and new plant points only, so a smoothie can beat a protein-rich porridge. */
         fun boost(cooldownDays: Int, candidates: List<Candidate>) =
-            MealPlanner(listOf(CooldownTerm(cooldownDays), PlantPointsTerm.of(candidates, goalReached = false)))
+            SuggestionRanker(listOf(CooldownTerm(cooldownDays), PlantPointsTerm.of(candidates, goalReached = false)))
     }
 }

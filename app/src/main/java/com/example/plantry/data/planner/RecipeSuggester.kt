@@ -16,7 +16,7 @@ import java.time.LocalDate
 import kotlin.random.Random
 
 /**
- * Suggests recipes from the collection with [MealPlanner]: main dishes scored by cooldown, protein
+ * Suggests recipes from the collection with [SuggestionRanker]: main dishes scored by cooldown, protein
  * and the plant points they add to this week, and the weekend's plant-points boost from breakfasts
  * and snacks.
  */
@@ -32,7 +32,7 @@ class RecipeSuggester(
     suspend fun suggest(today: LocalDate, count: Int, exclude: Set<Long> = emptySet()): List<Long> {
         val state = load(today)
         val candidates = state.candidates(MAIN_DISHES)
-        return MealPlanner.mainDishes(cooldownDays(), candidates, state.week.goalReached)
+        return SuggestionRanker.mainDishes(cooldownDays(), candidates, state.week.goalReached)
             .suggest(candidates, exclude, count, random)
     }
 
@@ -44,7 +44,7 @@ class RecipeSuggester(
         val state = load(today)
         if (!boostWanted(today, state.week)) return emptyList()
         val candidates = boostCandidates(state.candidates(BOOST_DISHES))
-        return MealPlanner.boost(cooldownDays(), candidates).suggest(candidates, exclude, count, random)
+        return SuggestionRanker.boost(cooldownDays(), candidates).suggest(candidates, exclude, count, random)
     }
 
     /** This week's plants so far, as the suggestions weigh them. */

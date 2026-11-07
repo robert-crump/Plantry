@@ -40,7 +40,7 @@ import com.example.plantry.data.IngredientFilters
 import com.example.plantry.data.PlantPoints
 import com.example.plantry.data.RecipeHighlight
 import com.example.plantry.data.RecipeNutrition
-import com.example.plantry.data.planner.MealPlanner
+import com.example.plantry.data.planner.SuggestionRanker
 import com.example.plantry.data.planner.WeeklyPlantPointsGoal
 import com.example.plantry.ui.cooklog.icon
 import com.example.plantry.ui.cooklog.label
@@ -121,7 +121,7 @@ fun AboutScreen(cooldownDays: Int, onBack: () -> Unit) {
                 {
                     Paragraphs(
                         listOf(
-                            AnnotatedString(stringResource(R.string.about_suggestions_intro, MealPlanner.DEFAULT_POOL_SIZE)),
+                            AnnotatedString(stringResource(R.string.about_suggestions_intro, SuggestionRanker.DEFAULT_POOL_SIZE)),
                             labeled(
                                 R.string.about_suggestions_cooldown_label,
                                 pluralStringResource(R.plurals.about_suggestions_cooldown, cooldownDays, cooldownDays),
