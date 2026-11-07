@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
         }
         if (proposalEventId != null || otherSuggestionsThan != null) {
             lifecycleScope.launch {
-                (application as PlantryApplication).cookReminders.opened(proposalEventId, otherSuggestions = otherSuggestionsThan != null)
+                (application as PlantryApplication).reminderNotifications.opened(proposalEventId, otherSuggestions = otherSuggestionsThan != null)
             }
         }
         val settingsRepository =(application as PlantryApplication).settingsRepository

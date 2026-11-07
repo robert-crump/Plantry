@@ -96,6 +96,18 @@ class ProposalEventRepositoryTest {
     }
 
     @Test
+    fun latestToday_isTodaysLastProposal() = runTest {
+        assertNull(repository.latestToday())
+        repository.shown(1)
+        val latest = repository.shown(2)
+        today = today.plusDays(1)
+        assertNull(repository.latestToday())
+        today = today.minusDays(1)
+
+        assertEquals(latest, repository.latestToday()?.id)
+    }
+
+    @Test
     fun replaced_marksTheOpenProposalAsIgnored() = runTest {
         val id = repository.shown(1)
 
@@ -138,6 +150,8 @@ internal class FakeProposalEventDao : ProposalEventDao {
     override suspend fun get(id: Long) = rows[id]
 
     override suspend fun lastHookId() = rows.values.lastOrNull()?.hookId
+
+    override suspend fun latestOn(date: LocalDate) = rows.values.lastOrNull { it.date == date }
 
     override suspend fun setOutcome(id: Long, outcome: ProposalOutcome?) {
         rows[id]?.let { rows[id] = it.copy(outcome = outcome) }

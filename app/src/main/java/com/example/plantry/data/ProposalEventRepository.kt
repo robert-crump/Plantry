@@ -19,6 +19,9 @@ class ProposalEventRepository(
     /** The hook of the latest proposal's title, which the next one must not repeat. */
     suspend fun lastHookId(): String? = dao.lastHookId()
 
+    /** The latest proposal shown today, with what came of it so far; null if none was. */
+    suspend fun latestToday(): ProposalEvent? = dao.latestOn(today())
+
     /** The hook of the proposal [id]'s title, to show it the same again; null if it had none. */
     suspend fun hookId(id: Long): String? = dao.get(id)?.hookId
 

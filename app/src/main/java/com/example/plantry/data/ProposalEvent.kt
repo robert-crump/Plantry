@@ -97,6 +97,10 @@ interface ProposalEventDao {
         setOutcome(id, ProposalOutcome.afterUndoPlan(event.outcome, undone))
     }
 
+    /** The latest proposal shown on [date]; null if none was. */
+    @Query("SELECT * FROM proposal_events WHERE date = :date ORDER BY id DESC LIMIT 1")
+    suspend fun latestOn(date: LocalDate): ProposalEvent?
+
     /** The hook of the latest proposal's title; null if it had none or there was none. */
     @Query("SELECT hookId FROM proposal_events ORDER BY id DESC LIMIT 1")
     suspend fun lastHookId(): String?

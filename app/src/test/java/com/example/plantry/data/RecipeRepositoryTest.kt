@@ -181,7 +181,7 @@ class RecipeRepositoryTest {
 }
 
 /** In-memory [RecipeDao] mirroring Room's id generation, ordering and cascading line deletes. */
-private class FakeRecipeDao : RecipeDao {
+internal class FakeRecipeDao : RecipeDao {
     private val recipes = MutableStateFlow<Map<Long, Recipe>>(emptyMap())
     private val lines = MutableStateFlow<List<RecipeIngredient>>(emptyList())
     private var nextId = 1L

@@ -33,7 +33,9 @@ import com.example.plantry.data.settings.KeystoreCipher
 import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.data.settings.SharedPreferencesStorage
 import com.example.plantry.data.usda.UsdaCatalog
-import com.example.plantry.reminder.CookReminders
+import com.example.plantry.data.reminder.MoodHook
+import com.example.plantry.data.reminder.Reminders
+import com.example.plantry.reminder.ReminderNotifications
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -48,7 +50,7 @@ class PlantryApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        cookReminders.start(appScope)
+        reminderNotifications.start(appScope)
         EmulatorSeed.start(this, appScope)
     }
 
@@ -79,12 +81,16 @@ class PlantryApplication : Application() {
         )
     }
 
-    val cookReminders: CookReminders by lazy {
-        CookReminders(
-            this, settingsRepository, mealPlan, recipeRepository, ingredientRepository, recipeSuggester,
+    private val reminders: Reminders by lazy {
+        Reminders(
+            settingsRepository.settings, mealPlan, recipeRepository, ingredientRepository, recipeSuggester,
             proposalEventRepository,
+            moods = resources.getStringArray(R.array.proposal_mood_hooks).map(MoodHook::parse),
+            now = now,
         )
     }
+
+    val reminderNotifications: ReminderNotifications by lazy { ReminderNotifications(this, reminders) }
 
     val proposalEventRepository: ProposalEventRepository by lazy { ProposalEventRepository(database.proposalEventDao(), today) }
 

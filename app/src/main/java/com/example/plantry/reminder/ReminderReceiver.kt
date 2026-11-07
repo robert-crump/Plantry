@@ -15,7 +15,7 @@ import java.time.LocalDate
 class ReminderReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        val reminders = (context.applicationContext as PlantryApplication).cookReminders
+        val reminders = (context.applicationContext as PlantryApplication).reminderNotifications
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
