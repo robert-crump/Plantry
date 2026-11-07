@@ -137,8 +137,23 @@ class RecipeRepositoryTest {
         assertEquals("Mehr Zitrone", repository.getRecipe(id)!!.notes)
     }
 
+    /**
+     * A [Recipe] field the editor's [RecipeDraft] doesn't have is wiped by [RecipeRepository.update]
+     * unless it is kept there, as [Recipe.notes] is. A new such field fails here until it is kept
+     * (with a test like [update_keepsNotes]) and added to this list.
+     */
     @Test
-    fun delete_removesRecipe() = runTest {
+    fun update_keepsEveryFieldTheEditorDoesNotOwn() {
+        fun fieldsOf(type: Class<*>) =
+            type.declaredFields.filterNot { java.lang.reflect.Modifier.isStatic(it.modifiers) }.map { it.name }.toSet()
+
+        val notInEditor = fieldsOf(Recipe::class.java) - fieldsOf(RecipeDraft::class.java)
+
+        assertEquals(setOf("id", "modified", "notes"), notInEditor)
+    }
+
+    @Test
+    fun delete_removesRecipe()= runTest {
         val keep = repository.create(draft().copy(title = "Chili"))
         val remove = repository.create(draft())
 
