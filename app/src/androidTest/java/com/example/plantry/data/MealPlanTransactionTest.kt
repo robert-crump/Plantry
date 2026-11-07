@@ -42,6 +42,7 @@ class MealPlanTransactionTest {
         mealPlan = MealPlan(
             failing,
             db.cookLogDao(),
+            db.proposalEventDao(),
             snapshot = { RecipeSnapshot.load(it, db.recipeDao(), db.ingredientDao()) },
             Transaction { db.withTransaction(it) },
         ) { today }

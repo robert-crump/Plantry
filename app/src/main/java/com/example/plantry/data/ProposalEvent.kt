@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.Transaction
 import java.time.LocalDate
 
 /**
@@ -52,9 +53,20 @@ enum class ProposalOutcome(val id: String) {
         fun after(current: ProposalOutcome?, next: ProposalOutcome): ProposalOutcome =
             if (current == null || next > current) next else current
 
-        /** "Rückgängig" of "Planen": as if nothing had come of it yet, unless something else did. */
-        fun afterUndoPlan(current: ProposalOutcome?): ProposalOutcome? =
-            current.takeUnless { it == PLANNED_FROM_NOTIFICATION }
+        /**
+         * The outcome once a plan that recorded [undone] is undone: back to what it was before that
+         * plan, unless something else came of the proposal.
+         */
+        fun afterUndoPlan(current: ProposalOutcome?, undone: ProposalOutcome): ProposalOutcome? =
+            if (current != undone) {
+                current
+            } else {
+                when (undone) {
+                    PLANNED_FROM_NOTIFICATION -> null
+                    PLANNED_FROM_SUGGESTIONS -> OTHER_SUGGESTIONS
+                    else -> current
+                }
+            }
     }
 }
 
@@ -69,6 +81,21 @@ interface ProposalEventDao {
 
     @Query("UPDATE proposal_events SET outcome = :outcome WHERE id = :id")
     suspend fun setOutcome(id: Long, outcome: ProposalOutcome?)
+
+    /** [outcome] happened to the proposal [id], unless something stronger already did. */
+    @Transaction
+    suspend fun record(id: Long, outcome: ProposalOutcome) {
+        val event = get(id) ?: return
+        val next = ProposalOutcome.after(event.outcome, outcome)
+        if (next != event.outcome) setOutcome(id, next)
+    }
+
+    /** The plan that recorded [undone] on the proposal [id] was undone, see [ProposalOutcome.afterUndoPlan]. */
+    @Transaction
+    suspend fun undoPlan(id: Long, undone: ProposalOutcome) {
+        val event = get(id) ?: return
+        setOutcome(id, ProposalOutcome.afterUndoPlan(event.outcome, undone))
+    }
 
     /** The hook of the latest proposal's title; null if it had none or there was none. */
     @Query("SELECT hookId FROM proposal_events ORDER BY id DESC LIMIT 1")

@@ -51,10 +51,13 @@ class ProposalEventRepositoryTest {
     }
 
     @Test
-    fun afterUndoPlan_revertsOnlyPlanen() {
-        assertNull(ProposalOutcome.afterUndoPlan(PLANNED_FROM_NOTIFICATION))
-        assertEquals(OPENED, ProposalOutcome.afterUndoPlan(OPENED))
-        assertNull(ProposalOutcome.afterUndoPlan(null))
+    fun afterUndoPlan_revertsOnlyTheUndonePlan() {
+        assertNull(ProposalOutcome.afterUndoPlan(PLANNED_FROM_NOTIFICATION, PLANNED_FROM_NOTIFICATION))
+        assertEquals(OTHER_SUGGESTIONS, ProposalOutcome.afterUndoPlan(PLANNED_FROM_SUGGESTIONS, PLANNED_FROM_SUGGESTIONS))
+        // A plan for another day than today recorded nothing to revert.
+        assertEquals(OTHER_SUGGESTIONS, ProposalOutcome.afterUndoPlan(OTHER_SUGGESTIONS, PLANNED_FROM_SUGGESTIONS))
+        assertEquals(OPENED, ProposalOutcome.afterUndoPlan(OPENED, PLANNED_FROM_NOTIFICATION))
+        assertNull(ProposalOutcome.afterUndoPlan(null, PLANNED_FROM_NOTIFICATION))
     }
 
     @Test
@@ -93,32 +96,6 @@ class ProposalEventRepositoryTest {
     }
 
     @Test
-    fun undoPlan_leavesNoOutcome_andAPlanAgainCounts() = runTest {
-        val id = repository.shown(1)
-        repository.record(id, PLANNED_FROM_NOTIFICATION)
-
-        repository.undoPlan(id)
-        assertNull(dao.get(id)?.outcome)
-
-        repository.record(id, PLANNED_FROM_NOTIFICATION)
-        assertEquals(PLANNED_FROM_NOTIFICATION, dao.get(id)?.outcome)
-    }
-
-    @Test
-    fun plannedFromSuggestions_countsOnlyForToday() = runTest {
-        val id = repository.shown(1).also { repository.record(it, OTHER_SUGGESTIONS) }
-
-        repository.plannedFromSuggestions(id, today.plusDays(1))
-        assertEquals(OTHER_SUGGESTIONS, dao.get(id)?.outcome)
-
-        repository.plannedFromSuggestions(id, today)
-        assertEquals(PLANNED_FROM_SUGGESTIONS, dao.get(id)?.outcome)
-
-        // Vorschläge not opened from a proposal.
-        repository.plannedFromSuggestions(null, today)
-    }
-
-    @Test
     fun replaced_marksTheOpenProposalAsIgnored() = runTest {
         val id = repository.shown(1)
 
@@ -142,34 +119,35 @@ class ProposalEventRepositoryTest {
     @Test
     fun record_ofAMissingRowDoesNothing() = runTest {
         repository.record(42, OPENED)
-        repository.undoPlan(42)
+        dao.undoPlan(42, PLANNED_FROM_NOTIFICATION)
 
         assertNull(dao.get(42))
     }
+}
 
-    private class FakeProposalEventDao : ProposalEventDao {
-        private val rows = linkedMapOf<Long, ProposalEvent>()
+/** In-memory [ProposalEventDao]. */
+internal class FakeProposalEventDao : ProposalEventDao {
+    private val rows = linkedMapOf<Long, ProposalEvent>()
 
-        override suspend fun insert(event: ProposalEvent): Long {
-            val id = rows.size + 1L
-            rows[id] = event.copy(id = id)
-            return id
-        }
+    override suspend fun insert(event: ProposalEvent): Long {
+        val id = rows.size + 1L
+        rows[id] = event.copy(id = id)
+        return id
+    }
 
-        override suspend fun get(id: Long) = rows[id]
+    override suspend fun get(id: Long) = rows[id]
 
-        override suspend fun lastHookId() = rows.values.lastOrNull()?.hookId
+    override suspend fun lastHookId() = rows.values.lastOrNull()?.hookId
 
-        override suspend fun setOutcome(id: Long, outcome: ProposalOutcome?) {
-            rows[id]?.let { rows[id] = it.copy(outcome = outcome) }
-        }
+    override suspend fun setOutcome(id: Long, outcome: ProposalOutcome?) {
+        rows[id]?.let { rows[id] = it.copy(outcome = outcome) }
+    }
 
-        override suspend fun ignoreOpenBefore(date: LocalDate) {
-            rows.replaceAll { _, it -> if (it.outcome == null && it.date < date) it.copy(outcome = IGNORED) else it }
-        }
+    override suspend fun ignoreOpenBefore(date: LocalDate) {
+        rows.replaceAll { _, it -> if (it.outcome == null && it.date < date) it.copy(outcome = IGNORED) else it }
+    }
 
-        override suspend fun ignoreOpen() {
-            rows.replaceAll { _, it -> if (it.outcome == null) it.copy(outcome = IGNORED) else it }
-        }
+    override suspend fun ignoreOpen() {
+        rows.replaceAll { _, it -> if (it.outcome == null) it.copy(outcome = IGNORED) else it }
     }
 }

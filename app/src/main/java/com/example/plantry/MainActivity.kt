@@ -11,7 +11,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import com.example.plantry.data.ProposalOutcome
 import com.example.plantry.data.settings.ThemeMode
 import com.example.plantry.ui.CapitalizeOnFocus
 import com.example.plantry.ui.PlantryNavHost
@@ -34,16 +33,15 @@ class MainActivity : ComponentActivity() {
         } else {
             null
         }
-        // An action button doesn't cancel its notification itself.
-        if (otherSuggestionsThan != null) (application as PlantryApplication).cookReminders.dismissProposal()
         val proposalEventId = if (savedInstanceState == null) {
             intent.getLongExtra(EXTRA_PROPOSAL_EVENT_ID, -1).takeIf { it >= 0 }
         } else {
             null
         }
-        if (proposalEventId != null) {
-            val outcome = if (otherSuggestionsThan != null) ProposalOutcome.OTHER_SUGGESTIONS else ProposalOutcome.OPENED
-            lifecycleScope.launch { (application as PlantryApplication).proposalEventRepository.record(proposalEventId, outcome) }
+        if (proposalEventId != null || otherSuggestionsThan != null) {
+            lifecycleScope.launch {
+                (application as PlantryApplication).cookReminders.opened(proposalEventId, otherSuggestions = otherSuggestionsThan != null)
+            }
         }
         val settingsRepository =(application as PlantryApplication).settingsRepository
         setContent {

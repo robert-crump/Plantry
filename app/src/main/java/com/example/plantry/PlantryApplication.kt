@@ -72,6 +72,7 @@ class PlantryApplication : Application() {
         MealPlan(
             database.plannedRecipeDao(),
             database.cookLogDao(),
+            database.proposalEventDao(),
             snapshot = { RecipeSnapshot.load(it, database.recipeDao(), database.ingredientDao()) },
             transaction,
             today,

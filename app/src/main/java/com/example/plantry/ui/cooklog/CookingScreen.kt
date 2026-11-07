@@ -97,6 +97,7 @@ import com.example.plantry.data.CookLog
 import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.Cooked
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.PlanOrigin
 import com.example.plantry.data.PlannedItem
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.MealPlan
@@ -194,24 +195,27 @@ class CookingViewModel(
      * "Vorschlag" and "Planen": puts the recipe on Geplant for [date], or moves it there; [onDone]
      * gets the entry it replaced, for [undoPlan]. Counts as seen, since Speiseplan is already showing.
      */
-    fun plan(recipeId: Long, date: LocalDate, onDone: (PlannedRecipe?) -> Unit) {
+    fun plan(recipeId: Long, date: LocalDate, origin: PlanOrigin?, onDone: (PlannedRecipe?) -> Unit) {
         viewModelScope.launch {
-            val previous = mealPlan.plan(recipeId, date)
+            val previous = mealPlan.plan(recipeId, date, origin)
             seenPlans = mealPlan.plans.value
             onDone(previous)
         }
     }
 
-    fun undoPlan(recipeId: Long, previous: PlannedRecipe?) {
-        viewModelScope.launch { mealPlan.undoPlan(recipeId, previous) }
+    fun undoPlan(recipeId: Long, previous: PlannedRecipe?, origin: PlanOrigin?) {
+        viewModelScope.launch { mealPlan.undoPlan(recipeId, previous, origin) }
     }
 }
 
 /** What the selection bar asks to confirm. */
 private enum class SelectionAction { DONE, DELETE }
 
-/** A recipe and day picked on "Vorschlag" or "Planen", to plan with an undo snackbar. */
-data class JustPlanned(val recipeId: Long, val title: String, val date: LocalDate)
+/**
+ * A recipe and day picked on "Vorschlag" or "Planen", to plan with an undo snackbar; [origin] is set
+ * when Vorschläge was opened from a proposal notification.
+ */
+data class JustPlanned(val recipeId: Long, val title: String, val date: LocalDate, val origin: PlanOrigin? = null)
 
 /** A recipe and day picked on the "Kocheintrag" screen, to log with an undo snackbar. */
 data class JustLogged(val recipeId: Long, val date: LocalDate)
@@ -270,9 +274,9 @@ fun CookingScreen(
     LaunchedEffect(justPlanned) {
         val planned = justPlanned ?: return@LaunchedEffect
         onJustPlannedShown()
-        viewModel.plan(planned.recipeId, planned.date) { previous ->
+        viewModel.plan(planned.recipeId, planned.date, planned.origin) { previous ->
             scrollToPlanned = setOf(planned.recipeId)
-            showUndo(plannedMessage) { viewModel.undoPlan(planned.recipeId, previous) }
+            showUndo(plannedMessage) { viewModel.undoPlan(planned.recipeId, previous, planned.origin) }
         }
     }
 

@@ -8,17 +8,31 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import java.time.LocalDate
 
+/** The proposal notification a plan came from; the plan records its outcome in the proposal log. */
+sealed interface PlanOrigin {
+    /** The proposal's row in the log. */
+    val eventId: Long
+
+    /** "Planen" on the proposal. */
+    data class FromNotification(override val eventId: Long) : PlanOrigin
+
+    /** Vorschläge, opened by the proposal's "Anderer Vorschlag"; only planning for today counts. */
+    data class FromSuggestions(override val eventId: Long) : PlanOrigin
+}
+
 /** A recipe logged as cooked, with what to undo: the log entry and the Geplant entry it cleared. */
 data class Cooked(val logId: Long, val unplanned: PlannedRecipe?)
 
 /**
  * Geplant and what happens to its recipes: planned for a day, moved, postponed, logged as cooked
- * (into the cook log, with a snapshot of the recipe) and undone. Entries drop off a week after their
+ * (into the cook log, with a snapshot of the recipe) and undone, and what a plan made from a
+ * proposal notification means for that proposal ([PlanOrigin]). Entries drop off a week after their
  * day. Every action is one [transaction] and reads [today] once.
  */
 class MealPlan(
     private val plannedDao: PlannedRecipeDao,
     private val cookLogDao: CookLogDao,
+    private val proposalEventDao: ProposalEventDao,
     /** The recipe as it is now; null if it doesn't exist. */
     private val snapshot: suspend (recipeId: Long) -> RecipeSnapshot?,
     private val transaction: Transaction,
@@ -37,21 +51,31 @@ class MealPlan(
     val plans: StateFlow<Int> = _plans.asStateFlow()
 
     /**
-     * Puts the recipe on Geplant for [date], or moves it there if it already is. Returns the entry
-     * it replaced, for [undoPlan]; null if the recipe wasn't on Geplant.
+     * Puts the recipe on Geplant for [date], or moves it there if it already is, and records it on
+     * the proposal it came from, if any. Returns the entry it replaced, for [undoPlan]; null if the
+     * recipe wasn't on Geplant.
      */
-    suspend fun plan(recipeId: Long, date: LocalDate): PlannedRecipe? {
+    suspend fun plan(recipeId: Long, date: LocalDate, origin: PlanOrigin? = null): PlannedRecipe? {
         val today = today()
         val previous = transaction {
-            current(recipeId, today).also { plannedDao.upsert(PlannedRecipe(recipeId, date)) }
+            current(recipeId, today).also {
+                plannedDao.upsert(PlannedRecipe(recipeId, date))
+                if (origin != null && (origin is PlanOrigin.FromNotification || date == today)) {
+                    proposalEventDao.record(origin.eventId, origin.outcome)
+                }
+            }
         }
         _plans.update { it + 1 }
         return previous
     }
 
-    /** Undoes [plan]: back to the [previous] day, or off Geplant if there was none. */
-    suspend fun undoPlan(recipeId: Long, previous: PlannedRecipe?) = transaction {
+    /**
+     * Undoes [plan]: back to the [previous] day, or off Geplant if there was none, and the proposal
+     * it came from as before.
+     */
+    suspend fun undoPlan(recipeId: Long, previous: PlannedRecipe?, origin: PlanOrigin? = null) = transaction {
         if (previous != null) plannedDao.upsert(previous) else plannedDao.delete(recipeId)
+        if (origin != null) proposalEventDao.undoPlan(origin.eventId, origin.outcome)
     }
 
     /**
@@ -100,6 +124,12 @@ class MealPlan(
         planned.forEach { plannedDao.delete(it) }
         entries.forEach { cookLogDao.deleteById(it) }
     }
+
+    private val PlanOrigin.outcome: ProposalOutcome
+        get() = when (this) {
+            is PlanOrigin.FromNotification -> ProposalOutcome.PLANNED_FROM_NOTIFICATION
+            is PlanOrigin.FromSuggestions -> ProposalOutcome.PLANNED_FROM_SUGGESTIONS
+        }
 
     /** The recipe's entry if it is still on Geplant on [today]. */
     private suspend fun current(recipeId: Long, today: LocalDate): PlannedRecipe? =

@@ -22,26 +22,11 @@ class ProposalEventRepository(
     /** The hook of the proposal [id]'s title, to show it the same again; null if it had none. */
     suspend fun hookId(id: Long): String? = dao.get(id)?.hookId
 
-    /** [outcome] happened to the proposal [id], unless something stronger already did. */
-    suspend fun record(id: Long, outcome: ProposalOutcome) {
-        val event = dao.get(id) ?: return
-        val next = ProposalOutcome.after(event.outcome, outcome)
-        if (next != event.outcome) dao.setOutcome(id, next)
-    }
-
     /**
-     * A recipe was planned for [date] from Vorschläge opened by the proposal [id]'s "Anderer
-     * Vorschlag"; only planning for today counts. Nothing to record without an [id].
+     * [outcome] happened to the proposal [id], unless something stronger already did. Outcomes of
+     * planning are recorded by [MealPlan] with the plan.
      */
-    suspend fun plannedFromSuggestions(id: Long?, date: LocalDate) {
-        if (id != null && date == today()) record(id, ProposalOutcome.PLANNED_FROM_SUGGESTIONS)
-    }
-
-    /** "Rückgängig" of "Planen" on the proposal [id]. */
-    suspend fun undoPlan(id: Long) {
-        val event = dao.get(id) ?: return
-        dao.setOutcome(id, ProposalOutcome.afterUndoPlan(event.outcome))
-    }
+    suspend fun record(id: Long, outcome: ProposalOutcome) = dao.record(id, outcome)
 
     /** Another notification took the proposal's place: if nothing came of it, it was ignored. */
     suspend fun replaced() = dao.ignoreOpen()

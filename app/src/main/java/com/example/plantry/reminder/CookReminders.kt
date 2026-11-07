@@ -13,6 +13,7 @@ import android.os.Bundle
 import com.example.plantry.MainActivity
 import com.example.plantry.R
 import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.PlanOrigin
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.MealPlan
 import com.example.plantry.data.ProposalEventRepository
@@ -131,8 +132,7 @@ class CookReminders(
         val previous = planned.observe().first().firstOrNull { it.recipeId == recipeId }
         // Shown before planning, so the update that follows finds a confirmation, not a proposal no longer wanted.
         if (canNotify()) notifications.notify(ReminderKind.PROPOSAL.notificationId, buildConfirmation(proposal, previous, eventId))
-        planned.plan(recipeId, today)
-        eventId?.let { events.record(it, ProposalOutcome.PLANNED_FROM_NOTIFICATION) }
+        planned.plan(recipeId, today, eventId?.let(PlanOrigin::FromNotification))
     }
 
     /**
@@ -140,7 +140,6 @@ class CookReminders(
      * proposal again, with nothing come of it yet.
      */
     suspend fun undoPlanProposal(recipeId: Long, previous: PlannedRecipe?, eventId: Long?) {
-        eventId?.let { events.undoPlan(it) }
         // The same title as before "Planen"; a notification from before the log had the factual hook.
         val hookId = eventId?.let { events.hookId(it) }
         val proposal = proposalOf(recipeId, LocalDate.now()) { factual, _ ->
@@ -151,11 +150,20 @@ class CookReminders(
         } else {
             notifications.cancel(ReminderKind.PROPOSAL.notificationId)
         }
-        planned.undoPlan(recipeId, previous)
+        planned.undoPlan(recipeId, previous, eventId?.let(PlanOrigin::FromNotification))
     }
 
-    /** "Anderer Vorschlag" opened Vorschläge. */
-    fun dismissProposal() = notifications.cancel(ReminderKind.PROPOSAL.notificationId)
+    /**
+     * The app was opened from a notification: its body or "Rezept öffnen", or "Anderer Vorschlag"
+     * ([otherSuggestions]), which doesn't cancel the proposal itself. [eventId] is the proposal's
+     * log row, if it came from one.
+     */
+    suspend fun opened(eventId: Long?, otherSuggestions: Boolean) {
+        if (otherSuggestions) notifications.cancel(ReminderKind.PROPOSAL.notificationId)
+        if (eventId != null) {
+            events.record(eventId, if (otherSuggestions) ProposalOutcome.OTHER_SUGGESTIONS else ProposalOutcome.OPENED)
+        }
+    }
 
     /** The proposal or its confirmation was swiped away. */
     suspend fun proposalDismissed(eventId: Long) = events.record(eventId, ProposalOutcome.DISMISSED)

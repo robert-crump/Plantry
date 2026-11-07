@@ -71,6 +71,7 @@ import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientSuggestions
+import com.example.plantry.data.PlanOrigin
 import com.example.plantry.data.PlannedRecipe
 import com.example.plantry.data.MealPlan
 import com.example.plantry.data.Recipe
@@ -195,12 +196,12 @@ class RecipeListViewModel(
     }
 
     /** "Planen": puts the recipe on Geplant for [date], or moves it there; [onDone] gets the entry it replaced, for [undoPlan]. */
-    fun plan(recipeId: Long, date: LocalDate, onDone: (PlannedRecipe?) -> Unit) {
-        viewModelScope.launch { onDone(mealPlan.plan(recipeId, date)) }
+    fun plan(recipeId: Long, date: LocalDate, origin: PlanOrigin?, onDone: (PlannedRecipe?) -> Unit) {
+        viewModelScope.launch { onDone(mealPlan.plan(recipeId, date, origin)) }
     }
 
-    fun undoPlan(recipeId: Long, previous: PlannedRecipe?) {
-        viewModelScope.launch { mealPlan.undoPlan(recipeId, previous) }
+    fun undoPlan(recipeId: Long, previous: PlannedRecipe?, origin: PlanOrigin?) {
+        viewModelScope.launch { mealPlan.undoPlan(recipeId, previous, origin) }
     }
 }
 
@@ -229,11 +230,11 @@ fun RecipeListScreen(
     LaunchedEffect(justPlanned) {
         val planned = justPlanned ?: return@LaunchedEffect
         onJustPlannedShown()
-        viewModel.plan(planned.recipeId, planned.date) { previous ->
+        viewModel.plan(planned.recipeId, planned.date, planned.origin) { previous ->
             scope.launch {
                 snackbar.currentSnackbarData?.dismiss()
                 val result = snackbar.showSnackbar(plannedMessage, actionLabel = undoLabel, duration = SnackbarDuration.Short)
-                if (result == SnackbarResult.ActionPerformed) viewModel.undoPlan(planned.recipeId, previous)
+                if (result == SnackbarResult.ActionPerformed) viewModel.undoPlan(planned.recipeId, previous, planned.origin)
             }
         }
     }

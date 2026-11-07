@@ -13,11 +13,12 @@ class MealPlanTest {
 
     private val dao = FakePlannedRecipeDao()
     private val logDao = FakeCookLogDao()
+    private val eventDao = FakeProposalEventDao()
 
     /** Recipes 1 to 3 exist; their snapshot can be changed between logs. */
     private val snapshots = (1L..3L).associateWith { RecipeSnapshot("Rezept $it", RecipeStats(1.0, 20.0, 40.0)) }.toMutableMap()
     private var today = LocalDate.of(2026, 10, 4)
-    private val repository = MealPlan(dao, logDao, { snapshots[it] }, Transaction.None) { today }
+    private val repository = MealPlan(dao, logDao, eventDao, { snapshots[it] }, Transaction.None) { today }
 
     @Test
     fun plan_addsTheRecipeOnce_andMovesItToTheNewDay() = runTest {
@@ -265,6 +266,51 @@ class MealPlanTest {
         repository.undoCook(second)
 
         assertEquals(listOf(first.logId), logDao.plants.value.map { it.cookLogId })
+    }
+
+    private suspend fun proposal(outcome: ProposalOutcome? = null) =
+        eventDao.insert(ProposalEvent(date = today, recipeId = 1, outcome = outcome))
+
+    @Test
+    fun plan_fromTheNotification_recordsIt_andUndoRevertsBoth() = runTest {
+        repository.plan(1, today.plusDays(2))
+        val event = proposal(ProposalOutcome.OPENED)
+        val origin = PlanOrigin.FromNotification(event)
+
+        val previous = repository.plan(1, today, origin)
+
+        assertEquals(ProposalOutcome.PLANNED_FROM_NOTIFICATION, eventDao.get(event)?.outcome)
+        repository.undoPlan(1, previous, origin)
+        assertNull(eventDao.get(event)?.outcome)
+        assertEquals(listOf(PlannedRecipe(1, today.plusDays(2))), repository.observe().first())
+
+        // Planned again: counts again.
+        repository.plan(1, today, origin)
+        assertEquals(ProposalOutcome.PLANNED_FROM_NOTIFICATION, eventDao.get(event)?.outcome)
+    }
+
+    @Test
+    fun plan_fromSuggestions_countsOnlyForToday_andUndoGoesBackToOtherSuggestions() = runTest {
+        val event = proposal(ProposalOutcome.OTHER_SUGGESTIONS)
+        val origin = PlanOrigin.FromSuggestions(event)
+
+        val tomorrow = repository.plan(1, today.plusDays(1), origin)
+        assertEquals(ProposalOutcome.OTHER_SUGGESTIONS, eventDao.get(event)?.outcome)
+        repository.undoPlan(1, tomorrow, origin)
+        assertEquals(ProposalOutcome.OTHER_SUGGESTIONS, eventDao.get(event)?.outcome)
+
+        val previous = repository.plan(2, today, origin)
+        assertEquals(ProposalOutcome.PLANNED_FROM_SUGGESTIONS, eventDao.get(event)?.outcome)
+        repository.undoPlan(2, previous, origin)
+        assertEquals(ProposalOutcome.OTHER_SUGGESTIONS, eventDao.get(event)?.outcome)
+        assertEquals(emptyList<PlannedRecipe>(), repository.observe().first())
+    }
+
+    @Test
+    fun plan_ofAMissingProposal_stillPlans() = runTest {
+        repository.plan(1, today, PlanOrigin.FromNotification(42))
+
+        assertEquals(listOf(PlannedRecipe(1, today)), repository.observe().first())
     }
 
     @Test
