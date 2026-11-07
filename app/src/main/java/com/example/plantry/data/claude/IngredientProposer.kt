@@ -14,7 +14,6 @@ import com.example.plantry.data.usda.UsdaFood
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /**
@@ -86,11 +85,6 @@ data class IngredientProposal(
 
     /** Adds [unit] to [addedUnits], replacing a row with the same unit. */
     fun withUnit(unit: IngredientUnit) = copy(addedUnits = addedUnits.filter { it.unit != unit.unit } + unit)
-}
-
-sealed interface ClaudeResult<out T> {
-    data class Success<T>(val value: T) : ClaudeResult<T>
-    data class Failure(val reason: ClaudeFailure) : ClaudeResult<Nothing>
 }
 
 interface IngredientProposer {
@@ -310,7 +304,10 @@ object ProposalParser {
 
     /** Search terms per food id; foods Claude left out get none. */
     fun searchTerms(text: String?, foods: List<NewFood>): ClaudeResult<Map<Long, List<String>>> {
-        val parsed = decode<SearchTermsJson>(text) ?: return ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE)
+        val parsed = when (val r = json.decodeAnswer<SearchTermsJson>(text)) {
+            is ClaudeResult.Success -> r.value
+            is ClaudeResult.Failure -> return r
+        }
         val terms = parsed.foods.associate { it.key to cleanTerms(it.searchTerms) }
         return ClaudeResult.Success(foods.associate { it.id to terms[ProposalPrompt.key(it.id)].orEmpty() })
     }
@@ -321,7 +318,10 @@ object ProposalParser {
      * may not propose, grams ≤ 0 and repeats of a unit are dropped. A food Claude left out gets only defaults.
      */
     fun proposals(text: String?, foods: List<FoodCandidates>): ClaudeResult<Map<Long, IngredientProposal>> {
-        val parsed = decode<ProposalsJson>(text) ?: return ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE)
+        val parsed = when (val r = json.decodeAnswer<ProposalsJson>(text)) {
+            is ClaudeResult.Success -> r.value
+            is ClaudeResult.Failure -> return r
+        }
         val byKey = parsed.ingredients.associateBy { it.key.trim() }
         return ClaudeResult.Success(
             foods.associate { candidates ->
@@ -350,13 +350,6 @@ object ProposalParser {
     /** Trimmed, non-blank and distinct; Claude is asked for at most three. */
     fun cleanTerms(terms: List<String>) = terms.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(3)
 
-    private inline fun <reified T> decode(text: String?): T? = try {
-        text?.let { json.decodeFromString<T>(it) }
-    } catch (_: SerializationException) {
-        null
-    } catch (_: IllegalArgumentException) {
-        null
-    }
 
     private inline fun <reified E : Enum<E>> enumOrNull(name: String): E? =
         enumValues<E>().firstOrNull { it.name == name.trim().uppercase() }

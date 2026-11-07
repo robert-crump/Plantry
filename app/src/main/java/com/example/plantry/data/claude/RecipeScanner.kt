@@ -1,14 +1,10 @@
 package com.example.plantry.data.claude
 
-import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import com.anthropic.core.JsonValue
-import com.anthropic.errors.AnthropicIoException
-import com.anthropic.errors.AnthropicServiceException
 import com.anthropic.models.messages.ContentBlockParam
 import com.anthropic.models.messages.JsonOutputFormat
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
-import com.anthropic.models.messages.StopReason
 import com.example.plantry.data.CookingSteps
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientUnit
@@ -18,7 +14,6 @@ import com.example.plantry.data.settings.ScanModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.math.BigDecimal
 import kotlin.math.roundToLong
@@ -58,11 +53,6 @@ data class ScannedRecipe(
     val steps: List<String> = emptyList(),
 )
 
-sealed interface ScanResult {
-    data class Success(val recipe: ScannedRecipe) : ScanResult
-    data class Failure(val reason: ClaudeFailure) : ScanResult
-}
-
 fun interface RecipeScanner {
     /** Reads [photo] (JPEG) in one call, matching lines against [ingredients], whose [units] are by ingredient id. */
     suspend fun scan(
@@ -71,7 +61,7 @@ fun interface RecipeScanner {
         photo: ByteArray,
         ingredients: List<Ingredient>,
         units: Map<Long, List<IngredientUnit>>,
-    ): ScanResult
+    ): ClaudeResult<ScannedRecipe>
 }
 
 class AnthropicRecipeScanner(private val models: ModelCatalog = ModelCatalog.shared) : RecipeScanner {
@@ -82,24 +72,12 @@ class AnthropicRecipeScanner(private val models: ModelCatalog = ModelCatalog.sha
         photo: ByteArray,
         ingredients: List<Ingredient>,
         units: Map<Long, List<IngredientUnit>>,
-    ): ScanResult = withContext(Dispatchers.IO) {
-        val client = AnthropicOkHttpClient.builder().apiKey(apiKey).build()
-        try {
-            val response = client.messages().create(request(models.resolve(apiKey, model).id, photo, ingredients, units))
-            when (response.stopReason().orElse(null)) {
-                StopReason.REFUSAL -> return@withContext ScanResult.Failure(ClaudeFailure.REFUSED)
-                StopReason.MAX_TOKENS -> return@withContext ScanResult.Failure(ClaudeFailure.TRUNCATED)
-                else -> Unit
-            }
-            // After a server-side fallback the answer is the last text block.
-            val text = response.content().mapNotNull { block -> block.text().orElse(null)?.text() }.lastOrNull()
-            ScanParser.toResult(text, ingredients.map { it.id }.toSet())
-        } catch (e: AnthropicServiceException) {
-            ScanResult.Failure(ClaudeFailure.fromError(e.statusCode(), e.errorType().map { it.asString() }.orElse(null)))
-        } catch (_: AnthropicIoException) {
-            ScanResult.Failure(ClaudeFailure.NETWORK)
-        } finally {
-            client.close()
+    ): ClaudeResult<ScannedRecipe> {
+        val modelId = withContext(Dispatchers.IO) { models.resolve(apiKey, model).id }
+        // After a server-side fallback the answer is the last text block (callClaude takes that one).
+        return when (val answer = callClaude(apiKey, request(modelId, photo, ingredients, units))) {
+            is ClaudeResult.Success -> ScanParser.toResult(answer.value, ingredients.map { it.id }.toSet())
+            is ClaudeResult.Failure -> answer
         }
     }
 
@@ -249,7 +227,7 @@ object ScanPrompt {
     }
 }
 
-/** Turns Claude's JSON answer into a [ScanResult]; pure, so it is unit-tested. */
+/** Turns Claude's JSON answer into a [ClaudeResult]; pure, so it is unit-tested. */
 object ScanParser {
 
     @Serializable
@@ -283,17 +261,14 @@ object ScanParser {
      * a unit not in [ScanPrompt.UNIT_WORDS] (then read as grams), is marked uncertain, since its
      * amount must be corrected.
      */
-    fun toResult(text: String?, knownIngredientIds: Set<Long>): ScanResult {
-        val parsed = try {
-            json.decodeFromString<ScanJson>(text ?: return ScanResult.Failure(ClaudeFailure.BAD_RESPONSE))
-        } catch (_: SerializationException) {
-            return ScanResult.Failure(ClaudeFailure.BAD_RESPONSE)
-        } catch (_: IllegalArgumentException) {
-            return ScanResult.Failure(ClaudeFailure.BAD_RESPONSE)
+    fun toResult(text: String?, knownIngredientIds: Set<Long>): ClaudeResult<ScannedRecipe> {
+        val parsed = when (val r = json.decodeAnswer<ScanJson>(text)) {
+            is ClaudeResult.Success -> r.value
+            is ClaudeResult.Failure -> return r
         }
         val steps = parsed.steps.flatMap(CookingSteps::parse)
-        if (parsed.title.isBlank() && parsed.lines.isEmpty() && steps.isEmpty()) return ScanResult.Failure(ClaudeFailure.NOT_A_RECIPE)
-        return ScanResult.Success(
+        if (parsed.title.isBlank() && parsed.lines.isEmpty() && steps.isEmpty()) return ClaudeResult.Failure(ClaudeFailure.NOT_A_RECIPE)
+        return ClaudeResult.Success(
             ScannedRecipe(
                 title = parsed.title.trim(),
                 servings = parsed.servings.takeIf { it > 0 },

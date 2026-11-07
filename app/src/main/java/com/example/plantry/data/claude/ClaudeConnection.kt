@@ -9,6 +9,8 @@ import com.anthropic.models.messages.StopReason
 import com.example.plantry.data.settings.ScanModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
 
 /** Why a call to Claude failed, coarse enough to show a German message for each. */
 enum class ClaudeFailure {
@@ -72,34 +74,38 @@ fun interface ConnectionTester {
 /** Makes the smallest possible Messages call with the given key and model. */
 class AnthropicConnectionTester(private val models: ModelCatalog = ModelCatalog.shared) : ConnectionTester {
 
-    override suspend fun test(apiKey: String, model: ScanModel): ConnectionResult = withContext(Dispatchers.IO) {
-        val client = AnthropicOkHttpClient.builder().apiKey(apiKey).maxRetries(0).build()
-        try {
-            client.messages().create(
-                MessageCreateParams.builder()
-                    .model(models.resolve(apiKey, model).id)
-                    .maxTokens(16L)
-                    .outputConfig(OutputConfig.builder().effort(OutputConfig.Effort.LOW).build())
-                    .addUserMessage("Ping")
-                    .build(),
-            )
-            ConnectionResult.Success
-        } catch (e: AnthropicServiceException) {
-            ConnectionResult.Failure(
-                ClaudeFailure.fromError(e.statusCode(), e.errorType().map { it.asString() }.orElse(null)),
-            )
-        } catch (_: AnthropicIoException) {
-            ConnectionResult.Failure(ClaudeFailure.NETWORK)
-        } finally {
-            client.close()
+    override suspend fun test(apiKey: String, model: ScanModel): ConnectionResult {
+        val params = MessageCreateParams.builder()
+            .model(withContext(Dispatchers.IO) { models.resolve(apiKey, model).id })
+            .maxTokens(16L)
+            .outputConfig(OutputConfig.builder().effort(OutputConfig.Effort.LOW).build())
+            .addUserMessage("Ping")
+            .build()
+        return when (val answer = callClaude(apiKey, params, maxRetries = 0)) {
+            is ClaudeResult.Success -> ConnectionResult.Success
+            is ClaudeResult.Failure -> ConnectionResult.Failure(answer.reason)
         }
     }
 }
 
+sealed interface ClaudeResult<out T> {
+    data class Success<T>(val value: T) : ClaudeResult<T>
+    data class Failure(val reason: ClaudeFailure) : ClaudeResult<Nothing>
+}
+
+/** Decodes Claude's JSON [text] as [T]; a missing or malformed answer is [ClaudeFailure.BAD_RESPONSE]. */
+internal inline fun <reified T> Json.decodeAnswer(text: String?): ClaudeResult<T> = try {
+    ClaudeResult.Success(decodeFromString<T>(text ?: return ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE)))
+} catch (_: SerializationException) {
+    ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE)
+} catch (_: IllegalArgumentException) {
+    ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE)
+}
+
 /** Makes [params]' call and returns the answer's text, or why there is none. */
-suspend fun callClaude(apiKey: String, params: MessageCreateParams): ClaudeResult<String?> =
+suspend fun callClaude(apiKey: String, params: MessageCreateParams, maxRetries: Int? = null): ClaudeResult<String?> =
     withContext(Dispatchers.IO) {
-        val client = AnthropicOkHttpClient.builder().apiKey(apiKey).build()
+        val client = AnthropicOkHttpClient.builder().apiKey(apiKey).apply { maxRetries?.let(::maxRetries) }.build()
         try {
             val response = client.messages().create(params)
             when (response.stopReason().orElse(null)) {

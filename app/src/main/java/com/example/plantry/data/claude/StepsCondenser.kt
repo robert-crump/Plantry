@@ -12,7 +12,6 @@ import com.example.plantry.data.settings.ScanModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.util.Base64
 
@@ -133,12 +132,9 @@ object StepsParser {
 
     /** Cleaned up as typed steps are ([CookingSteps.parse]), so a step never carries a number or a line break. */
     fun steps(text: String?): ClaudeResult<List<String>> {
-        val parsed = try {
-            json.decodeFromString<StepsJson>(text ?: return ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE))
-        } catch (_: SerializationException) {
-            return ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE)
-        } catch (_: IllegalArgumentException) {
-            return ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE)
+        val parsed = when (val r = json.decodeAnswer<StepsJson>(text)) {
+            is ClaudeResult.Success -> r.value
+            is ClaudeResult.Failure -> return r
         }
         return ClaudeResult.Success(parsed.steps.flatMap(CookingSteps::parse))
     }

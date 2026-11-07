@@ -98,7 +98,6 @@ import com.example.plantry.data.claude.ClaudeFailure
 import com.example.plantry.data.claude.ClaudeResult
 import com.example.plantry.data.claude.NutritionSource
 import com.example.plantry.data.claude.RecipeScanner
-import com.example.plantry.data.claude.ScanResult
 import com.example.plantry.data.claude.StepsCondenser
 import com.example.plantry.data.claude.StepsReader
 import com.example.plantry.data.usda.UsdaCatalog
@@ -408,16 +407,16 @@ class RecipeEditViewModel(
             val result = scanner.scan(apiKey, settings.settings.value.scanModel, photo, ingredients.value, storedUnits.value)
             _state.update { state ->
                 when (result) {
-                    is ScanResult.Success -> {
+                    is ClaudeResult.Success -> {
                         // Claude never reads the book, so the source always comes from the session.
-                        val book = bookSession.defaults(BookPage(source = "", page = result.recipe.page))
-                        val form = RecipeForm().withScan(result.recipe, book, aliases.value, storedUnits.value)
+                        val book = bookSession.defaults(BookPage(source = "", page = result.value.page))
+                        val form = RecipeForm().withScan(result.value, book, aliases.value, storedUnits.value)
                         state.copy(form = form, scan = ScanState.Done)
                     }
-                    is ScanResult.Failure -> state.copy(scan = ScanState.Failed(result.reason))
+                    is ClaudeResult.Failure -> state.copy(scan = ScanState.Failed(result.reason))
                 }
             }
-            if (result is ScanResult.Success) proposeNewIngredients()
+            if (result is ClaudeResult.Success) proposeNewIngredients()
         }
     }
 

@@ -26,7 +26,7 @@ class ScanParserTest {
     private fun answer(title: String = "Dal", servings: Int = 4, active: Int = 15, time: Int = 40, page: Int = 112, vararg lines: String) =
         """{"title":"$title","servings":$servings,"activeMinutes":$active,"totalMinutes":$time,"page":$page,"lines":[${lines.joinToString(",")}]}"""
 
-    private fun success(text: String?) = (ScanParser.toResult(text, known) as ScanResult.Success).recipe
+    private fun success(text: String?) = (ScanParser.toResult(text, known) as ClaudeResult.Success).value
 
     @Test
     fun parsesMetadataAndLines() {
@@ -135,12 +135,12 @@ class ScanParserTest {
 
     @Test
     fun noTitleAndNoLines_isNotARecipe() {
-        assertEquals(ScanResult.Failure(ClaudeFailure.NOT_A_RECIPE), ScanParser.toResult(answer(title = ""), known))
+        assertEquals(ClaudeResult.Failure(ClaudeFailure.NOT_A_RECIPE), ScanParser.toResult(answer(title = ""), known))
     }
 
     @Test
     fun malformedOrMissingAnswer_isBadResponse() {
-        assertEquals(ScanResult.Failure(ClaudeFailure.BAD_RESPONSE), ScanParser.toResult("{\"title\":", known))
-        assertEquals(ScanResult.Failure(ClaudeFailure.BAD_RESPONSE), ScanParser.toResult(null, known))
+        assertEquals(ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE), ScanParser.toResult("{\"title\":", known))
+        assertEquals(ClaudeResult.Failure(ClaudeFailure.BAD_RESPONSE), ScanParser.toResult(null, known))
     }
 }
