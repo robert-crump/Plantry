@@ -3,7 +3,6 @@ package com.example.plantry.data.claude
 import com.anthropic.core.JsonValue
 import com.anthropic.models.messages.ContentBlockParam
 import com.anthropic.models.messages.JsonOutputFormat
-import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.example.plantry.data.CookingSteps
 import com.example.plantry.data.Ingredient
@@ -82,16 +81,13 @@ class AnthropicRecipeScanner(private val models: ModelCatalog = ModelCatalog.sha
     }
 
     private fun request(modelId: String, photo: ByteArray, ingredients: List<Ingredient>, units: Map<Long, List<IngredientUnit>>) =
-        MessageCreateParams.builder()
-            .model(modelId)
-            .maxTokens(16_000L)
-            .system(ScanPrompt.system(ingredients, units))
-            .outputConfig(
-                OutputConfig.builder()
-                    .effort(OutputConfig.Effort.MEDIUM)
-                    .format(JsonOutputFormat.builder().schema(ScanPrompt.schema()).build())
-                    .build(),
-            )
+        structuredRequest(
+            modelId,
+            OutputConfig.Effort.MEDIUM,
+            ScanPrompt.system(ingredients, units),
+            ScanPrompt.schema(),
+            maxTokens = 16_000L,
+        )
             .addUserMessageOfBlockParams(
                 listOf(
                     jpegBlock(photo),

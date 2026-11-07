@@ -3,6 +3,7 @@ package com.example.plantry.data.claude
 import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import com.anthropic.errors.AnthropicIoException
 import com.anthropic.errors.AnthropicServiceException
+import com.anthropic.models.messages.JsonOutputFormat
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.anthropic.models.messages.StopReason
@@ -123,3 +124,21 @@ suspend fun callClaude(apiKey: String, params: MessageCreateParams, maxRetries: 
             client.close()
         }
     }
+
+/** A request for a JSON answer of [schema]: [system] prompt, [effort], and the model; the caller adds the user message (and any extras) and builds. */
+fun structuredRequest(
+    modelId: String,
+    effort: OutputConfig.Effort,
+    system: String,
+    schema: JsonOutputFormat.Schema,
+    maxTokens: Long = 8_000L,
+): MessageCreateParams.Builder = MessageCreateParams.builder()
+    .model(modelId)
+    .maxTokens(maxTokens)
+    .system(system)
+    .outputConfig(
+        OutputConfig.builder()
+            .effort(effort)
+            .format(JsonOutputFormat.builder().schema(schema).build())
+            .build(),
+    )

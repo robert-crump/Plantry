@@ -5,7 +5,6 @@ import com.anthropic.models.messages.Base64ImageSource
 import com.anthropic.models.messages.ContentBlockParam
 import com.anthropic.models.messages.ImageBlockParam
 import com.anthropic.models.messages.JsonOutputFormat
-import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.example.plantry.data.CookingSteps
 import com.example.plantry.data.settings.ScanModel
@@ -29,16 +28,7 @@ class AnthropicStepsCondenser(private val models: ModelCatalog = ModelCatalog.sh
 
     override suspend fun condense(apiKey: String, model: ScanModel, text: String): ClaudeResult<List<String>> {
         val modelId = withContext(Dispatchers.IO) { models.resolve(apiKey, model).id }
-        val params = MessageCreateParams.builder()
-            .model(modelId)
-            .maxTokens(8_000L)
-            .system(StepsPrompt.CONDENSE_SYSTEM)
-            .outputConfig(
-                OutputConfig.builder()
-                    .effort(OutputConfig.Effort.MEDIUM)
-                    .format(JsonOutputFormat.builder().schema(StepsPrompt.schema()).build())
-                    .build(),
-            )
+        val params = structuredRequest(modelId, OutputConfig.Effort.MEDIUM, StepsPrompt.CONDENSE_SYSTEM, StepsPrompt.schema())
             .addUserMessage(StepsPrompt.condenseMessage(text))
             .build()
         return when (val answer = callClaude(apiKey, params)) {
@@ -52,16 +42,7 @@ class AnthropicStepsReader(private val models: ModelCatalog = ModelCatalog.share
 
     override suspend fun read(apiKey: String, model: ScanModel, pages: List<ByteArray>): ClaudeResult<List<String>> {
         val modelId = withContext(Dispatchers.IO) { models.resolve(apiKey, model).id }
-        val params = MessageCreateParams.builder()
-            .model(modelId)
-            .maxTokens(8_000L)
-            .system(StepsPrompt.READ_SYSTEM)
-            .outputConfig(
-                OutputConfig.builder()
-                    .effort(OutputConfig.Effort.MEDIUM)
-                    .format(JsonOutputFormat.builder().schema(StepsPrompt.schema()).build())
-                    .build(),
-            )
+        val params = structuredRequest(modelId, OutputConfig.Effort.MEDIUM, StepsPrompt.READ_SYSTEM, StepsPrompt.schema())
             .addUserMessageOfBlockParams(StepsPrompt.readMessage(pages))
             .build()
         return when (val answer = callClaude(apiKey, params)) {

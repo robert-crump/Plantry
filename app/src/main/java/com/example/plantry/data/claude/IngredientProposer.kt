@@ -2,7 +2,6 @@ package com.example.plantry.data.claude
 
 import com.anthropic.core.JsonValue
 import com.anthropic.models.messages.JsonOutputFormat
-import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.Nutrition
@@ -109,13 +108,12 @@ class AnthropicIngredientProposer(private val models: ModelCatalog = ModelCatalo
         model: ScanModel,
         foods: List<NewFood>,
     ): ClaudeResult<Map<Long, List<String>>> {
-        val params = request(
+        val params = structuredRequest(
             modelId(apiKey, model),
             OutputConfig.Effort.LOW,
             ProposalPrompt.SEARCH_TERMS_SYSTEM,
             ProposalPrompt.searchTermsSchema(),
-            ProposalPrompt.searchTermsMessage(foods),
-        )
+        ).addUserMessage(ProposalPrompt.searchTermsMessage(foods)).build()
         return when (val answer = callClaude(apiKey, params)) {
             is ClaudeResult.Success -> ProposalParser.searchTerms(answer.value, foods)
             is ClaudeResult.Failure -> answer
@@ -127,37 +125,17 @@ class AnthropicIngredientProposer(private val models: ModelCatalog = ModelCatalo
         model: ScanModel,
         foods: List<FoodCandidates>,
     ): ClaudeResult<Map<Long, IngredientProposal>> {
-        val params = request(
+        val params = structuredRequest(
             modelId(apiKey, model),
             OutputConfig.Effort.MEDIUM,
             ProposalPrompt.PROPOSE_SYSTEM,
             ProposalPrompt.proposeSchema(),
-            ProposalPrompt.proposeMessage(foods),
-        )
+        ).addUserMessage(ProposalPrompt.proposeMessage(foods)).build()
         return when (val answer = callClaude(apiKey, params)) {
             is ClaudeResult.Success -> ProposalParser.proposals(answer.value, foods)
             is ClaudeResult.Failure -> answer
         }
     }
-
-    private fun request(
-        modelId: String,
-        effort: OutputConfig.Effort,
-        system: String,
-        schema: JsonOutputFormat.Schema,
-        message: String,
-    ) = MessageCreateParams.builder()
-        .model(modelId)
-        .maxTokens(8_000L)
-        .system(system)
-        .outputConfig(
-            OutputConfig.builder()
-                .effort(effort)
-                .format(JsonOutputFormat.builder().schema(schema).build())
-                .build(),
-        )
-        .addUserMessage(message)
-        .build()
 }
 
 object ProposalPrompt {
