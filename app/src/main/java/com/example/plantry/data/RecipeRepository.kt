@@ -25,15 +25,12 @@ data class RecipeSave(
     val bookPage: BookPage? = null,
 )
 
-/** Runs [block] in one database transaction; the app passes Room's withTransaction. */
-typealias InTransaction = suspend (block: suspend () -> Long) -> Long
-
 class RecipeRepository(
     private val dao: RecipeDao,
     private val ingredients: IngredientRepository,
     private val photos: RecipePhotoRepository,
     private val bookSession: BookSession,
-    private val inTransaction: InTransaction,
+    private val transaction: Transaction,
 ) {
 
     fun observeRecipes(): Flow<List<Recipe>> = dao.observeAll()
@@ -55,7 +52,7 @@ class RecipeRepository(
      * and the recipe stays saved. A scanned recipe's book is remembered last.
      */
     suspend fun save(save: RecipeSave): Long {
-        val id = inTransaction {
+        val id = transaction {
             val newIds = ingredients.createProposed(save.newIngredients)
             val draft = save.draft.withIngredientIds(newIds)
             ingredients.learnAliases(save.aliases.mapNotNull { (wording, id) -> newIds.real(id)?.let { wording to it } })

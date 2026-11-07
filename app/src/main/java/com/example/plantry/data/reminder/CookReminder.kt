@@ -30,7 +30,7 @@ object CookReminder {
     }
 
     /**
-     * What to show on [today] for [planned] (as [PlannedRepository.observe] returns it): only the
+     * What to show on [today] for [planned] (as [MealPlan.observe] returns it): only the
      * recipes planned for that day; recipes that no longer exist are skipped. Null when nothing
      * should be shown.
      */

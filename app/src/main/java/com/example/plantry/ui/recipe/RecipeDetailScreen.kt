@@ -78,7 +78,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.Nutrient
-import com.example.plantry.data.PlannedRepository
+import com.example.plantry.data.MealPlan
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeHighlight
 import com.example.plantry.data.RecipeFacts
@@ -124,7 +124,7 @@ class RecipeDetailViewModel(
     private val recipeId: Long,
     private val repository: RecipeRepository,
     ingredientRepository: IngredientRepository,
-    private val plannedRepository: PlannedRepository,
+    private val mealPlan: MealPlan,
     private val photoRepository: RecipePhotoRepository,
     private val compressPhoto: suspend (Uri) -> ByteArray?,
     private val clock: () -> LocalDate = LocalDate::now,
@@ -138,7 +138,7 @@ class RecipeDetailViewModel(
         repository.observeRecipe(recipeId),
         repository.observeLines(recipeId),
         ingredientRepository.observeBook(),
-        plannedRepository.observePlanned(recipeId),
+        mealPlan.observePlanned(recipeId),
     ) { recipe, lines, book, planned ->
         if (recipe == null) return@combine null
         val byId = book.byId
@@ -163,7 +163,7 @@ class RecipeDetailViewModel(
 
     /** Puts the recipe on Geplant for [date], or moves it there. */
     fun plan(date: LocalDate) {
-        viewModelScope.launch { plannedRepository.plan(recipeId, date) }
+        viewModelScope.launch { mealPlan.plan(recipeId, date) }
     }
 
     /**

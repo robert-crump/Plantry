@@ -36,7 +36,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
-import com.example.plantry.data.PlannedRepository
+import com.example.plantry.data.MealPlan
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeQuery
 import com.example.plantry.data.RecipeRepository
@@ -60,13 +60,13 @@ enum class RecipeSearchMode {
     Plan,
 }
 
-class RecipeSearchViewModel(recipeRepository: RecipeRepository, plannedRepository: PlannedRepository) : ViewModel() {
+class RecipeSearchViewModel(recipeRepository: RecipeRepository, mealPlan: MealPlan) : ViewModel() {
     /** Null until loaded, so "Keine Rezepte gefunden" doesn't flash. */
     val recipes: StateFlow<List<Recipe>?> = recipeRepository.observeRecipes()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** The day each recipe on Geplant is planned for; null until loaded. */
-    val plannedOn: StateFlow<Map<Long, LocalDate>?> = plannedRepository.observe()
+    val plannedOn: StateFlow<Map<Long, LocalDate>?> = mealPlan.observe()
         .map { all -> all.associate { it.recipeId to it.plannedOn } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }

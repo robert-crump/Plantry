@@ -12,17 +12,21 @@ import java.time.LocalDate
 data class Cooked(val logId: Long, val unplanned: PlannedRecipe?)
 
 /**
- * Geplant: recipes meant to be cooked on a day, until they are logged as cooked or drop off a week
- * after that day.
+ * Geplant and what happens to its recipes: planned for a day, moved, postponed, logged as cooked
+ * (into the cook log, with a snapshot of the recipe) and undone. Entries drop off a week after their
+ * day. Every action is one [transaction] and reads [today] once.
  */
-class PlannedRepository(
-    private val dao: PlannedRecipeDao,
-    private val cookLog: CookLogRepository,
+class MealPlan(
+    private val plannedDao: PlannedRecipeDao,
+    private val cookLogDao: CookLogDao,
+    /** The recipe as it is now; null if it doesn't exist. */
+    private val snapshot: suspend (recipeId: Long) -> RecipeSnapshot?,
+    private val transaction: Transaction,
     private val today: () -> LocalDate = LocalDate::now,
 ) {
     /** Earliest planned day first; [today] is read on every emission, so old entries drop off across midnight. */
     fun observe(): Flow<List<PlannedRecipe>> =
-        dao.observeAll().map { all -> all.filter { it.isCurrent(today()) } }
+        plannedDao.observeAll().map { all -> all.filter { it.isCurrent(today()) } }
 
     /** The recipe's Geplant entry, null while it isn't planned. */
     fun observePlanned(recipeId: Long): Flow<PlannedRecipe?> =
@@ -37,20 +41,18 @@ class PlannedRepository(
      * it replaced, for [undoPlan]; null if the recipe wasn't on Geplant.
      */
     suspend fun plan(recipeId: Long, date: LocalDate): PlannedRecipe? {
-        val previous = dao.get(recipeId)?.takeIf { it.isCurrent(today()) }
-        dao.upsert(PlannedRecipe(recipeId, date))
+        val today = today()
+        val previous = transaction {
+            current(recipeId, today).also { plannedDao.upsert(PlannedRecipe(recipeId, date)) }
+        }
         _plans.update { it + 1 }
         return previous
     }
 
     /** Undoes [plan]: back to the [previous] day, or off Geplant if there was none. */
-    suspend fun undoPlan(recipeId: Long, previous: PlannedRecipe?) {
-        if (previous != null) restore(previous) else dao.delete(recipeId)
+    suspend fun undoPlan(recipeId: Long, previous: PlannedRecipe?) = transaction {
+        if (previous != null) plannedDao.upsert(previous) else plannedDao.delete(recipeId)
     }
-
-    /** Returns the removed entry, for undo; null if the recipe wasn't on Geplant. */
-    suspend fun remove(recipeId: Long): PlannedRecipe? =
-        dao.get(recipeId)?.takeIf { it.isCurrent(today()) }.also { dao.delete(recipeId) }
 
     /**
      * "Nein, morgen" in the evening reminder: moves the recipes still planned for [askedOn] to the
@@ -59,33 +61,57 @@ class PlannedRepository(
      */
     suspend fun postpone(recipeIds: Collection<Long>, askedOn: LocalDate) {
         val to = maxOf(askedOn.plusDays(1), today())
-        recipeIds.forEach { id ->
-            if (dao.get(id)?.plannedOn == askedOn) dao.upsert(PlannedRecipe(id, to))
+        transaction {
+            recipeIds.forEach { id ->
+                if (plannedDao.get(id)?.plannedOn == askedOn) plannedDao.upsert(PlannedRecipe(id, to))
+            }
         }
     }
-
-    /** Puts a removed entry back with its original date (undo). */
-    suspend fun restore(planned: PlannedRecipe) = dao.upsert(planned)
 
     /**
      * Logs [recipeId] as cooked on [date] and takes it off Geplant. Null if the recipe doesn't
      * exist; then Geplant is left alone.
      */
     suspend fun cook(recipeId: Long, date: LocalDate): Cooked? {
-        val logId = cookLog.log(recipeId, date) ?: return null
-        return Cooked(logId, remove(recipeId))
+        val today = today()
+        return transaction { cook(recipeId, date, today) }
     }
 
     /**
      * "Erledigt": logs a planned recipe on its planned day, or today if that day is still ahead,
      * and takes it off Geplant.
      */
-    suspend fun done(planned: PlannedRecipe): Cooked? = cook(planned.recipeId, minOf(planned.plannedOn, today()))
+    suspend fun done(planned: PlannedRecipe): Cooked? = done(listOf(planned)).firstOrNull()
+
+    /** [done] for several, all or none; recipes deleted in the meantime are skipped. */
+    suspend fun done(planned: Collection<PlannedRecipe>): List<Cooked> {
+        val today = today()
+        return transaction { planned.mapNotNull { cook(it.recipeId, minOf(it.plannedOn, today), today) } }
+    }
 
     /** Undoes [cook]: deletes the log entry and puts the recipe back on Geplant if it was there. */
-    suspend fun undoCook(cooked: Cooked) {
-        cookLog.delete(cooked.logId)
-        cooked.unplanned?.let { restore(it) }
+    suspend fun undoCook(cooked: Cooked) = transaction {
+        cookLogDao.deleteById(cooked.logId)
+        cooked.unplanned?.let { plannedDao.upsert(it) }
+    }
+
+    /** Takes the [planned] recipes off Geplant and deletes the cook log [entries], all or none. */
+    suspend fun delete(planned: Collection<Long>, entries: Collection<Long>) = transaction {
+        planned.forEach { plannedDao.delete(it) }
+        entries.forEach { cookLogDao.deleteById(it) }
+    }
+
+    /** The recipe's entry if it is still on Geplant on [today]. */
+    private suspend fun current(recipeId: Long, today: LocalDate): PlannedRecipe? =
+        plannedDao.get(recipeId)?.takeIf { it.isCurrent(today) }
+
+    /** Inside a transaction: the log entry with a snapshot of the recipe as it is now, and its Geplant entry removed. */
+    private suspend fun cook(recipeId: Long, date: LocalDate, today: LocalDate): Cooked? {
+        val snapshot = snapshot(recipeId) ?: return null
+        val logId = cookLogDao.insert(CookLog.of(recipeId, date, snapshot), snapshot.plants)
+        val unplanned = current(recipeId, today)
+        plannedDao.delete(recipeId)
+        return Cooked(logId, unplanned)
     }
 }
 

@@ -9,17 +9,15 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
 
-class PlannedRepositoryTest {
+class MealPlanTest {
 
     private val dao = FakePlannedRecipeDao()
     private val logDao = FakeCookLogDao()
 
-    /** Recipes 1 to 3 exist. */
-    private val cookLog = CookLogRepository(logDao) { id ->
-        if (id in 1L..3L) RecipeSnapshot("Rezept $id", RecipeStats(1.0, 20.0, 40.0)) else null
-    }
+    /** Recipes 1 to 3 exist; their snapshot can be changed between logs. */
+    private val snapshots = (1L..3L).associateWith { RecipeSnapshot("Rezept $it", RecipeStats(1.0, 20.0, 40.0)) }.toMutableMap()
     private var today = LocalDate.of(2026, 10, 4)
-    private val repository = PlannedRepository(dao, cookLog) { today }
+    private val repository = MealPlan(dao, logDao, { snapshots[it] }, Transaction.None) { today }
 
     @Test
     fun plan_addsTheRecipeOnce_andMovesItToTheNewDay() = runTest {
@@ -205,16 +203,68 @@ class PlannedRepositoryTest {
     }
 
     @Test
-    fun removeAndRestore_keepTheOriginalDate() = runTest {
-        repository.plan(2, today)
-        today = today.plusDays(2)
+    fun delete_takesPlannedOffGeplant_andDeletesTheLogEntries() = runTest {
+        repository.plan(1, today)
+        repository.plan(2, today.plusDays(1))
+        val kept = repository.cook(3, today.minusDays(1))!!
+        val gone = repository.cook(3, today)!!
 
-        val removed = repository.remove(2)!!
-        assertEquals(emptyList<PlannedRecipe>(), repository.observe().first())
-        repository.restore(removed)
+        repository.delete(planned = listOf(2, 99), entries = listOf(gone.logId))
 
-        assertEquals(listOf(PlannedRecipe(2, today.minusDays(2))), repository.observe().first())
-        assertNull(repository.remove(3))
+        assertEquals(listOf(PlannedRecipe(1, today)), repository.observe().first())
+        assertEquals(listOf(kept.logId), logDao.logs.value.map { it.id })
+    }
+
+    @Test
+    fun doneSeveral_logsEach_andSkipsRecipesDeletedInTheMeantime() = runTest {
+        repository.plan(1, today.minusDays(1))
+        repository.plan(2, today.plusDays(2))
+        dao.upsert(PlannedRecipe(99, today))
+        val planned = repository.observe().first()
+
+        val cooked = repository.done(planned)
+
+        assertEquals(listOf(1L, 2L), logDao.logs.value.map { it.recipeId })
+        assertEquals(listOf(today.minusDays(1), today), logDao.logs.value.map { it.cookedOn })
+        assertEquals(listOf(PlannedRecipe(1, today.minusDays(1)), PlannedRecipe(2, today.plusDays(2))), cooked.map { it.unplanned })
+        assertEquals(listOf(PlannedRecipe(99, today)), dao.all.value)
+    }
+
+    @Test
+    fun cook_storesTheSnapshotOfThatMoment() = runTest {
+        repository.cook(recipeId = 2, date = today)
+        snapshots[2] = RecipeSnapshot("Neuer Titel", RecipeStats(5.25, 27.4, 48.6))
+        repository.cook(recipeId = 2, date = today)
+
+        assertEquals(
+            listOf(
+                CookLog(1, 2, today, "Rezept 2", RecipeStats(1.0, 20.0, 40.0)),
+                CookLog(2, 2, today, "Neuer Titel", RecipeStats(5.25, 27.4, 48.6)),
+            ),
+            logDao.logs.value,
+        )
+    }
+
+    @Test
+    fun cook_storesThePlantsOfThatMoment_andUndoRemovesThem() = runTest {
+        val onion = CookLogPlant(ingredientId = 7, name = "Zwiebel", plantPoints = 1.0)
+        snapshots[1] = RecipeSnapshot("Rezept 1", RecipeStats(1.0, 20.0, 40.0), listOf(onion))
+        val first = repository.cook(recipeId = 1, date = today)!!
+        snapshots[1] = RecipeSnapshot("Rezept 1", RecipeStats(1.25, 20.0, 40.0), listOf(onion.copy(plantPoints = 0.25), onion.copy(ingredientId = 8, name = "Lauch")))
+        val second = repository.cook(recipeId = 1, date = today)!!
+
+        assertEquals(
+            listOf(
+                onion.copy(id = 1, cookLogId = first.logId),
+                onion.copy(id = 2, cookLogId = second.logId, plantPoints = 0.25),
+                onion.copy(id = 3, cookLogId = second.logId, ingredientId = 8, name = "Lauch"),
+            ),
+            logDao.plants.value,
+        )
+
+        repository.undoCook(second)
+
+        assertEquals(listOf(first.logId), logDao.plants.value.map { it.cookLogId })
     }
 
     @Test
@@ -244,7 +294,7 @@ class PlannedRepositoryTest {
 }
 
 /** In-memory [PlannedRecipeDao]; ordering and the foreign key are covered by the instrumented DAO test. */
-private class FakePlannedRecipeDao : PlannedRecipeDao {
+internal class FakePlannedRecipeDao : PlannedRecipeDao {
     val all = MutableStateFlow<List<PlannedRecipe>>(emptyList())
 
     override suspend fun upsert(planned: PlannedRecipe) {

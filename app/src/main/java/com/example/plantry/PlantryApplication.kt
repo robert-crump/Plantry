@@ -7,12 +7,13 @@ import com.example.plantry.data.CookLogRepository
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.NewIngredientFinder
 import com.example.plantry.data.PhotoCompressor
-import com.example.plantry.data.PlannedRepository
+import com.example.plantry.data.MealPlan
 import com.example.plantry.data.PlantryDatabase
 import com.example.plantry.data.ProposalEventRepository
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeSnapshot
+import com.example.plantry.data.Transaction
 import com.example.plantry.data.backup.BackupRepository
 import com.example.plantry.data.backup.FilePhotoStore
 import com.example.plantry.data.claude.AnthropicConnectionTester
@@ -37,6 +38,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.LocalDateTime
 
 class PlantryApplication : Application() {
 
@@ -51,28 +54,38 @@ class PlantryApplication : Application() {
 
     private val database by lazy { PlantryDatabase.create(this) }
 
+    private val transaction by lazy { Transaction { database.withTransaction(it) } }
+
+    /** The one clock of Geplant, the cook log, the proposal log and the reminders. */
+    private val now: () -> LocalDateTime = LocalDateTime::now
+    private val today: () -> LocalDate = { now().toLocalDate() }
+
     val recipeRepository: RecipeRepository by lazy {
-        RecipeRepository(database.recipeDao(), ingredientRepository, recipePhotoRepository, bookSession) { database.withTransaction(it) }
+        RecipeRepository(database.recipeDao(), ingredientRepository, recipePhotoRepository, bookSession, transaction)
     }
 
     val ingredientRepository: IngredientRepository by lazy { IngredientRepository(database.ingredientDao()) }
 
-    val cookLogRepository: CookLogRepository by lazy {
-        CookLogRepository(database.cookLogDao()) { RecipeSnapshot.load(it, database.recipeDao(), database.ingredientDao()) }
-    }
+    val cookLogRepository: CookLogRepository by lazy { CookLogRepository(database.cookLogDao()) }
 
-    val plannedRepository: PlannedRepository by lazy {
-        PlannedRepository(database.plannedRecipeDao(), cookLogRepository)
+    val mealPlan: MealPlan by lazy {
+        MealPlan(
+            database.plannedRecipeDao(),
+            database.cookLogDao(),
+            snapshot = { RecipeSnapshot.load(it, database.recipeDao(), database.ingredientDao()) },
+            transaction,
+            today,
+        )
     }
 
     val cookReminders: CookReminders by lazy {
         CookReminders(
-            this, settingsRepository, plannedRepository, recipeRepository, ingredientRepository, recipeSuggester,
+            this, settingsRepository, mealPlan, recipeRepository, ingredientRepository, recipeSuggester,
             proposalEventRepository,
         )
     }
 
-    val proposalEventRepository: ProposalEventRepository by lazy { ProposalEventRepository(database.proposalEventDao()) }
+    val proposalEventRepository: ProposalEventRepository by lazy { ProposalEventRepository(database.proposalEventDao(), today) }
 
     val recipeSuggester: RecipeSuggester by lazy {
         RecipeSuggester(

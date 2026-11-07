@@ -338,7 +338,7 @@ fun PlantryNavHost(openRecipeId: Long? = null, otherSuggestionsThan: Long? = nul
                     val justLoggedDay by handle.getStateFlow(JUST_LOGGED_DAY, 0L).collectAsStateWithLifecycle()
                     CookingScreen(
                         viewModel = viewModel {
-                            CookingViewModel(cookLogRepository, app.plannedRepository, recipeRepository, ingredientRepository, settingsRepository)
+                            CookingViewModel(cookLogRepository, app.mealPlan, recipeRepository, ingredientRepository, settingsRepository)
                         },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                         onSuggest = { navController.navigate(SuggestionsRoute()) },
@@ -362,7 +362,7 @@ fun PlantryNavHost(openRecipeId: Long? = null, otherSuggestionsThan: Long? = nul
                 composable<RecipeSearchRoute> { entry ->
                     val mode = entry.toRoute<RecipeSearchRoute>().mode
                     RecipeSearchScreen(
-                        viewModel = viewModel { RecipeSearchViewModel(recipeRepository, app.plannedRepository) },
+                        viewModel = viewModel { RecipeSearchViewModel(recipeRepository, app.mealPlan) },
                         mode = mode,
                         onBack = { navController.popBackStack() },
                         onPicked = { recipe, date ->
@@ -387,7 +387,7 @@ fun PlantryNavHost(openRecipeId: Long? = null, otherSuggestionsThan: Long? = nul
                         viewModel = viewModel {
                             SuggestionsViewModel(
                                 app.recipeSuggester,
-                                app.plannedRepository,
+                                app.mealPlan,
                                 recipeRepository,
                                 ingredientRepository,
                                 skipRecipeId = route.skipRecipeId,
@@ -420,7 +420,7 @@ fun PlantryNavHost(openRecipeId: Long? = null, otherSuggestionsThan: Long? = nul
                     val justPlannedDay by handle.getStateFlow(JUST_PLANNED_DAY, 0L).collectAsStateWithLifecycle()
                     RecipeListScreen(
                         viewModel = viewModel {
-                            RecipeListViewModel(recipeRepository, ingredientRepository, cookLogRepository, app.plannedRepository, ingredientId)
+                            RecipeListViewModel(recipeRepository, ingredientRepository, cookLogRepository, app.mealPlan, ingredientId)
                         },
                         onRecipeClick = { navController.navigate(RecipeDetailRoute(it)) },
                         onAddRecipe = { navController.navigate(RecipeEditRoute()) },
@@ -443,7 +443,7 @@ fun PlantryNavHost(openRecipeId: Long? = null, otherSuggestionsThan: Long? = nul
                                 recipeId,
                                 recipeRepository,
                                 ingredientRepository,
-                                app.plannedRepository,
+                                app.mealPlan,
                                 app.recipePhotoRepository,
                                 app.photoCompressor::compress,
                             )

@@ -99,7 +99,7 @@ import com.example.plantry.data.Cooked
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlannedItem
 import com.example.plantry.data.PlannedRecipe
-import com.example.plantry.data.PlannedRepository
+import com.example.plantry.data.MealPlan
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.groupByWeek
 import com.example.plantry.data.weeklyPlantPoints
@@ -129,7 +129,7 @@ import kotlin.math.sign
 
 class CookingViewModel(
     private val repository: CookLogRepository,
-    private val plannedRepository: PlannedRepository,
+    private val mealPlan: MealPlan,
     recipeRepository: RecipeRepository,
     ingredientRepository: IngredientRepository,
     private val settingsRepository: SettingsRepository,
@@ -147,7 +147,7 @@ class CookingViewModel(
 
     /** Geplant, with each recipe's current stats; null until loaded. */
     val planned: StateFlow<List<PlannedItem>?> = combine(
-        plannedRepository.observe(),
+        mealPlan.observe(),
         recipeRepository.observeRecipes(),
         recipeRepository.observeAllLines(),
         ingredientRepository.observeBook(),
@@ -161,36 +161,33 @@ class CookingViewModel(
 
     fun swipeHintSeen() = settingsRepository.setSwipeHintSeen()
 
-    private var seenPlans = plannedRepository.plans.value
+    private var seenPlans = mealPlan.plans.value
 
     /** The recipes on Geplant if something was planned (on another screen) since the last call, else null. */
     suspend fun takeNewPlans(): Set<Long>? {
-        val plans = plannedRepository.plans.value
+        val plans = mealPlan.plans.value
         if (plans == seenPlans) return null
         seenPlans = plans
-        return plannedRepository.observe().first().mapTo(mutableSetOf()) { it.recipeId }
+        return mealPlan.observe().first().mapTo(mutableSetOf()) { it.recipeId }
     }
 
     /** Takes the [planned] recipes off Geplant and deletes the history [entries]; confirmed, so no undo. */
     fun delete(planned: List<PlannedItem>, entries: List<CookLog>) {
-        viewModelScope.launch {
-            planned.forEach { plannedRepository.remove(it.recipeId) }
-            entries.forEach { repository.delete(it.id) }
-        }
+        viewModelScope.launch { mealPlan.delete(planned.map { it.recipeId }, entries.map { it.id }) }
     }
 
     /** Logs each planned recipe on its planned day (today if still ahead) and takes it off Geplant; confirmed, so no undo. */
     fun done(items: List<PlannedItem>) {
-        viewModelScope.launch { items.forEach { plannedRepository.done(it.planned) } }
+        viewModelScope.launch { mealPlan.done(items.map { it.planned }) }
     }
 
     /** "Kocheintrag": logs the recipe on [date] and takes it off Geplant; [onDone] gets what to undo. */
     fun log(recipeId: Long, date: LocalDate, onDone: (Cooked) -> Unit) {
-        viewModelScope.launch { plannedRepository.cook(recipeId, date)?.let(onDone) }
+        viewModelScope.launch { mealPlan.cook(recipeId, date)?.let(onDone) }
     }
 
     fun undoCook(cooked: Cooked) {
-        viewModelScope.launch { plannedRepository.undoCook(cooked) }
+        viewModelScope.launch { mealPlan.undoCook(cooked) }
     }
 
     /**
@@ -199,14 +196,14 @@ class CookingViewModel(
      */
     fun plan(recipeId: Long, date: LocalDate, onDone: (PlannedRecipe?) -> Unit) {
         viewModelScope.launch {
-            val previous = plannedRepository.plan(recipeId, date)
-            seenPlans = plannedRepository.plans.value
+            val previous = mealPlan.plan(recipeId, date)
+            seenPlans = mealPlan.plans.value
             onDone(previous)
         }
     }
 
     fun undoPlan(recipeId: Long, previous: PlannedRecipe?) {
-        viewModelScope.launch { plannedRepository.undoPlan(recipeId, previous) }
+        viewModelScope.launch { mealPlan.undoPlan(recipeId, previous) }
     }
 }
 

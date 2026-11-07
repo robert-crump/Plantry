@@ -72,7 +72,7 @@ import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.IngredientSuggestions
 import com.example.plantry.data.PlannedRecipe
-import com.example.plantry.data.PlannedRepository
+import com.example.plantry.data.MealPlan
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeChip
 import com.example.plantry.data.RecipeFilter
@@ -130,7 +130,7 @@ class RecipeListViewModel(
     recipeRepository: RecipeRepository,
     ingredientRepository: IngredientRepository,
     cookLogRepository: CookLogRepository,
-    private val plannedRepository: PlannedRepository,
+    private val mealPlan: MealPlan,
     initialIngredientId: Long? = null,
 ) : ViewModel() {
 
@@ -196,11 +196,11 @@ class RecipeListViewModel(
 
     /** "Planen": puts the recipe on Geplant for [date], or moves it there; [onDone] gets the entry it replaced, for [undoPlan]. */
     fun plan(recipeId: Long, date: LocalDate, onDone: (PlannedRecipe?) -> Unit) {
-        viewModelScope.launch { onDone(plannedRepository.plan(recipeId, date)) }
+        viewModelScope.launch { onDone(mealPlan.plan(recipeId, date)) }
     }
 
     fun undoPlan(recipeId: Long, previous: PlannedRecipe?) {
-        viewModelScope.launch { plannedRepository.undoPlan(recipeId, previous) }
+        viewModelScope.launch { mealPlan.undoPlan(recipeId, previous) }
     }
 }
 

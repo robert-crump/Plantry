@@ -36,7 +36,7 @@ class RecipeSaveTest {
             PlantryDatabase::class.java,
         ).build()
         ingredients = IngredientRepository(db.ingredientDao())
-        repository = RecipeRepository(db.recipeDao(), ingredients, RecipePhotoRepository(store), bookSession) { db.withTransaction(it) }
+        repository = RecipeRepository(db.recipeDao(), ingredients, RecipePhotoRepository(store), bookSession, Transaction { db.withTransaction(it) })
     }
 
     @After

@@ -41,7 +41,7 @@ import com.example.plantry.R
 import com.example.plantry.data.Ingredient
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.MixContents
-import com.example.plantry.data.PlannedRepository
+import com.example.plantry.data.MealPlan
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeLine
 import com.example.plantry.data.resolve
@@ -108,7 +108,7 @@ data class Suggestions(val cards: List<SuggestionCard>, val boost: SuggestionCar
 
 class SuggestionsViewModel(
     private val suggester: RecipeSuggester,
-    private val plannedRepository: PlannedRepository,
+    private val mealPlan: MealPlan,
     private val recipeRepository: RecipeRepository,
     private val ingredientRepository: IngredientRepository,
     /** A recipe the first round leaves out, e.g. the one a notification just proposed. */
@@ -137,7 +137,7 @@ class SuggestionsViewModel(
     fun reroll() {
         if (loading?.isActive == true) return
         loading = viewModelScope.launch {
-            val planned = plannedRepository.observe().first().mapTo(mutableSetOf()) { it.recipeId }
+            val planned = mealPlan.observe().first().mapTo(mutableSetOf()) { it.recipeId }
             val ids = rounds.next(planned)
             val boostId = boostRounds.next(planned).firstOrNull()
             val recipes = recipeRepository.observeRecipes().first().associateBy { it.id }

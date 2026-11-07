@@ -20,7 +20,7 @@ class RecipeRepositoryTest {
         IngredientRepository(FakeIngredientDao()),
         RecipePhotoRepository(FakePhotoStore()),
         BookSession(),
-        inTransaction = { it() },
+        transaction = Transaction.None,
     )
 
     private val sweetPotato = RecipeIngredientDraft(300.0, LineUnit.Grams, ingredientId = 1, wording = "1 große Süßkartoffel")

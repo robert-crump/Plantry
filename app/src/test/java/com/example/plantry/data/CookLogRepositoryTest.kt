@@ -6,24 +6,23 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
 
 class CookLogRepositoryTest {
 
     private val dao = FakeCookLogDao()
-
-    /** Recipes 1 to 3 exist; their snapshot can be changed between logs. */
-    private val snapshots = (1L..3L).associateWith { RecipeSnapshot("Rezept $it", RecipeStats(1.0, 20.0, 40.0)) }.toMutableMap()
-    private val repository = CookLogRepository(dao) { snapshots[it] }
+    private val repository = CookLogRepository(dao)
     private var today = LocalDate.of(2026, 10, 2)
 
+    private suspend fun log(recipeId: Long, date: LocalDate) =
+        dao.insert(CookLog(recipeId = recipeId, cookedOn = date, title = "Rezept $recipeId", stats = RecipeStats(1.0, 20.0, 40.0)))
+
     @Test
-    fun log_updatesStatsOfThatRecipeOnly() = runTest {
-        repository.log(recipeId = 1, date = today.minusDays(4))
-        repository.log(recipeId = 1, date = today.minusDays(1))
-        repository.log(recipeId = 2, date = today)
+    fun observeStats_countsThatRecipeOnly() = runTest {
+        log(recipeId = 1, date = today.minusDays(4))
+        log(recipeId = 1, date = today.minusDays(1))
+        log(recipeId = 2, date = today)
 
         assertEquals(CookingStats(2, 1), repository.observeStats(1) { today }.first())
         assertEquals(CookingStats(0, null), repository.observeStats(3) { today }.first())
@@ -31,7 +30,7 @@ class CookLogRepositoryTest {
 
     @Test
     fun observeStats_readsTodayOnEveryEmission() = runTest {
-        repository.log(recipeId = 1, date = today)
+        log(recipeId = 1, date = today)
         val stats = repository.observeStats(1) { today }
 
         today = today.plusDays(2)
@@ -40,52 +39,12 @@ class CookLogRepositoryTest {
     }
 
     @Test
-    fun delete_undoesLog() = runTest {
-        repository.log(recipeId = 1, date = today.minusDays(7))
-        val id = repository.log(recipeId = 1, date = today)!!
+    fun observeLastCooked_latestDayPerRecipe() = runTest {
+        log(recipeId = 1, date = today.minusDays(4))
+        log(recipeId = 1, date = today.minusDays(1))
+        log(recipeId = 2, date = today)
 
-        repository.delete(id)
-
-        assertEquals(CookingStats(1, 7), repository.observeStats(1) { today }.first())
-    }
-
-    @Test
-    fun log_storesTheSnapshotOfThatMoment() = runTest {
-        repository.log(recipeId = 2, date = today)
-        snapshots[2] = RecipeSnapshot("Neuer Titel", RecipeStats(5.25, 27.4, 48.6))
-        repository.log(recipeId = 2, date = today)
-
-        assertEquals(
-            listOf(
-                CookLog(1, 2, today, "Rezept 2", RecipeStats(1.0, 20.0, 40.0)),
-                CookLog(2, 2, today, "Neuer Titel", RecipeStats(5.25, 27.4, 48.6)),
-            ),
-            dao.logs.value,
-        )
-    }
-
-    @Test
-    fun log_storesThePlantsOfThatMoment_andDeleteRemovesThem() = runTest {
-        val onion = CookLogPlant(ingredientId = 7, name = "Zwiebel", plantPoints = 1.0)
-        snapshots[1] = RecipeSnapshot("Rezept 1", RecipeStats(1.0, 20.0, 40.0), listOf(onion))
-        val first = repository.log(recipeId = 1, date = today)!!
-        snapshots[1] = RecipeSnapshot("Rezept 1", RecipeStats(1.25, 20.0, 40.0), listOf(onion.copy(plantPoints = 0.25), onion.copy(ingredientId = 8, name = "Lauch")))
-        val second = repository.log(recipeId = 1, date = today)!!
-
-        assertEquals(
-            listOf(onion.copy(id = 1, cookLogId = first), onion.copy(id = 2, cookLogId = second, plantPoints = 0.25), onion.copy(id = 3, cookLogId = second, ingredientId = 8, name = "Lauch")),
-            repository.observePlants().first(),
-        )
-
-        repository.delete(second)
-
-        assertEquals(listOf(first), repository.observePlants().first().map { it.cookLogId })
-    }
-
-    @Test
-    fun log_missingRecipe_logsNothing() = runTest {
-        assertNull(repository.log(recipeId = 99, date = today))
-        assertEquals(emptyList<CookLog>(), dao.logs.value)
+        assertEquals(mapOf(1L to today.minusDays(1), 2L to today), repository.observeLastCooked().first())
     }
 }
 

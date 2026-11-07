@@ -14,7 +14,7 @@ import com.example.plantry.MainActivity
 import com.example.plantry.R
 import com.example.plantry.data.IngredientRepository
 import com.example.plantry.data.PlannedRecipe
-import com.example.plantry.data.PlannedRepository
+import com.example.plantry.data.MealPlan
 import com.example.plantry.data.ProposalEventRepository
 import com.example.plantry.data.ProposalOutcome
 import com.example.plantry.data.Recipe
@@ -56,7 +56,7 @@ import kotlin.random.Random
 class CookReminders(
     private val context: Context,
     private val settings: SettingsRepository,
-    private val planned: PlannedRepository,
+    private val planned: MealPlan,
     private val recipes: RecipeRepository,
     private val ingredients: IngredientRepository,
     private val suggester: RecipeSuggester,
