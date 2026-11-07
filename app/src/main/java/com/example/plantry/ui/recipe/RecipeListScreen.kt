@@ -145,11 +145,13 @@ class RecipeListViewModel(
     val state: StateFlow<RecipeListUiState?> = combine(
         recipeRepository.observeRecipes(),
         recipeRepository.observeAllLines(),
-        combine(ingredientRepository.observeIngredients(), ingredientRepository.observeContents(), ::Pair),
+        ingredientRepository.observeBook(),
         cookLogRepository.observeLastCooked(),
         combine(chips.filterNotNull(), sort, search, ::Triple),
-    ) { recipes, lines, (ingredients, contents), lastCooked, (chips, sort, search) ->
-        val byId = ingredients.associateBy { it.id }
+    ) { recipes, lines, book, lastCooked, (chips, sort, search) ->
+        val ingredients = book.ingredients
+        val contents = book.contents
+        val byId = book.byId
         val active = chips.active.filter { it !is RecipeChip.WithIngredient || it.ingredientId in byId }
         val filter = RecipeFilter.of(active, search)
         RecipeListUiState(

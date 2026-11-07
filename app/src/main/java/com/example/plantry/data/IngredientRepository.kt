@@ -26,6 +26,9 @@ class IngredientRepository(
     /** The components of every mix, see [Mixes]. */
     fun observeContents(): Flow<MixContents> = dao.observeMixComponents().map(Mixes::contents)
 
+    /** The Zutaten with their Mixes, as one snapshot, see [IngredientBook]. */
+    fun observeBook(): Flow<IngredientBook> = IngredientBook.observe(dao)
+
     /** Learned aliases: ingredient id by normalized wording, see [IngredientAliases]. */
     fun observeAliases(): Flow<Map<String, Long>> =
         dao.observeAliases().map { aliases -> aliases.associate { it.wording to it.ingredientId } }

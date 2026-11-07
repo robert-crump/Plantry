@@ -150,9 +150,9 @@ class CookingViewModel(
         plannedRepository.observe(),
         recipeRepository.observeRecipes(),
         recipeRepository.observeAllLines(),
-        combine(ingredientRepository.observeIngredients(), ingredientRepository.observeContents(), ::Pair),
-    ) { planned, recipes, lines, (ingredients, contents) ->
-        PlannedItem.of(planned, recipes, lines, ingredients.associateBy { it.id }, contents)
+        ingredientRepository.observeBook(),
+    ) { planned, recipes, lines, book ->
+        PlannedItem.of(planned, recipes, lines, book.byId, book.contents)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Whether to explain swiping Geplant cards, until the first swipe. */

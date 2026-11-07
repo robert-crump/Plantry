@@ -4,13 +4,12 @@ import com.example.plantry.data.CookLogDao
 import com.example.plantry.data.CookingStats
 import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.IngredientBook
 import com.example.plantry.data.IngredientDao
-import com.example.plantry.data.Mixes
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeDao
 import com.example.plantry.data.RecipeLine
-import com.example.plantry.data.RecipeNutrition
-import com.example.plantry.data.nutritionLines
+import com.example.plantry.data.RecipeFacts
 import kotlinx.coroutines.flow.first
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -68,13 +67,14 @@ class RecipeSuggester(
 
     private suspend fun load(today: LocalDate): State {
         val lines = recipeDao.getAllLines()
-        val ingredients = ingredientDao.observeAll().first()
+        val book = IngredientBook.load(ingredientDao)
+        val ingredients = book.ingredients
         val week = WeekPlants.of(
             today = today,
             entries = cookLogDao.observeHistory().first(),
             plants = cookLogDao.getPlants(),
-            ingredients = ingredients.associateBy { it.id },
-            contents = Mixes.contents(ingredientDao.getMixComponents()),
+            ingredients = book.byId,
+            contents = book.contents,
         )
         return State(
             recipes = recipeDao.observeAll().first(),
@@ -106,16 +106,13 @@ class RecipeSuggester(
             week: WeekPlants = WeekPlants(emptyList(), ingredients.associateBy { it.id }, emptyMap()),
             dishes: Set<Dish> = MAIN_DISHES,
         ): List<Candidate> {
-            val ingredientsById = ingredients.associateBy { it.id }
-            val linesByRecipe = lines.groupBy { it.recipeId }
-            return recipes.filter { it.dish in dishes }.map { recipe ->
-                val recipeLines = linesByRecipe[recipe.id].orEmpty().sortedBy { it.position }
-                val nutrition = RecipeNutrition.calculate(nutritionLines(recipeLines, ingredientsById), recipe.servings)
+            val book = IngredientBook(ingredients)
+            return RecipeFacts.all(recipes.filter { it.dish in dishes }, lines, book).map { facts ->
                 Candidate(
-                    recipeId = recipe.id,
-                    daysSinceLastCooked = CookingStats.daysSinceLastCooked(listOfNotNull(lastCooked[recipe.id]), today),
-                    proteinPerPortion = nutrition.perPortion.protein,
-                    newPlantPoints = week.newPoints(recipeLines.map { it.ingredientId }),
+                    recipeId = facts.recipe.id,
+                    daysSinceLastCooked = CookingStats.daysSinceLastCooked(listOfNotNull(lastCooked[facts.recipe.id]), today),
+                    proteinPerPortion = facts.nutrition.perPortion.protein,
+                    newPlantPoints = facts.newPlantPoints(week),
                 )
             }
         }

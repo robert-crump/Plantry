@@ -142,10 +142,9 @@ class SuggestionsViewModel(
             val boostId = boostRounds.next(planned).firstOrNull()
             val recipes = recipeRepository.observeRecipes().first().associateBy { it.id }
             val lines = recipeRepository.observeAllLines().first()
-            val ingredients = ingredientRepository.observeIngredients().first().associateBy { it.id }
-            val contents = ingredientRepository.observeContents().first()
+            val book = ingredientRepository.observeBook().first()
             val week = suggester.week(clock())
-            fun card(id: Long) = recipes[id]?.let { SuggestionCard.of(it, lines, ingredients, contents, week) }
+            fun card(id: Long) = recipes[id]?.let { SuggestionCard.of(it, lines, book.byId, book.contents, week) }
             _suggestions.value = Suggestions(ids.mapNotNull(::card), boostId?.let(::card), week.points)
         }
     }

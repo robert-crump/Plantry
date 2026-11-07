@@ -18,12 +18,10 @@ import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.ProposalEventRepository
 import com.example.plantry.data.ProposalOutcome
 import com.example.plantry.data.Recipe
-import com.example.plantry.data.RecipePrice
+import com.example.plantry.data.RecipeFacts
 import com.example.plantry.data.RecipeRepository
-import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.planner.RecipeSuggester
 import com.example.plantry.data.planner.WeeklyPlantPointsGoal
-import com.example.plantry.data.priceLines
 import com.example.plantry.data.reminder.CookReminder
 import com.example.plantry.data.reminder.FriendlyDuration
 import com.example.plantry.data.reminder.MoodHook
@@ -195,16 +193,15 @@ class CookReminders(
         titleHook: (factual: ProposalHook?, name: String) -> TitleHook?,
     ): Proposal? {
         val recipe = recipes.getRecipe(id) ?: return null
-        val lines = recipes.getLines(id)
-        val byId = ingredients.observeIngredients().first().associateBy { it.id }
-        val stats = RecipeStats.of(recipe, lines, byId, ingredients.observeContents().first())
+        val recipeFacts = RecipeFacts.of(recipe, recipes.getLines(id), ingredients.observeBook().first())
+        val stats = recipeFacts.stats
         val week = suggester.week(today)
-        val newPlantPoints = week.newPoints(lines.map { it.ingredientId })
+        val newPlantPoints = recipeFacts.newPlantPoints(week)
         val facts = ProposalFacts.of(
             newPlantPoints = newPlantPoints,
             plantPoints = stats.plantPoints,
             proteinPerPortion = stats.proteinPerPortion,
-            price = RecipePrice.calculate(priceLines(lines, byId), recipe.servings, today),
+            price = recipeFacts.price(today),
         )
         val hook = ProposalHook.of(
             weekPoints = week.points,

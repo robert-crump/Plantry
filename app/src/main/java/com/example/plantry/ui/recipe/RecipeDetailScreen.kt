@@ -81,14 +81,13 @@ import com.example.plantry.data.Nutrient
 import com.example.plantry.data.PlannedRepository
 import com.example.plantry.data.Recipe
 import com.example.plantry.data.RecipeHighlight
+import com.example.plantry.data.RecipeFacts
 import com.example.plantry.data.RecipeNutrition
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipePrice
 import com.example.plantry.data.RecipeRepository
 import com.example.plantry.data.RecipeStats
 import com.example.plantry.data.StoreSection
-import com.example.plantry.data.nutritionLines
-import com.example.plantry.data.priceLines
 import com.example.plantry.data.resolve
 import com.example.plantry.ui.HideOnScrollFab
 import com.example.plantry.ui.ShowMoreToggle
@@ -138,13 +137,13 @@ class RecipeDetailViewModel(
     val state: StateFlow<RecipeDetailUiState?> = combine(
         repository.observeRecipe(recipeId),
         repository.observeLines(recipeId),
-        ingredientRepository.observeIngredients(),
+        ingredientRepository.observeBook(),
         plannedRepository.observePlanned(recipeId),
-        ingredientRepository.observeContents(),
-    ) { recipe, lines, ingredients, planned, contents ->
+    ) { recipe, lines, book, planned ->
         if (recipe == null) return@combine null
-        val byId = ingredients.associateBy { it.id }
-        val stats = RecipeStats.of(recipe, lines, byId, contents)
+        val byId = book.byId
+        val facts = RecipeFacts.of(recipe, lines, book)
+        val stats = facts.stats
         RecipeDetailUiState(
             recipe = recipe,
             // Grouped by store section, in recipe order within each.
@@ -152,11 +151,8 @@ class RecipeDetailViewModel(
                 val ingredient = byId[line.ingredientId]
                 ShownLine(line.ingredientId, line.resolve(ingredient?.name.orEmpty()).text, ingredient?.storeSection ?: StoreSection.OTHER)
             }.sortedBy { it.section },
-            nutrition = RecipeNutrition.calculate(
-                nutritionLines(lines, byId),
-                recipe.servings,
-            ),
-            price = RecipePrice.calculate(priceLines(lines, byId), recipe.servings, clock()),
+            nutrition = facts.nutrition,
+            price = facts.price(clock()),
             stats = stats,
             highlights = RecipeHighlight.of(stats, hasLines = lines.isNotEmpty()),
             plannedOn = planned?.plannedOn,

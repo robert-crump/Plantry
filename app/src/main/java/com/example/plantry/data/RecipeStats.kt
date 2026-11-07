@@ -60,12 +60,8 @@ data class RecipeSnapshot(
         /** The current snapshot of a stored recipe; null if it doesn't exist. */
         suspend fun load(recipeId: Long, recipes: RecipeDao, ingredients: IngredientDao): RecipeSnapshot? {
             val recipe = recipes.getById(recipeId) ?: return null
-            return of(
-                recipe,
-                recipes.getLines(recipeId),
-                ingredients.observeAll().first().associateBy { it.id },
-                Mixes.contents(ingredients.getMixComponents()),
-            )
+            val book = IngredientBook.load(ingredients)
+            return of(recipe, recipes.getLines(recipeId), book.byId, book.contents)
         }
     }
 }
