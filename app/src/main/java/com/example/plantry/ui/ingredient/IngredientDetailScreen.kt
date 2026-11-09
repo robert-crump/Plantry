@@ -146,7 +146,11 @@ data class IngredientDetailUiState(
     val usdaQuery: String? = null,
     /** The picked USDA entry while the dialog asking to overwrite the values is open. */
     val usdaCompare: UsdaFood? = null,
-)
+) {
+    /** The form for the stored [ingredient], [units] and [components]; null until loaded. */
+    val storedForm: IngredientForm?
+        get() = ingredient?.let { IngredientForm.from(it, units, components) }
+}
 
 data class DeleteCheck(val usedIn: List<String>)
 
@@ -201,18 +205,21 @@ class IngredientDetailViewModel(
                     isNew = true,
                 )
             }
-        } else viewModelScope.launch {
-            val ingredient = repository.getIngredient(ingredientId) ?: return@launch
-            val units = repository.getUnits(ingredientId)
-            val components = storedComponents()
-            _state.update {
-                it.copy(
-                    ingredient = ingredient,
-                    units = units,
-                    components = components,
-                    form = IngredientForm.from(ingredient, units, components),
-                )
-            }
+        } else viewModelScope.launch { showStored() }
+    }
+
+    /** Loads the stored ingredient with its units and components, resets the form to them, then applies [then]. */
+    private suspend fun showStored(then: IngredientDetailUiState.() -> IngredientDetailUiState = { this }) {
+        val ingredient = repository.getIngredient(ingredientId) ?: return
+        val units = repository.getUnits(ingredientId)
+        val components = storedComponents()
+        _state.update {
+            it.copy(
+                ingredient = ingredient,
+                units = units,
+                components = components,
+                form = IngredientForm.from(ingredient, units, components),
+            ).then()
         }
     }
 
@@ -229,8 +236,8 @@ class IngredientDetailViewModel(
 
     private fun hasUnsavedEdits(): Boolean {
         val current = _state.value
-        return current.editing &&
-            current.ingredient?.let { IngredientForm.from(it, current.units, current.components) != current.form } == true
+        val stored = current.storedForm
+        return current.editing && stored != null && stored != current.form
     }
 
     /** Leaves edit mode; with unsaved edits it asks first, see [discard]. */
@@ -255,7 +262,7 @@ class IngredientDetailViewModel(
         }
         _state.update {
             it.copy(
-                form = it.ingredient?.let { ingredient -> IngredientForm.from(ingredient, it.units, it.components) } ?: it.form,
+                form = it.storedForm ?: it.form,
                 editing = false,
                 showErrors = false,
                 confirmDiscard = false,
@@ -284,19 +291,7 @@ class IngredientDetailViewModel(
                 _state.update { it.copy(unitInUse = usedIn) }
                 return@launch
             }
-            val saved = repository.getIngredient(ingredientId) ?: return@launch
-            val units = repository.getUnits(ingredientId)
-            val components = storedComponents()
-            _state.update {
-                it.copy(
-                    ingredient = saved,
-                    units = units,
-                    components = components,
-                    form = IngredientForm.from(saved, units, components),
-                    editing = false,
-                    showErrors = false,
-                )
-            }
+            showStored { copy(editing = false, showErrors = false) }
         }
     }
 
@@ -544,7 +539,7 @@ fun IngredientDetailScreen(
                 onDismissRequest = viewModel::dismissUnitInUse,
                 title = { Text(stringResource(R.string.ingredient_unit_in_use_title)) },
                 text = {
-                    Text(stringResource(R.string.ingredient_unit_in_use_message, ingredient.name, usedIn.joinToString("\n") { "• $it" }))
+                    Text(stringResource(R.string.ingredient_unit_in_use_message, ingredient.name, bulletList(usedIn)))
                 },
                 confirmButton = { TextButton(onClick = viewModel::dismissUnitInUse) { Text(stringResource(R.string.action_ok)) } },
             )
@@ -627,11 +622,7 @@ fun IngredientDetailScreen(
                             value = form.nutrition[nutrient].orEmpty(),
                             onValueChange = { onChange { withNutrient(nutrient, it) } },
                             label = nutrient.label,
-                            error = if (errors?.nutrients?.contains(nutrient) == true) {
-                                R.string.error_non_negative_decimal
-                            } else {
-                                null
-                            },
+                            error = if (errors?.nutrients?.contains(nutrient) == true) R.string.error_non_negative_decimal else null,
                             imeAction = if (nutrient == Nutrient.entries.last()) ImeAction.Done else ImeAction.Next,
                             modifier = Modifier.weight(1f),
                         )
@@ -704,15 +695,7 @@ private fun DeleteDialog(name: String, usedIn: List<String>, onConfirm: () -> Un
         AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(R.string.ingredient_delete_blocked_title)) },
-            text = {
-                Text(
-                    stringResource(
-                        R.string.ingredient_delete_blocked_message,
-                        name,
-                        usedIn.joinToString("\n") { "• $it" },
-                    ),
-                )
-            },
+            text = { Text(stringResource(R.string.ingredient_delete_blocked_message, name, bulletList(usedIn))) },
             confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_ok)) } },
         )
     } else {
@@ -725,6 +708,9 @@ private fun DeleteDialog(name: String, usedIn: List<String>, onConfirm: () -> Un
         )
     }
 }
+
+/** One "• name" line per recipe. */
+private fun bulletList(recipes: List<String>): String = recipes.joinToString("\n") { "• $it" }
 
 private enum class PropertyDialog { STORE_SECTION, PLANT_POINTS, PLANT_POINTS_INFO, COMPONENTS, PRICE }
 
