@@ -300,6 +300,10 @@ fun CookingScreen(
         selectedPlanned = emptySet()
         selectedLogs = emptySet()
     }
+    fun finishSelection() {
+        confirm = null
+        clearSelection()
+    }
     BackHandler(enabled = selecting, onBack = ::clearSelection)
 
     // Mondays of the history weeks showing all their entries; the others show their newest few.
@@ -310,12 +314,12 @@ fun CookingScreen(
 
     fun togglePlanned(recipeId: Long) {
         fabMenuOpen = false
-        selectedPlanned = if (recipeId in selectedPlanned) selectedPlanned - recipeId else selectedPlanned + recipeId
+        selectedPlanned = selectedPlanned.toggle(recipeId)
     }
 
     fun toggleLog(id: Long) {
         fabMenuOpen = false
-        selectedLogs = if (id in selectedLogs) selectedLogs - id else selectedLogs + id
+        selectedLogs = selectedLogs.toggle(id)
     }
 
     if (selecting) {
@@ -326,8 +330,7 @@ fun CookingScreen(
                 confirmLabel = stringResource(R.string.planned_done_action),
                 onConfirm = {
                     viewModel.done(selectedItems)
-                    confirm = null
-                    clearSelection()
+                    finishSelection()
                 },
                 onDismiss = { confirm = null },
             )
@@ -339,8 +342,7 @@ fun CookingScreen(
                 confirmLabel = stringResource(R.string.action_delete),
                 onConfirm = {
                     viewModel.delete(selectedItems, selectedEntries)
-                    confirm = null
-                    clearSelection()
+                    finishSelection()
                 },
                 onDismiss = { confirm = null },
             )
@@ -482,7 +484,7 @@ fun CookingScreen(
                         contentPadding = listPadding,
                     ) {
                         if (plannedItems.isNotEmpty()) {
-                            item(key = "planned-title") { SectionTitle(stringResource(R.string.planned_title)) }
+                            item(key = "planned-title") { SectionTitle(plannedLabel) }
                             if (swipeHint) item(key = "planned-hint") { SwipeHint() }
                             items(plannedItems, key = { "planned-${it.recipeId}" }) { item ->
                                 PlannedCard(
@@ -542,6 +544,8 @@ fun CookingScreen(
         }
     }
 }
+
+private fun Set<Long>.toggle(id: Long): Set<Long> = if (id in this) this - id else this + id
 
 @Composable
 private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
