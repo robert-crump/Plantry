@@ -1,61 +1,48 @@
 package com.example.plantry.ui.recipe
 
-import android.util.Log
-import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.annotation.StringRes
 import android.net.Uri
+import android.util.Log
+import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.activity.compose.BackHandler
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -66,71 +53,84 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.plantry.R
 import com.example.plantry.data.BookPage
-import com.example.plantry.data.RecipeSave
 import com.example.plantry.data.BookSession
+import com.example.plantry.data.Dish
 import com.example.plantry.data.Ingredient
+import com.example.plantry.data.IngredientAliases
+import com.example.plantry.data.IngredientRepository
+import com.example.plantry.data.IngredientSuggestions
 import com.example.plantry.data.IngredientUnit
 import com.example.plantry.data.LineAmount
-import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.LineUnit
-import com.example.plantry.data.UsualUnits
-import com.example.plantry.data.IngredientRepository
-import com.example.plantry.data.IngredientAliases
-import com.example.plantry.data.IngredientSuggestions
-import com.example.plantry.data.Dish
 import com.example.plantry.data.NewIngredientFinder
 import com.example.plantry.data.Nutrition
+import com.example.plantry.data.PieceUnit
 import com.example.plantry.data.RecipePhotoRepository
 import com.example.plantry.data.RecipeRepository
+import com.example.plantry.data.RecipeSave
 import com.example.plantry.data.SourceSuggestions
 import com.example.plantry.data.StoreSection
+import com.example.plantry.data.UsualUnits
 import com.example.plantry.data.claude.ClaudeFailure
 import com.example.plantry.data.claude.ClaudeResult
+import com.example.plantry.data.claude.ConnectionTester
 import com.example.plantry.data.claude.NutritionSource
 import com.example.plantry.data.claude.RecipeScanner
 import com.example.plantry.data.claude.StepsCondenser
 import com.example.plantry.data.claude.StepsReader
+import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.data.usda.UsdaCatalog
 import com.example.plantry.data.usda.UsdaFood
-import androidx.compose.material.icons.filled.AutoAwesome
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.mapLatest
-import com.example.plantry.data.settings.SettingsRepository
 import com.example.plantry.ui.DraggableColumn
 import com.example.plantry.ui.LinearWavyProgressIndicator
-import com.example.plantry.ui.settings.message
-import com.example.plantry.ui.settings.ChoiceDialog
-import com.example.plantry.ui.settings.SettingsGroup
-import com.example.plantry.ui.settings.SettingsRow
-import com.example.plantry.ui.settings.ApiKeyDialog
-import com.example.plantry.ui.settings.ApiKeyEntry
-import com.example.plantry.data.claude.ConnectionTester
 import com.example.plantry.ui.ingredient.LabelNutritionDialog
 import com.example.plantry.ui.ingredient.LabelNutritionForm
 import com.example.plantry.ui.ingredient.label
+import com.example.plantry.ui.settings.ApiKeyDialog
+import com.example.plantry.ui.settings.ApiKeyEntry
+import com.example.plantry.ui.settings.ChoiceDialog
+import com.example.plantry.ui.settings.SettingsGroup
+import com.example.plantry.ui.settings.SettingsRow
+import com.example.plantry.ui.settings.message
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 data class RecipeEditUiState(
@@ -187,6 +187,10 @@ data class RecipeEditUiState(
     /** The indexes of [pages] still shown, in order. */
     val shownPages: List<Int>
         get() = pages.indices.filterNot { it in deletedPages }
+
+    /** The photos of [shownPages], in order. */
+    val shownPhotos: List<ByteArray>
+        get() = shownPages.map { pages[it] }
 }
 
 /** What uses Claude here; each waits until Claude is set up, see [RecipeEditViewModel.useClaude]. */
@@ -254,7 +258,7 @@ class RecipeEditViewModel(
         model = { settings.settings.value.scanModel },
         text = { _state.value.form.steps },
         setText = { text -> _state.update { it.copy(form = it.form.copy(steps = text)) } },
-        pages = { _state.value.let { state -> state.shownPages.map { state.pages[it] } } },
+        pages = { _state.value.shownPhotos },
     )
 
     /** The key entered while a Claude feature waits; once it is stored, that feature runs. */
@@ -823,7 +827,7 @@ fun RecipeEditScreen(
             if (shownPages.isNotEmpty()) {
                 // "x" removes a page when saved.
                 PhotoRoll(
-                    shownPages.map { state.pages[it] },
+                    state.shownPhotos,
                     onOpen = { openPage = it },
                     modifier = Modifier.padding(vertical = 8.dp),
                     onDelete = { viewModel.requestDeletePage(shownPages[it]) },
@@ -844,12 +848,7 @@ fun RecipeEditScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     val stepsSection = @Composable {
-                        Text(
-                            stringResource(R.string.recipe_section_steps),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 16.dp),
-                        )
+                        SectionTitle(R.string.recipe_section_steps)
                         StepsField(
                             value = form.steps,
                             work = stepsWork,
@@ -876,12 +875,7 @@ fun RecipeEditScreen(
                         }
                     }
                     if (showLines) {
-                        Text(
-                            stringResource(R.string.recipe_section_lines),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 16.dp),
-                        )
+                        SectionTitle(R.string.recipe_section_lines)
                         val problems = form.lines.count { form.problem(it) != null }
                         if (form.lines.isEmpty()) {
                             Text(
@@ -974,19 +968,17 @@ fun RecipeEditScreen(
             )
         }
 
-        val shownPhotos = state.shownPages.map { state.pages[it] }
+        val shownPhotos = state.shownPhotos
         openPage?.takeIf { it in shownPhotos.indices }?.let { page ->
             PhotoViewer(shownPhotos, page, onPageChange = { openPage = it }, onClose = { openPage = null })
         }
 
         if (state.confirmDeletePage != null) {
-            AlertDialog(
-                onDismissRequest = viewModel::dismissDeletePage,
-                text = { Text(stringResource(R.string.photo_delete_confirm)) },
-                confirmButton = {
-                    TextButton(onClick = viewModel::deletePage) { Text(stringResource(R.string.action_delete)) }
-                },
-                dismissButton = { TextButton(onClick = viewModel::dismissDeletePage) { Text(stringResource(R.string.action_cancel)) } },
+            ConfirmDialog(
+                text = R.string.photo_delete_confirm,
+                confirmLabel = R.string.action_delete,
+                onConfirm = viewModel::deletePage,
+                onDismiss = viewModel::dismissDeletePage,
             )
         }
 
@@ -1001,44 +993,33 @@ fun RecipeEditScreen(
         }
 
         if (stepsWork.confirmReplace) {
-            AlertDialog(
-                onDismissRequest = viewModel.steps::dismissReplace,
-                text = { Text(stringResource(R.string.recipe_steps_read_replace)) },
-                confirmButton = {
-                    TextButton(onClick = { viewModel.steps.readPhotos(confirmed = true) }) {
-                        Text(stringResource(R.string.action_replace))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = viewModel.steps::dismissReplace) { Text(stringResource(R.string.action_cancel)) }
-                },
+            ConfirmDialog(
+                text = R.string.recipe_steps_read_replace,
+                confirmLabel = R.string.action_replace,
+                onConfirm = { viewModel.steps.readPhotos(confirmed = true) },
+                onDismiss = viewModel.steps::dismissReplace,
             )
         }
 
         if (state.confirmReplace) {
-            AlertDialog(
-                onDismissRequest = viewModel::dismissReplace,
-                text = { Text(stringResource(R.string.recipe_scan_replace)) },
-                confirmButton = {
-                    TextButton(onClick = { viewModel.startScan(confirmed = true) }) {
-                        Text(stringResource(R.string.action_replace))
-                    }
-                },
-                dismissButton = { TextButton(onClick = viewModel::dismissReplace) { Text(stringResource(R.string.action_cancel)) } },
+            ConfirmDialog(
+                text = R.string.recipe_scan_replace,
+                confirmLabel = R.string.action_replace,
+                onConfirm = { viewModel.startScan(confirmed = true) },
+                onDismiss = viewModel::dismissReplace,
             )
         }
 
         if (state.confirmDiscard) {
-            val keepEditing = {
-                viewModel.dismissDiscard()
-                onLeaveCancelled()
-            }
-            AlertDialog(
-                onDismissRequest = keepEditing,
-                title = { Text(stringResource(R.string.recipe_discard_title)) },
-                text = { Text(stringResource(R.string.recipe_discard_message)) },
-                confirmButton = { TextButton(onClick = viewModel::discard) { Text(stringResource(R.string.action_discard)) } },
-                dismissButton = { TextButton(onClick = keepEditing) { Text(stringResource(R.string.action_cancel)) } },
+            ConfirmDialog(
+                title = R.string.recipe_discard_title,
+                text = R.string.recipe_discard_message,
+                confirmLabel = R.string.action_discard,
+                onConfirm = viewModel::discard,
+                onDismiss = {
+                    viewModel.dismissDiscard()
+                    onLeaveCancelled()
+                },
             )
         }
 
@@ -1087,16 +1068,12 @@ fun RecipeEditScreen(
         // Last, so it opens on top of the line editor it may come from.
         state.claudeGate?.let { gate ->
             when (gate.step) {
-                ClaudeGate.Step.COSTS -> AlertDialog(
-                    onDismissRequest = viewModel::dismissClaudeGate,
-                    title = { Text(stringResource(R.string.claude_costs_title)) },
-                    text = { Text(stringResource(R.string.claude_costs_message)) },
-                    confirmButton = {
-                        TextButton(onClick = viewModel::acceptClaudeCosts) { Text(stringResource(R.string.claude_costs_accept)) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = viewModel::dismissClaudeGate) { Text(stringResource(R.string.action_cancel)) }
-                    },
+                ClaudeGate.Step.COSTS -> ConfirmDialog(
+                    title = R.string.claude_costs_title,
+                    text = R.string.claude_costs_message,
+                    confirmLabel = R.string.claude_costs_accept,
+                    onConfirm = viewModel::acceptClaudeCosts,
+                    onDismiss = viewModel::dismissClaudeGate,
                 )
                 ClaudeGate.Step.KEY -> {
                     val keyCheck by viewModel.keyEntry.check.collectAsStateWithLifecycle()
@@ -1111,6 +1088,34 @@ fun RecipeEditScreen(
             }
         }
     }
+}
+
+@Composable
+private fun SectionTitle(@StringRes text: Int) {
+    Text(
+        stringResource(text),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 16.dp),
+    )
+}
+
+/** A question with [text], "Abbrechen" and [confirmLabel]; dismissing and "Abbrechen" both call [onDismiss]. */
+@Composable
+private fun ConfirmDialog(
+    @StringRes text: Int,
+    @StringRes confirmLabel: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    @StringRes title: Int? = null,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = title?.let { { Text(stringResource(it)) } },
+        text = { Text(stringResource(text)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(confirmLabel)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
 }
 
 /** Progress or failure of proposing new ingredients for the scanned lines. */
@@ -1744,8 +1749,6 @@ private fun FormField(
     modifier: Modifier = Modifier.fillMaxWidth(),
     @StringRes error: Int? = null,
     @StringRes hint: Int? = null,
-    /** Shown below the field unless there is an [error]. */
-    supportingText: String? = null,
     numeric: Boolean = false,
     capitalize: Boolean = false,
     keyboardType: KeyboardType = if (numeric) KeyboardType.Number else KeyboardType.Text,
@@ -1754,7 +1757,7 @@ private fun FormField(
     onImeAction: (() -> Unit)? = null,
     enabled: Boolean = true,
 ) {
-    val supporting = (error ?: hint)?.let { stringResource(it) } ?: supportingText
+    val supporting = (error ?: hint)?.let { stringResource(it) }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
