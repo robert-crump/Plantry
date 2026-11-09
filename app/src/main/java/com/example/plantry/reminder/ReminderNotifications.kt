@@ -200,8 +200,8 @@ class ReminderNotifications(
             .setStyle(Notification.BigTextStyle().bigText(text.expanded))
             .setOnlyAlertOnce(true)
             .setDeleteIntent(dismissed(eventId))
-            .addAction(Notification.Action.Builder(null, context.getString(R.string.action_plan), plan).build())
-            .addAction(Notification.Action.Builder(null, context.getString(R.string.action_other_suggestion), other).build())
+            .addAction(action(R.string.action_plan, plan))
+            .addAction(action(R.string.action_other_suggestion, other))
             .build()
     }
 
@@ -217,14 +217,8 @@ class ReminderNotifications(
             .setContentText(ProposalFacts.line(proposal.facts, ::factText))
             .setOnlyAlertOnce(true)
             .setDeleteIntent(dismissed(eventId))
-            .addAction(Notification.Action.Builder(null, context.getString(R.string.action_undo), undo).build())
-            .addAction(
-                Notification.Action.Builder(
-                    null,
-                    context.getString(R.string.action_open_recipe),
-                    open(ReminderKind.PROPOSAL, proposal.recipe.id, eventId),
-                ).build(),
-            )
+            .addAction(action(R.string.action_undo, undo))
+            .addAction(action(R.string.action_open_recipe, open(ReminderKind.PROPOSAL, proposal.recipe.id, eventId)))
             .build()
     }
 
@@ -291,8 +285,8 @@ class ReminderNotifications(
                 }
                 builder
                     .setContentText(context.getString(R.string.reminder_single_text, content.title))
-                    .addAction(Notification.Action.Builder(null, context.getString(R.string.action_yes), yes).build())
-                    .addAction(Notification.Action.Builder(null, context.getString(R.string.action_no_tomorrow), no).build())
+                    .addAction(action(R.string.action_yes, yes))
+                    .addAction(action(R.string.action_no_tomorrow, no))
                     .build()
             }
             // No Ja: it can't tell which one was cooked; tapping the notification opens Speiseplan for that.
@@ -300,7 +294,7 @@ class ReminderNotifications(
                 builder
                     .setContentText(context.getString(R.string.reminder_several_text, content.titles.joinToString(", ")))
                     .setStyle(listed(R.string.reminder_several_question, content.titles))
-                    .addAction(Notification.Action.Builder(null, context.getString(R.string.action_none_tomorrow), no).build())
+                    .addAction(action(R.string.action_none_tomorrow, no))
                     .build()
         }
     }
@@ -310,6 +304,9 @@ class ReminderNotifications(
         Notification.BigTextStyle().bigText(
             context.getString(question) + titles.joinToString("") { "\n• $it" },
         )
+
+    private fun action(label: Int, intent: PendingIntent): Notification.Action =
+        Notification.Action.Builder(null, context.getString(label), intent).build()
 
     private fun broadcast(action: String, requestCode: Int, extras: Intent.() -> Unit = {}): PendingIntent =
         PendingIntent.getBroadcast(

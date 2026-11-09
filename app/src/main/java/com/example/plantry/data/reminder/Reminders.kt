@@ -84,10 +84,8 @@ class Reminders(
         alarms(settings.value, mealPlan.observe().first(), now())
 
     /** The kinds whose notification has nothing left to say now. */
-    suspend fun stale(): Set<ReminderKind> {
-        val now = now()
-        return stale(settings.value, mealPlan.observe().first(), now.toLocalDate())
-    }
+    suspend fun stale(): Set<ReminderKind> =
+        stale(settings.value, mealPlan.observe().first(), now().toLocalDate())
 
     /**
      * An alarm of [kind] went off: what to show, or null if there is nothing to say. Showing a
@@ -177,9 +175,8 @@ class Reminders(
     private suspend fun stale(settings: Settings, planned: List<PlannedRecipe>, today: LocalDate): Set<ReminderKind> {
         events.closePastDays()
         val all = recipes.observeRecipes().first()
-        val stale = mutableSetOf<ReminderKind>()
-        listOf(ReminderKind.COOKED, ReminderKind.SHOPPING).forEach { kind ->
-            if (CookReminder.content(settings.reminder(kind).enabled, today, planned, all) == null) stale += kind
+        val stale = listOf(ReminderKind.COOKED, ReminderKind.SHOPPING).filterTo(mutableSetOf()) { kind ->
+            CookReminder.content(settings.reminder(kind).enabled, today, planned, all) == null
         }
         val latest = events.latestToday()
         val current = if (latest?.outcome == ProposalOutcome.PLANNED_FROM_NOTIFICATION) {
